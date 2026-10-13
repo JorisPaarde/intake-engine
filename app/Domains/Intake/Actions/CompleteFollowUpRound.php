@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\ContributionTask;
@@ -19,6 +20,7 @@ use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -149,15 +151,23 @@ final class CompleteFollowUpRound
         $this->applyTextContributions($completed, $round->fresh()?->load('items') ?? $round);
         $this->decisionReadiness->recalculate($completed);
 
-        SynthesizeSurveyDossierJob::dispatch($completed->id);
-
-        $this->rebuildIntakeReportHtml->handle($completed);
-
         if ($completed->status !== IntakeStatus::Completed) {
+            SynthesizeSurveyDossierJob::dispatch($completed->id);
+            $this->rebuildIntakeReportHtml->handle($completed);
+
             return $completed;
         }
 
-        SuggestAttentionPointsJob::dispatch($completed->id);
+        // N58: re-summarize so the report's "AI-voorstel" reflects round answers
+        // (e.g. "3x25A"); same chain as CompleteIntake so synthesis applies on a
+        // stable post-summary/attention context. SummarizeIntake re-renders the PDF.
+        Bus::chain([
+            new SummarizeIntakeJob($completed->id),
+            new SuggestAttentionPointsJob($completed->id),
+            new SynthesizeSurveyDossierJob($completed->id),
+        ])->dispatch();
+
+        $this->rebuildIntakeReportHtml->handle($completed);
 
         if (! $completed->is_demo) {
             GenerateIntakePdfJob::dispatch($completed->id);

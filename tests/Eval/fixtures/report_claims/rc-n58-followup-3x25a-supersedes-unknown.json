@@ -1,0 +1,171 @@
+{
+  "id": "rc-n58-followup-3x25a-supersedes-unknown",
+  "kind": "report_claims",
+  "origin": "N58 / testronde 2026-10-13 — reconstructed: aanvraag zegt \"3-fase weet de klant niet\", klant antwoordt in ronde 1 \"Er staat 3x25A op de hoofdschakelaar\"; rapport zei toch \"stroomvoorziening onbekend\" / \"niet door de klant bevestigd\"",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Latere klantopgave in follow_up vervangt eerdere onwetendheid. Verboden: stroomvoorziening/aansluiting/fase onbekend of niet door klant bevestigd. Vereist: 3x25A wordt genoemd.",
+  "summary_input": {
+    "answers": {
+      "request_text": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      }
+    },
+    "external_facts": {},
+    "follow_up": [
+      {
+        "round_number": 1,
+        "items": [
+          {
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "upload_count": 0
+          }
+        ]
+      }
+    ],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ]
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin.",
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [
+      {
+        "round_number": 1,
+        "status": "completed",
+        "items": [
+          {
+            "reference": "round_1@item:item_eval_n58_phase",
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "uploads": []
+          }
+        ]
+      }
+    ],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "power_unknown_after_followup",
+        "concept": "power_unknown_after_followup",
+        "allowed": "forbidden",
+        "terms": [
+          "/(stroomvoorziening|aansluiting|fase|3-fase|krachtstroom)[^.]{0,80}\\b(onbekend|niet bekend|niet (door de klant )?bevestigd|weet (de klant|ik) niet)/iu",
+          "/(onbekend|niet bekend)[^.]{0,40}(stroomvoorziening|aansluiting|fase)/iu"
+        ]
+      },
+      {
+        "id": "customer_stated_3x25a",
+        "concept": "customer_stated_3x25a",
+        "allowed": "assert",
+        "terms": [
+          "3x25",
+          "3 x 25",
+          "3×25"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "verify_free_group",
+        "label": "Controleer of er een vrije groep is (klant meldt 3x25A).",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "request_text@answer:survey"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco in drie ruimtes. Volgens de klant staat er 3x25A op de hoofdschakelaar.",
+    "highlights": [
+      "Klant meldt 3x25A op de hoofdschakelaar"
+    ]
+  },
+  "disputed_facts": {}
+}

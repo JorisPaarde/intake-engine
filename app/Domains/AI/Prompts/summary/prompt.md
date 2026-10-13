@@ -15,6 +15,7 @@ Regels:
   - Een conflict tussen meterkastfoto’s bestaat alleen wanneer twee **leesbare** beoordelingen (`content_assessment.status=ok`) elkaar tegenspreken. Een foto die een scherpere opname nodig had, gevolgd door een scherpe foto, is **geen** conflict — beschrijf dat als opeenvolging (eerst onbruikbaar, daarna bruikbaar), niet als tegenstrijdigheid.
   - Alleen bij zo’n echt conflict: noem beide foto’s én het conflict in één zin, zonder vaste conclusie.
   Schrijf fotoverwijzingen in gewone taal (“de eerste meterkastfoto”), nooit ruwe veldwaarden of enum-tokens (`none_visible`, `three_phase`, `needs_clearer`, …). Gebruik gewoon Nederlands.
+- Een antwoord van de klant in `follow_up` vervangt wat de klant eerder niet wist: noem dat gegeven dan niet meer onbekend of onbevestigd, en geef de waarde letterlijk als opgave van de klant (bijv. “Volgens de klant staat er 3x25A op de hoofdschakelaar.”).
 - Weet de klant iets niet, dan blijft de AI-lezing precies zo zeker als de fotobeoordeling zelf (medium/low → hedge in de claimzin).
 - Een afgeleide claim over fase of vrije capaciteit mag nooit zekerder klinken dan de zwakste relevante fotobeoordeling.
 - Noem in `summary` en `highlights` nooit een interne upload-`reference` of `upload_…`-token. Verwijs naar een foto met `question_label` en `order`, in gewone taal (bijv. “de eerste meterkastfoto”, “de tweede foto van de meterkast”).

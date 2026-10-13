@@ -1060,6 +1060,9 @@ final class SurveyWorkspaceController extends Controller
                 ->where('intake_id', $intake->id)
                 ->where('dossier_subject_id', $subject->id)
                 ->exists(),
+            // Root "Technische opname" subject: the workspace renders photo/note
+            // tools for it under "Woninggegevens" (N57).
+            'survey' => $subject->key === 'survey' && $subject->parent_id === null,
             default => false,
         };
 

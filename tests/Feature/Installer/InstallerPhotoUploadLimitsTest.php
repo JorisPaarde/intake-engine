@@ -7,6 +7,7 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\ContributionMode;
 use App\Models\User;
@@ -333,4 +334,34 @@ test('assessment poll lives on wizards not only on photo-upload-control', functi
         ->and($followUp)->toContain('wire:key="assessment-poll-{{ $followUpComposite }}-{{ $assessmentPollInterval }}"')
         ->and($followUp)->toContain('wire:key="follow-up-photo-control-{{ $item->id }}"')
         ->and($followUp)->not->toContain("['assessing', 'failed']");
+});
+
+test('N57: installer kan eigen foto opslaan bij Woninggegevens (root survey-subject)', function () {
+    $user = User::factory()->create();
+    [$intake] = createPhotoLimitSurvey($user);
+    $root = app(DossierManager::class)->root($intake);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $root]), [
+            'photo' => [UploadedFile::fake()->image('meterkast.jpg', 1200, 900)],
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status');
+
+    expect($intake->uploads()->count())->toBe(1);
+});
+
+test('N57: survey-subject van een andere intake blijft 404', function () {
+    $user = User::factory()->create();
+    [$intake] = createPhotoLimitSurvey($user);
+    [$other] = createPhotoLimitSurvey($user);
+    $otherRoot = app(DossierManager::class)->root($other);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $otherRoot]), [
+            'photo' => [UploadedFile::fake()->image('meterkast.jpg', 800, 600)],
+        ])
+        ->assertNotFound();
+
+    expect($intake->uploads()->count())->toBe(0);
 });
