@@ -290,7 +290,7 @@ test('P2: fusebox prompt defines vrije groep and never prefills free_group_known
     $prompt = app(PromptVersionRepository::class)->body('fusebox_assessment');
     $version = app(PromptVersionRepository::class)->version('fusebox_assessment');
 
-    expect($version)->toBe('fusebox-assessment-v5')
+    expect($version)->toBe('fusebox-assessment-v6')
         ->and($prompt)->toContain('Vrije groep')
         ->and($prompt)->toContain('Lege modulepositie')
         ->and($prompt)->toContain('nooit');
@@ -365,7 +365,7 @@ test('P3: pipe_route prompt forbids buitenunitplek; code does not rewrite model 
 
 test('P3: outdoor assessment does not guess mount_type without clear location', function () {
     $prompt = app(PromptVersionRepository::class)->body('outdoor_assessment');
-    expect(app(PromptVersionRepository::class)->version('outdoor_assessment'))->toBe('outdoor-assessment-v6')
+    expect(app(PromptVersionRepository::class)->version('outdoor_assessment'))->toBe('outdoor-assessment-v7')
         ->and($prompt)->toContain('Geen montage-gok')
         ->and($prompt)->toContain('zonder bestaande buitenunit');
 
