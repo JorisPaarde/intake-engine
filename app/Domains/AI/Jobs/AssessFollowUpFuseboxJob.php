@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\Intake;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Throwable;
 
 final class AssessFollowUpFuseboxJob implements ShouldQueue
 {
@@ -30,7 +31,17 @@ final class AssessFollowUpFuseboxJob implements ShouldQueue
     {
         $intake = Intake::query()->find($this->intakeId);
         if ($intake !== null && AssessFuseboxPhotos::mayAnalyzeFollowUp($intake)) {
-            $assess->handleFollowUp($intake);
+            try {
+                $assess->handleFollowUp($intake);
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
+    }
+
+    /** Never stall the rest of the chain (summary, attention, synthesis). */
+    public function failed(?Throwable $exception): void
+    {
+        $this->dispatchNextJobInChain();
     }
 }

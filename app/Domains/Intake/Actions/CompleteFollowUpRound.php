@@ -58,8 +58,6 @@ final class CompleteFollowUpRound
                 ]);
             }
 
-            $mayAnalyzeFusebox = AssessFuseboxPhotos::mayAnalyzeFollowUp($intake);
-
             $missing = [];
 
             foreach ($round->items as $item) {
@@ -156,7 +154,7 @@ final class CompleteFollowUpRound
         $this->applyTextContributions($completed, $round->fresh()?->load('items') ?? $round);
         $this->decisionReadiness->recalculate($completed);
 
-        $fuseboxJobs = $mayAnalyzeFusebox && AssessFuseboxPhotos::mayAnalyzeFollowUp($completed)
+        $fuseboxJobs = AssessFuseboxPhotos::mayAnalyzeFollowUp($completed)
             && AssessFuseboxPhotos::latestFollowUpFusebox($completed) !== null
                 ? [new AssessFollowUpFuseboxJob($completed->id)]
                 : [];

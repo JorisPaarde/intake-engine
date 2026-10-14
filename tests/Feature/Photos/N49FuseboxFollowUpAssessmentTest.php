@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessFollowUpFuseboxJob;
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
@@ -13,6 +16,7 @@ use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
+use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
@@ -27,9 +31,11 @@ use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
+use App\Enums\ReviewDecision;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\MaxAttemptsExceededException;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -279,4 +285,35 @@ test('N49: nieuwste geldige foto wint en menselijke antwoorden blijven behouden'
         ->and($fact->value['upload_ids'])->toBe([$second->id])
         ->and($firstRun->fresh()->getAttributes())->toBe($firstRunState)
         ->and($answer->fresh()->getAttributes())->toBe($humanState);
+});
+
+test('N49: hoofdflow NeedMoreInfo → klant rondt af met nieuwe meterkastfoto queued de job', function () {
+    ['user' => $user, 'intake' => $intake] = n49MakeIntake();
+    n49SeedStaleWizardFusebox($intake);
+    $intake->update(['status' => IntakeStatus::Completed]);
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $user, [
+        'decision' => ReviewDecision::NeedMoreInfo->value,
+        'follow_up_items' => [['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een duidelijke foto van de meterkast.']],
+    ]);
+    $intake = $intake->fresh();
+    expect($intake->status)->toBe(IntakeStatus::AwaitingCustomer)->and($intake->reviewed_at)->not->toBeNull();
+    $round = $intake->followUpRounds()->with('items')->firstOrFail();
+    $new = app(StoreFollowUpUpload::class)->handle($intake, $round->items->firstOrFail(),
+        UploadedFile::fake()->image('meterkast-nieuw.jpg', 1600, 1200));
+    $new->update([
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Fusebox)->toArray(),
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+    ]);
+    Bus::fake();
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
+    Bus::assertChained([AssessFollowUpFuseboxJob::class, SummarizeIntakeJob::class, SuggestAttentionPointsJob::class, SynthesizeSurveyDossierJob::class]);
+});
+
+test('N49: falende meterkastjob blokkeert de rest van de keten niet', function () {
+    ['intake' => $intake] = n49Evidence();
+    Queue::fake();
+    $job = (new AssessFollowUpFuseboxJob($intake->id))->chain([new SummarizeIntakeJob($intake->id)]);
+    $job->failed(new MaxAttemptsExceededException('x'));
+    Queue::assertPushed(SummarizeIntakeJob::class);
 });
