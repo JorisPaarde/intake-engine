@@ -109,6 +109,7 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/options/{option}/infeasible', [SurveyWorkspaceController::class, 'markInstallationOptionInfeasible'])->name('intakes.workspace.options.infeasible');
     Route::post('/intakes/{intake}/opname/options/preference', [SurveyWorkspaceController::class, 'requestInstallationPreference'])->name('intakes.workspace.options.preference');
     Route::post('/intakes/{intake}/opname/options/{option}/configuration', [SurveyWorkspaceController::class, 'updateConfigurationType'])->name('intakes.workspace.options.configuration');
+    Route::post('/intakes/{intake}/opname/connections/{connection}/route', [SurveyWorkspaceController::class, 'definePowerRoute'])->name('intakes.workspace.connections.define');
     Route::post('/intakes/{intake}/opname/options/{option}/connections', [SurveyWorkspaceController::class, 'storeConnection'])->name('intakes.workspace.connections.store');
     Route::post('/intakes/{intake}/opname/subjects/{subject}/notes', [SurveyWorkspaceController::class, 'storeNote'])->name('intakes.workspace.notes.store');
     Route::post('/intakes/{intake}/opname/subjects/{subject}/photos', [SurveyWorkspaceController::class, 'storeEvidence'])->name('intakes.workspace.photos.store');

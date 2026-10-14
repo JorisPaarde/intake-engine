@@ -38,6 +38,7 @@ use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Services\RefreshStoredIntakeReport;
+use App\Domains\Intake\Support\ConnectionRouteDecisionPresenter;
 use App\Domains\Intake\Support\ContributionSubjectLinker;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Domains\Intake\Support\PhotoUploadLimits;
@@ -57,6 +58,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -911,6 +913,44 @@ final class SurveyWorkspaceController extends Controller
             : null;
 
         return $this->back($intake, 'Route en gekoppelde verbinding goedgekeurd.', $fragment);
+    }
+
+    public function definePowerRoute(
+        Request $request,
+        Intake $intake,
+        AircoConnection $connection,
+        DecisionReadinessService $readiness,
+        RefreshStoredIntakeReport $refreshReport,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($connection->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'segments_text' => ['required', 'string', 'max:4000'],
+        ]);
+        $segments = $this->lines($data['segments_text']);
+        if ($segments === []) {
+            throw ValidationException::withMessages(['segments_text' => 'Beschrijf de stroomroute.']);
+        }
+        $userId = $this->user($request)->id;
+        DB::transaction(function () use ($intake, $connection, $segments, $userId): void {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $locked = AircoConnection::query()->whereKey($connection->id)->lockForUpdate()->firstOrFail();
+
+            if (! app(ConnectionRouteDecisionPresenter::class)->present($locked)['can_define']) {
+                throw ValidationException::withMessages(['segments_text' => 'Deze route is intussen gewijzigd. Beoordeel de huidige route.']);
+            }
+
+            $locked->update([
+                'segments' => $segments,
+                'status' => AircoConnectionStatus::Proposed,
+                'source_type' => 'installer',
+                'source_id' => $userId,
+            ]);
+        });
+        $readiness->recalculate($intake);
+        $refreshReport->handle($intake->fresh() ?? $intake);
+
+        return $this->back($intake, 'Stroomroute vastgelegd. Beoordeel de route en keur deze goed.', 'connection-'.$connection->id);
     }
 
     public function decideConnection(

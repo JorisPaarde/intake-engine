@@ -1199,6 +1199,18 @@
                                                             </form>
                                                         @endif
                                                     </div>
+                                                    @if ($routeDecision['can_define'])
+                                                        <details class="mt-3 rounded-xl border border-sky-200 bg-white p-3" data-testid="power-route-define">
+                                                            <summary class="-my-3 cursor-pointer py-3 text-sm font-semibold text-sky-800">Stroomroute vastleggen</summary>
+                                                            <form method="POST" action="{{ route('intakes.workspace.connections.define', [$intake, $connection]) }}" class="mt-3 space-y-3">
+                                                                @csrf
+                                                                <label for="power-route-{{ $connection->id }}" class="block text-sm font-medium text-gray-800">Route van stroomaansluiting naar aansluitpunt</label>
+                                                                <p class="text-xs text-gray-600">Bekijk het ontvangen bewijs. Beschrijf waar de kabel loopt, met één deel van de route per regel. Dit werkt de bestaande stroomroute bij.</p>
+                                                                <textarea id="power-route-{{ $connection->id }}" name="segments_text" rows="3" required maxlength="4000" class="block w-full rounded-xl border-gray-300 text-sm">{{ implode("\n", $connection->segments ?? []) }}</textarea>
+                                                                <button class="min-h-11 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white">Route opslaan</button>
+                                                            </form>
+                                                        </details>
+                                                    @endif
                                                     @if ($routeDecision['approve_warning'])
                                                         <p class="mt-2 text-xs text-amber-900" data-testid="connection-route-approve-warning">{{ $routeDecision['approve_warning'] }}</p>
                                                     @endif

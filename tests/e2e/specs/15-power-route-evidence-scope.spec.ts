@@ -17,6 +17,7 @@ type Bootstrap = {
   intakeId: number;
   fuseboxUploadId: number;
   routeUploadId: number;
+  powerConnectionId: number;
 };
 
 function bootstrapOnce(): Bootstrap {
@@ -91,4 +92,19 @@ test.describe('N28 power_route evidence scope', () => {
     await expect(fuseboxGallery).not.toHaveAttribute('data-superseded', '1');
     await expect(fuseboxGallery.getByTestId('gallery-superseded')).toHaveCount(0);
   });
+  test('N71: installer defines the existing power route and then approves it', async ({ page }) => {
+    await login(page, data);
+    await page.goto(data.workspaceUrl + '#connection-' + data.powerConnectionId);
+    const card = page.locator('#connection-' + data.powerConnectionId);
+    await expect(card.getByText('Een bruikbare foto legt de stroomroute nog niet vast.', { exact: false })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Route goedkeuren', exact: true })).toBeDisabled();
+    await card.getByText('Stroomroute vastleggen', { exact: true }).click();
+    await card.getByLabel('Route van stroomaansluiting naar aansluitpunt').fill('Meterkast via achtergevel naar buitenunit');
+    await card.getByRole('button', { name: 'Route opslaan', exact: true }).click();
+    await expect(card.getByRole('button', { name: 'Route goedkeuren', exact: true })).toBeEnabled();
+    await expect(card.getByText('Meterkast via achtergevel naar buitenunit', { exact: true }).first()).toBeVisible();
+    await card.getByRole('button', { name: 'Route goedkeuren', exact: true }).click();
+    await expect(card.getByText('Goedgekeurd', { exact: true })).toBeVisible();
+  });
+
 });
