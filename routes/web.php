@@ -98,6 +98,8 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::get('/intakes/{intake}/opname', [SurveyWorkspaceController::class, 'show'])->name('intakes.workspace');
     Route::post('/intakes/{intake}/opname/rooms', [SurveyWorkspaceController::class, 'storeRoom'])->name('intakes.workspace.rooms.store');
     Route::post('/intakes/{intake}/opname/rooms/{room}', [SurveyWorkspaceController::class, 'updateRoom'])->name('intakes.workspace.rooms.update');
+    Route::post('/intakes/{intake}/opname/rooms/{room}/scope', [SurveyWorkspaceController::class, 'confirmRoomScope'])->name('intakes.workspace.rooms.scope.confirm');
+    Route::post('/intakes/{intake}/opname/rooms/{room}/scope/clear', [SurveyWorkspaceController::class, 'clearRoomScope'])->name('intakes.workspace.rooms.scope.clear');
     Route::post('/intakes/{intake}/opname/rooms/{room}/unit-coupling', [SurveyWorkspaceController::class, 'syncRoomUnitCoupling'])->name('intakes.workspace.rooms.unit-coupling');
     Route::post('/intakes/{intake}/opname/placements', [SurveyWorkspaceController::class, 'storePlacement'])->name('intakes.workspace.placements.store');
     Route::post('/intakes/{intake}/opname/placements/{placement}', [SurveyWorkspaceController::class, 'updatePlacement'])->name('intakes.workspace.placements.update');

@@ -99,11 +99,15 @@ final class IntakeDossierSummaryBuilder
             $area = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null)
                 ->effectiveFloorAreaM2();
 
-            if ($area !== null) {
-                $labels[] = $name.' ('.$this->formatAreaM2($area).' m²)';
-            } else {
-                $labels[] = $name;
+            $label = $area !== null
+                ? $name.' ('.$this->formatAreaM2($area).' m²)'
+                : $name;
+
+            if ($room->isExistingInstallationConfirmed()) {
+                $label .= ' — bestaande installatie blijft (bevestigd door installateur)';
             }
+
+            $labels[] = $label;
         }
 
         return $labels;

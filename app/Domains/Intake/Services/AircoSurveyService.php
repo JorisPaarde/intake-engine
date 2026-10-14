@@ -98,6 +98,39 @@ final class AircoSurveyService
         return $room;
     }
 
+    public function confirmRoomExistingInstallation(Intake $intake, User $installer, AircoRoom $room): AircoRoom
+    {
+        return $this->setRoomScope($intake, $installer, $room, AircoRoom::SCOPE_EXISTING_REMAINS);
+    }
+
+    public function clearRoomScopeConfirmation(Intake $intake, User $installer, AircoRoom $room): AircoRoom
+    {
+        return $this->setRoomScope($intake, $installer, $room, null);
+    }
+
+    private function setRoomScope(Intake $intake, User $installer, AircoRoom $room, ?string $status): AircoRoom
+    {
+        $this->guardTenant($intake, $installer);
+        $this->guardModel($intake, $room);
+
+        $room->forceFill([
+            'scope_status' => $status,
+            'scope_confirmed_by' => $status === null ? null : $installer->id,
+            'scope_confirmed_at' => $status === null ? null : now(),
+        ])->save();
+
+        $this->activity(
+            $intake,
+            $installer,
+            $status === null ? 'airco_room_scope_cleared' : 'airco_room_scope_confirmed',
+            ['room_id' => $room->id, 'scope_status' => $status],
+        );
+        $this->surveyProgress->markStarted($intake);
+        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+
+        return $room->fresh() ?? $room;
+    }
+
     /**
      * @param  array{
      *     name: string,
