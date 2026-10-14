@@ -566,3 +566,16 @@ test('N71 stroomroute vastleggen bewaakt opname, inhoud en bestaande routestatus
     expect($power->fresh()->status)->toBe(AircoConnectionStatus::NeedsEvidence)
         ->and($power->fresh()->segments)->toBe([]);
 });
+
+test('N71 stroomroute vastleggen zet een goedgekeurde of locatieverbinding niet terug naar voorgesteld', function (AircoConnectionStatus $status) {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'power' => $power] = createRouteDecisionWorkspace($user);
+    $power->update(['status' => $status, 'segments' => ['Bestaande route']]);
+
+    $this->actingAs($user)->post(route('intakes.workspace.connections.define', [$intake, $power]), [
+        'segments_text' => 'Nieuwe route',
+    ])->assertSessionHasErrors('segments_text');
+
+    expect($power->fresh()->status)->toBe($status)
+        ->and($power->fresh()->segments)->toBe(['Bestaande route']);
+})->with([AircoConnectionStatus::Approved, AircoConnectionStatus::NotRemotelyResolvable]);

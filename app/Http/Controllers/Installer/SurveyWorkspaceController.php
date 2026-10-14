@@ -58,6 +58,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -930,16 +931,22 @@ final class SurveyWorkspaceController extends Controller
         if ($segments === []) {
             throw ValidationException::withMessages(['segments_text' => 'Beschrijf de stroomroute.']);
         }
-        if (! app(ConnectionRouteDecisionPresenter::class)->present($connection)['can_define']) {
-            throw ValidationException::withMessages(['segments_text' => 'Deze route is intussen gewijzigd. Beoordeel de huidige route.']);
-        }
+        $userId = $this->user($request)->id;
+        DB::transaction(function () use ($intake, $connection, $segments, $userId): void {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $locked = AircoConnection::query()->whereKey($connection->id)->lockForUpdate()->firstOrFail();
 
-        $connection->update([
-            'segments' => $segments,
-            'status' => AircoConnectionStatus::Proposed,
-            'source_type' => 'installer',
-            'source_id' => $this->user($request)->id,
-        ]);
+            if (! app(ConnectionRouteDecisionPresenter::class)->present($locked)['can_define']) {
+                throw ValidationException::withMessages(['segments_text' => 'Deze route is intussen gewijzigd. Beoordeel de huidige route.']);
+            }
+
+            $locked->update([
+                'segments' => $segments,
+                'status' => AircoConnectionStatus::Proposed,
+                'source_type' => 'installer',
+                'source_id' => $userId,
+            ]);
+        });
         $readiness->recalculate($intake);
         $refreshReport->handle($intake->fresh() ?? $intake);
 
