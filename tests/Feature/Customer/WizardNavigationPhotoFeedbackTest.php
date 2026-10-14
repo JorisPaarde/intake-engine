@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestionRule;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\PrefillSources;
@@ -787,4 +788,82 @@ test('sticky wall_outlet tile stays visible after sync derive until Volgende', f
 
     $after = $component->viewData('step');
     expect($after['key'] ?? null)->not->toBe('rooms::room-1::wall_outlet_photo');
+});
+
+test('N72: removing a rejected first photo preserves the remaining living room analysis', function (bool $catFirst) {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    $intake = makeWizardNavIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_name', 'room-1', ['text' => 'Woonkamer']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '0']);
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $cat = null;
+    if ($catFirst) {
+        uploadAndPollPhotoAssessment($component, 'room-1__room_photos', UploadedFile::fake()->image('irrelevant-kat.png', 320, 240));
+        $cat = $intake->uploads()->latest('id')->firstOrFail();
+        expect($cat->usability_verdict)->toBe(PhotoUsabilityVerdict::TooSmall);
+    }
+    FakeAiClient::alwaysReturn([
+        'room_type' => 'living_room',
+        'room_size_indication' => 'large',
+        'sun_exposure' => 'high',
+        'glass_amount' => 'much',
+        'glazing_type' => 'double',
+        'room_outlet_status' => 'present',
+        'detected_subject' => 'room',
+        'subject_match' => 'yes',
+        'confidence' => 'high',
+        'evidence' => 'Woonkamer met grote ramen en bestaande airco.',
+        'retake_instruction' => null,
+    ]);
+    uploadAndPollPhotoAssessment($component, 'room-1__room_photos', UploadedFile::fake()->image('woonkamer.jpg', 1600, 1200));
+    $good = $intake->uploads()->latest('id')->firstOrFail();
+    $goodState = $good->getAttributes();
+    $fact = $intake->externalFacts()->where('fact_key', 'room_photos_derivation::room-1')->firstOrFail();
+    expect($fact->value['upload_ids'])->toContain($good->id);
+    $before = $intake->answers()->where('section_instance_key', 'room-1')->whereIn('question_key', ['sun_exposure', 'glass_amount', 'room_size_indication'])->pluck('value', 'question_key')->all();
+    expect($before)->toHaveCount(3);
+    if ($cat !== null) {
+        $component->call('removePhoto', $cat->id)->assertHasNoErrors();
+        $component->call('finalizePendingWizardRemoval')->assertHasNoErrors();
+    }
+    $remaining = $intake->externalFacts()->where('fact_key', 'room_photos_derivation::room-1')->first();
+    expect($remaining)->not->toBeNull();
+    expect($remaining->value['evidence'])->toBe($fact->value['evidence'])
+        ->and($remaining->value['upload_ids'])->toBe([$good->id])
+        ->and($intake->answers()->where('section_instance_key', 'room-1')->whereIn('question_key', array_keys($before))->pluck('value', 'question_key')->all())->toBe($before)
+        ->and($good->fresh()->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_OK)
+        ->and($good->fresh()->getAttributes())->toBe($goodState);
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail());
+    expect($html)->toContain('Woonkamer met grote ramen en bestaande airco.');
+})->with(['zonder kat' => false, 'kat eerst, daarna verwijderen' => true]);
+
+test('N72: adding a second photo without removal keeps upload_ids of recent photos', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    $intake = makeWizardNavIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_name', 'room-1', ['text' => 'Woonkamer']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '0']);
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    FakeAiClient::alwaysReturn([
+        'room_type' => 'living_room',
+        'room_size_indication' => 'large',
+        'sun_exposure' => 'high',
+        'glass_amount' => 'much',
+        'glazing_type' => 'double',
+        'room_outlet_status' => 'present',
+        'detected_subject' => 'room',
+        'subject_match' => 'yes',
+        'confidence' => 'high',
+        'evidence' => 'Woonkamer met grote ramen.',
+        'retake_instruction' => null,
+    ]);
+    uploadAndPollPhotoAssessment($component, 'room-1__room_photos', UploadedFile::fake()->image('een.jpg', 1600, 1200));
+    $first = $intake->uploads()->latest('id')->firstOrFail();
+    uploadAndPollPhotoAssessment($component, 'room-1__room_photos', UploadedFile::fake()->image('twee.jpg', 1600, 1200));
+    $second = $intake->uploads()->latest('id')->firstOrFail();
+    $fact = $intake->externalFacts()->where('fact_key', 'room_photos_derivation::room-1')->firstOrFail();
+    expect($fact->value['upload_ids'])->toContain($first->id)->toContain($second->id);
 });
