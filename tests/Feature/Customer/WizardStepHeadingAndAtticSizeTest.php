@@ -7,6 +7,8 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Support\CustomerAnswerBlocks;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
@@ -275,4 +277,45 @@ test('kiezen van zolder als type verwijdert grootteklasse uit de steplijst', fun
                 ->where('section_instance_key', 'room-1')
                 ->exists(),
         )->toBeFalse();
+});
+
+test('slaapkamer met floor_level zolder: geen grootteklasse, progress en rapport volgen L×B', function () {
+    $intake = headingAtticIntake();
+    $save = app(SaveIntakeAnswer::class);
+    $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $save->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom']);
+    $save->handle($intake, 'floor_level', 'room-1', ['value' => 'attic']);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    expect(collect($steps)->first(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'room_size_indication'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    ))->toBeNull()
+        ->and(collect($steps)->first(
+            static fn (array $step): bool => ($step['group_key'] ?? null) === 'room_dimensions'
+                && ($step['section_instance_key'] ?? null) === 'room-1',
+        ))->not->toBeNull();
+
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
+    $progress = app(ProgressCalculator::class)->calculate($intake->fresh(), $version);
+    expect(json_encode($progress))->not->toContain('room_size_indication');
+
+    // Een eerder beantwoorde klasse mag niet naast L×B in het rapport staan.
+    $save->handle($intake, 'room_size_indication', 'room-1', ['value' => 'medium']);
+    $labels = collect(CustomerAnswerBlocks::forIntake($intake->fresh()))
+        ->flatMap(static fn (array $block): array => array_column($block['items'], 'value'))
+        ->all();
+    expect(implode('|', $labels))->not->toContain('12–20');
+});
+
+test('slaapkamer op 1e verdieping houdt de grootteklasse', function () {
+    $intake = headingAtticIntake();
+    $save = app(SaveIntakeAnswer::class);
+    $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $save->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom']);
+    $save->handle($intake, 'floor_level', 'room-1', ['value' => '1']);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    expect(array_column($component->viewData('steps'), 'question_key'))->toContain('room_size_indication');
 });

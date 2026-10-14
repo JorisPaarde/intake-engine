@@ -78,6 +78,8 @@ final class CustomerAnswerBlocks
         $answerMap = self::buildAnswerMap($intake);
         $visibilityResolver = app(VisibilityResolver::class);
 
+        $atticRooms = RoomLabelResolver::atticInstances($answerMap);
+
         $roomsByInstance = $intake->aircoRooms
             ->filter(static fn (AircoRoom $room): bool => str_starts_with($room->key, 'room-'))
             ->sortBy('sort_order')
@@ -92,6 +94,13 @@ final class CustomerAnswerBlocks
             }
 
             if ($answer->prefill_source !== null && $answer->prefill_source !== '') {
+                continue;
+            }
+
+            // Zolder: L×B is de enige maatbron, geen grootteklasse ernaast.
+            if ($answer->question_key === 'room_size_indication'
+                && is_string($answer->section_instance_key)
+                && isset($atticRooms[$answer->section_instance_key])) {
                 continue;
             }
 
