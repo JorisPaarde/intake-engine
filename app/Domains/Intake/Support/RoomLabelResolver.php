@@ -69,6 +69,37 @@ final class RoomLabelResolver
     }
 
     /**
+     * Zolderruimtes: room_type attic óf floor_level attic (gestructureerde antwoorden, geen tekst).
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     * @return array<string, true>
+     */
+    public static function atticInstances(array $answers): array
+    {
+        $attic = [];
+        foreach (self::typesByInstance($answers) as $instance => $type) {
+            if ($type === 'attic') {
+                $attic[$instance] = true;
+            }
+        }
+
+        foreach ($answers as $composite => $value) {
+            if (! str_ends_with($composite, '__floor_level')) {
+                continue;
+            }
+            [$instance] = explode('__', $composite, 2);
+            if (preg_match('/^room-\d+$/', $instance) !== 1) {
+                continue;
+            }
+            if (is_array($value) && ($value['value'] ?? null) === 'attic') {
+                $attic[$instance] = true;
+            }
+        }
+
+        return $attic;
+    }
+
+    /**
      * Maak een gevraagde naam uniek binnen de al gebruikte namen (index-suffix bij botsing).
      *
      * @param  list<string>  $usedNames
