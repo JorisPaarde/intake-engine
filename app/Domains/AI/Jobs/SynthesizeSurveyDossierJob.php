@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\AI\Jobs;
 
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
+use App\Domains\AI\Services\SummaryDossierContext;
 use App\Domains\AI\Support\DossierSynthesisEligibility;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\IntakeStatus;
@@ -91,5 +92,9 @@ final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing,
             $intake,
             preserveProposedCustomerTasks: $this->preserveProposedCustomerTasks,
         );
+
+        // N69: the summary runs before synthesis in the completion chain; re-run it once
+        // when synthesis changed the dossier it was built on (summary never re-queues synthesis).
+        app(SummaryDossierContext::class)->dispatchIfStale($intake->fresh() ?? $intake);
     }
 }

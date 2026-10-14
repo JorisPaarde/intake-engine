@@ -174,6 +174,9 @@
     @if (! empty($aiSummary))
         <div class="ai-advice" style="background:#f0f6fb;border:1px solid #b9d0e4;padding:0.75rem 1rem;margin:1rem 0;">
             <strong>AI-voorstel (niet bindend)</strong>
+            @if (! empty($aiSummary['generated_at']))
+                <p style="margin:0.25rem 0 0;font-size:0.8em;color:#555;">Opgesteld op {{ \Illuminate\Support\Carbon::parse($aiSummary['generated_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i') }} op basis van de dossierstand van dat moment.</p>
+            @endif
             <p style="margin:0.5rem 0 0;">{{ $aiSummary['summary'] }}</p>
             @if (! empty($aiSummary['highlights']))
                 <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
