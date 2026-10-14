@@ -19,6 +19,7 @@ use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\QuestionType;
@@ -29,6 +30,13 @@ use Illuminate\Support\Str;
 
 final class GenerateIntakeReportHtml
 {
+    private const ROOM_DIMENSION_KEYS = [
+        'room_length_m' => 'length_m',
+        'room_width_m' => 'width_m',
+        'ceiling_height_m' => 'height_m',
+        'room_area_m2' => 'area_m2',
+    ];
+
     private const INSTALLER_NOTE_METHODS = [
         'installer_note',
     ];
@@ -63,6 +71,7 @@ final class GenerateIntakeReportHtml
             'followUpRounds.items.uploads',
             'review.reviewer',
             'dossierSubjects.records',
+            'aircoRooms',
             'aircoInstallationOptions.placements.room',
             'aircoInstallationOptions.connections.fromPlacement',
             'aircoInstallationOptions.connections.toPlacement',
@@ -471,6 +480,7 @@ final class GenerateIntakeReportHtml
         );
 
         $answerModels = $this->buildAnswerModelMap($intake);
+        $installerRooms = $this->installerOwnedRoomDimensions($intake);
         $reportSections = [];
 
         foreach ($targets as $target) {
@@ -498,7 +508,13 @@ final class GenerateIntakeReportHtml
 
             $value = $answers[$composite] ?? null;
             $answerModel = $answerModels[$composite] ?? null;
-            $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
+            $instanceDimensions = $installerRooms[$target['section_instance_key'] ?? ''] ?? null;
+
+            if ($instanceDimensions !== null && isset(self::ROOM_DIMENSION_KEYS[$question->key])) {
+                $display = $this->presentInstallerRoomDimension($question->key, $instanceDimensions, $value);
+            } else {
+                $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
+            }
 
             if ($display === null) {
                 continue;
@@ -524,6 +540,64 @@ final class GenerateIntakeReportHtml
         }
 
         return array_values($reportSections);
+    }
+
+    /**
+     * Maten van installateursbeheerde ruimtes per room-key (AircoRoom is leidend na correctie).
+     *
+     * @return array<string, RoomDimensions>
+     */
+    private function installerOwnedRoomDimensions(Intake $intake): array
+    {
+        $rooms = [];
+
+        foreach ($intake->aircoRooms as $room) {
+            $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+            $installerOwned = ($dimensions['dimensions_source'] ?? null) === 'installer'
+                || ($dimensions['area_source'] ?? null) === 'installer';
+            $roomDimensions = RoomDimensions::from($dimensions);
+
+            if ($installerOwned && $roomDimensions->hasAnyMeasure()) {
+                $rooms[$room->key] = $roomDimensions;
+            }
+        }
+
+        return $rooms;
+    }
+
+    /**
+     * Actuele installateursmaat; afwijkende klantwaarde alleen als gelabelde historie.
+     *
+     * @param  array<string, mixed>|null  $customerValue
+     */
+    private function presentInstallerRoomDimension(string $questionKey, RoomDimensions $dimensions, ?array $customerValue): ?string
+    {
+        $current = match (self::ROOM_DIMENSION_KEYS[$questionKey]) {
+            'length_m' => $dimensions->lengthM(),
+            'width_m' => $dimensions->widthM(),
+            'height_m' => $dimensions->heightM(),
+            default => $dimensions->effectiveFloorAreaM2(),
+        };
+
+        if ($current === null) {
+            return null;
+        }
+
+        $display = $this->formatMeasure($current).' (Vervangen door installateur)';
+        $previous = $customerValue['number'] ?? null;
+
+        if (is_numeric($previous) && abs((float) $previous - $current) > 0.001) {
+            $display .= ' — klant gaf eerder op: '.$this->formatMeasure((float) $previous);
+        }
+
+        return $display;
+    }
+
+    private function formatMeasure(float $value): string
+    {
+        $formatted = number_format($value, 1, ',', '.');
+
+        return str_ends_with($formatted, ',0') ? substr($formatted, 0, -2) : $formatted;
     }
 
     /**
