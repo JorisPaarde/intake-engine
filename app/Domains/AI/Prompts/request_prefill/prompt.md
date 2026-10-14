@@ -28,7 +28,7 @@ Regels:
   - “Woonkamer” / “woonkamer” → `living_room` (+ `room_name` “Woonkamer” wanneer die key bestaat);
   - “Slaapkamer” / “slaapkamers” / genummerd “Slaapkamer 1” → `bedroom`;
   - “Speelkamer” → meestal `other` (of `unknown` als onzeker);
-  - “Keuken” → `kitchen`; “Kantoor” / “werkkamer” → `office`; “Zolderkamer” zonder slaap-/woonfunctie → `attic`.
+  - “Keuken” → `other` (met `room_name` “Keuken”); “Kantoor” / “werkkamer” → `office`; “Zolderkamer” zonder slaap-/woonfunctie → `attic`.
   Nooit alleen `room_name` + m² vullen en `room_type` weglaten wanneer de naam het type duidelijk maakt.
 - **Ruimtetype vs verdieping:** “zolderslaapkamer”, “slaapkamer op zolder”, “slaapkamers op zolder” → `room_type` = `bedroom`. Zolder is de **verdieping** (`floor_level`), geen kamertype. Alleen `room_type` = `attic` wanneer de tekst een zolderruimte noemt **zonder** slaapkamer/woon-/werk-/kantoorfunctie (bijv. “zolderkamer” of “de zolder” als te koelen ruimte). Deze regel schrapt **geen** room-fills: twee slaapkamers op zolder = twee `bedroom`-instanties met `floor_level=attic`, plus eventuele andere ruimtes.
 - Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek. Geen voorkeur → weglaten of cataloguswaarde voor “laat installateur kiezen”.
