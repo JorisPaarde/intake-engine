@@ -159,6 +159,7 @@ final class AircoSurveyService
         $updates = [];
 
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        $dimensions = $this->dropStaleAreaWhenLengthWidthChanged($existingDimensions, $dimensions);
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
             // Bewuste leegmaking: syncRooms mag klantmaten niet terugzetten.
@@ -327,6 +328,38 @@ final class AircoSurveyService
                 ]);
             }
         }
+    }
+
+    /**
+     * L×B changed while the (unchanged) m² field was just echoed back by the form:
+     * that m² is stale, so L×B wins and the area is derived again.
+     *
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, float|string>  $submitted
+     * @return array<string, float|string>
+     */
+    private function dropStaleAreaWhenLengthWidthChanged(array $existing, array $submitted): array
+    {
+        if (! isset($submitted['length_m'], $submitted['width_m'], $submitted['area_m2'])
+            || ! isset($existing['area_m2']) || ! is_numeric($existing['area_m2'])) {
+            return $submitted;
+        }
+
+        $lengthWidthChanged = false;
+        foreach (['length_m', 'width_m'] as $key) {
+            $old = isset($existing[$key]) && is_numeric($existing[$key]) ? (float) $existing[$key] : null;
+            if ($old === null || abs($old - (float) $submitted[$key]) > 0.0001) {
+                $lengthWidthChanged = true;
+            }
+        }
+
+        $areaUnchanged = abs((float) $existing['area_m2'] - (float) $submitted['area_m2']) <= 0.0001;
+
+        if ($lengthWidthChanged && $areaUnchanged) {
+            unset($submitted['area_m2'], $submitted['area_source'], $submitted['area_confidence'], $submitted['area_evidence']);
+        }
+
+        return $submitted;
     }
 
     /**

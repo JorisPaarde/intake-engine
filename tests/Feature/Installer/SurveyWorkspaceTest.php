@@ -1922,3 +1922,42 @@ test('AI proposal cards hide raw percent certainty for unknown and customer-conf
         ->and($html)->not->toMatch('/klantantwoord[\s\S]{0,80}zekerheid:/')
         ->and($html)->toContain('lijkt te kloppen'); // phrase for the inferred area proposal
 });
+
+test('N70 changing length and width with the stale derived area stays saved and recalculates area', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-n70@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, ['name' => 'Slaapkamer 1', 'use_type' => 'bedroom']);
+    $room->update(['dimensions' => [
+        'length_m' => 4.5, 'width_m' => 3.5, 'height_m' => 2.5, 'area_m2' => 15.75,
+        'area_source' => 'derived_lxw', 'area_confidence' => 'high', 'dimensions_source' => 'customer',
+    ]]);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => 'Slaapkamer 1', 'use_type' => 'bedroom',
+            'length_m' => 5, 'width_m' => 3.6, 'height_m' => 2.6, 'area_m2' => 15.75,
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($user)->get(route('intakes.workspace', $intake))->assertOk();
+
+    $dimensions = $room->fresh()->dimensions;
+    expect($dimensions)->toMatchArray(['length_m' => 5.0, 'width_m' => 3.6, 'height_m' => 2.6, 'dimensions_source' => 'installer'])
+        ->and($dimensions)->not->toHaveKey('area_m2');
+});
+
+test('N70 an explicitly changed area that contradicts length and width is kept, not reset', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-n70b@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, ['name' => 'Zolder', 'use_type' => 'attic']);
+    $room->update(['dimensions' => ['length_m' => 4.5, 'width_m' => 3.5, 'area_m2' => 15.75, 'area_source' => 'derived_lxw', 'area_confidence' => 'high']]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => 'Zolder', 'use_type' => 'attic', 'length_m' => 5, 'width_m' => 4, 'area_m2' => 12,
+        ])->assertRedirect();
+
+    expect($room->fresh()->dimensions)->toMatchArray(['length_m' => 5.0, 'width_m' => 4.0, 'area_m2' => 12.0]);
+});
