@@ -3752,23 +3752,17 @@ class IntakeWizard extends Component
         $answers = $this->liveAnswers();
         $this->intake()->loadMissing('answers');
         foreach ($this->intake()->answers as $answer) {
-            if ($answer->question_key !== 'room_type' || ! is_string($answer->section_instance_key)) {
+            if (! in_array($answer->question_key, ['room_type', 'floor_level'], true)
+                || ! is_string($answer->section_instance_key)) {
                 continue;
             }
-            $composite = VisibilityResolver::compositeKey('room_type', $answer->section_instance_key);
+            $composite = VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key);
             if (! isset($answers[$composite]) && is_array($answer->value)) {
                 $answers[$composite] = $answer->value;
             }
         }
 
-        $attic = [];
-        foreach (RoomLabelResolver::typesByInstance($answers) as $instance => $type) {
-            if ($type === 'attic') {
-                $attic[$instance] = true;
-            }
-        }
-
-        return $attic;
+        return RoomLabelResolver::atticInstances($answers);
     }
 
     /**
@@ -4034,9 +4028,9 @@ class IntakeWizard extends Component
         }
 
         $previousRoomType = null;
-        if ($questionKey === 'room_type' && is_string($instanceKey)) {
+        if (in_array($questionKey, ['room_type', 'floor_level'], true) && is_string($instanceKey)) {
             $previous = $this->intake()->answers()
-                ->where('question_key', 'room_type')
+                ->where('question_key', $questionKey)
                 ->where('section_instance_key', $instanceKey)
                 ->first();
             $previousRoomType = is_array($previous?->value) ? ($previous->value['value'] ?? null) : null;
@@ -4051,10 +4045,11 @@ class IntakeWizard extends Component
         $this->forgetIntakeDerivedCaches();
 
         // Zolder → ander type: laat geen size=unknown achter als prefill op de grootteklasse.
-        if ($questionKey === 'room_type'
+        if (in_array($questionKey, ['room_type', 'floor_level'], true)
             && is_string($instanceKey)
             && $previousRoomType === 'attic'
-            && ($payload['value'] ?? null) !== 'attic') {
+            && ($payload['value'] ?? null) !== 'attic'
+            && ! isset($this->atticRoomInstances()[$instanceKey])) {
             $this->clearUnknownRoomSizeIndication($instanceKey);
         }
 

@@ -72,7 +72,7 @@ final class ProgressCalculator
         $answeredRequired = 0;
         $missingRequired = [];
         $taskKeys = [];
-        $roomTypes = RoomLabelResolver::typesByInstance($answers);
+        $atticRooms = RoomLabelResolver::atticInstances($answers);
 
         foreach ($targets as $target) {
             $question = $this->findQuestion($sections, $target['question_key']);
@@ -89,7 +89,7 @@ final class ProgressCalculator
             // Zolder: geen grootteklasse — alleen L×B (wizard + Afronden).
             if ($question->key === 'room_size_indication'
                 && is_string($target['section_instance_key'])
-                && ($roomTypes[$target['section_instance_key']] ?? null) === 'attic') {
+                && isset($atticRooms[$target['section_instance_key']])) {
                 continue;
             }
 
