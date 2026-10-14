@@ -107,11 +107,14 @@ final class DerivePhotoAnswers
         $matchingOutputs = [];
         $anyMismatch = false;
         $assessedAny = false;
+        // Only after a removal: fact is gone while a removed upload exists for this question.
         $needsRebuild = ! IntakeExternalFact::query()
             ->where('intake_id', $intake->id)
             ->where('fact_key', $this->factKey($photoQuestionKey, $sectionInstanceKey))
             ->where('source', self::SOURCE)
-            ->exists();
+            ->exists()
+            && $this->hasRemovedUpload($intake, $photoQuestionKey, $sectionInstanceKey);
+        $rebuilt = false;
         $matchingUploadIds = [];
         /** @var array{run: AiRun, trace: AiTraceHandle, dossier_before: array<string, mixed>, questions_before: array<string, mixed>}|null $applyContext */
         $applyContext = null;
@@ -142,6 +145,7 @@ final class DerivePhotoAnswers
                         && ($cachedRun->output['subject_match'] ?? 'yes') === 'yes') {
                         $matchingOutputs[] = $cachedRun->output;
                         $matchingUploadIds[] = $upload->id;
+                        $rebuilt = true;
                         $lastRun = $cachedRun;
                     }
                 }
@@ -234,8 +238,8 @@ final class DerivePhotoAnswers
 
         if ($matchingOutputs !== []) {
             $output = $this->mergeOutputs($matchingOutputs, $profile);
-            $matchingUploads = $allUploads->filter(static function (IntakeUpload $upload) use ($matchingUploadIds): bool {
-                if (! in_array($upload->id, $matchingUploadIds, true)) {
+            $matchingUploads = $allUploads->filter(static function (IntakeUpload $upload) use ($matchingUploadIds, $recentIds, $rebuilt): bool {
+                if (! in_array($upload->id, $rebuilt ? $matchingUploadIds : $recentIds, true)) {
                     return false;
                 }
 
@@ -794,6 +798,19 @@ final class DerivePhotoAnswers
         }
 
         return $schema;
+    }
+
+    private function hasRemovedUpload(Intake $intake, string $photoQuestionKey, ?string $sectionInstanceKey): bool
+    {
+        $query = IntakeUpload::onlyTrashed()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', $photoQuestionKey);
+
+        $sectionInstanceKey === null
+            ? $query->whereNull('section_instance_key')
+            : $query->where('section_instance_key', $sectionInstanceKey);
+
+        return $query->exists();
     }
 
     /** @return Collection<int, IntakeUpload> */

@@ -838,3 +838,32 @@ test('N72: removing a rejected first photo preserves the remaining living room a
     $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail());
     expect($html)->toContain('Woonkamer met grote ramen en bestaande airco.');
 })->with(['zonder kat' => false, 'kat eerst, daarna verwijderen' => true]);
+
+test('N72: adding a second photo without removal keeps upload_ids of recent photos', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    $intake = makeWizardNavIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_name', 'room-1', ['text' => 'Woonkamer']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '0']);
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    FakeAiClient::alwaysReturn([
+        'room_type' => 'living_room',
+        'room_size_indication' => 'large',
+        'sun_exposure' => 'high',
+        'glass_amount' => 'much',
+        'glazing_type' => 'double',
+        'room_outlet_status' => 'present',
+        'detected_subject' => 'room',
+        'subject_match' => 'yes',
+        'confidence' => 'high',
+        'evidence' => 'Woonkamer met grote ramen.',
+        'retake_instruction' => null,
+    ]);
+    uploadAndPollPhotoAssessment($component, 'room-1__room_photos', UploadedFile::fake()->image('een.jpg', 1600, 1200));
+    $first = $intake->uploads()->latest('id')->firstOrFail();
+    uploadAndPollPhotoAssessment($component, 'room-1__room_photos', UploadedFile::fake()->image('twee.jpg', 1600, 1200));
+    $second = $intake->uploads()->latest('id')->firstOrFail();
+    $fact = $intake->externalFacts()->where('fact_key', 'room_photos_derivation::room-1')->firstOrFail();
+    expect($fact->value['upload_ids'])->toContain($first->id)->toContain($second->id);
+});
