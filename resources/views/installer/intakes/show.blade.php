@@ -11,6 +11,18 @@
 
     <div class="py-8">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            @if ($errors->any())
+                <div id="validation-errors" role="alert" tabindex="-1" x-data x-init="$el.focus()" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" data-testid="validation-error-summary">
+                    <p class="font-semibold">Opslaan is niet gelukt. Controleer je invoer.</p>
+                    <ul class="mt-2 list-disc pl-5">
+                        @foreach ($errors->all() as $message)
+                            <li>{{ $message }}</li>
+                        @endforeach
+                    </ul>
+                    <a href="#intake-review" class="mt-2 inline-block font-semibold underline">Ga naar de beoordeling</a>
+                </div>
+            @endif
+
             @if (session('status'))
                 <div class="rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
                     {{ session('status') }}
@@ -864,7 +876,7 @@
             @endif
 
             @if (in_array($intake->status, [\App\Enums\IntakeStatus::Completed, \App\Enums\IntakeStatus::Reviewed, \App\Enums\IntakeStatus::AwaitingCustomer], true))
-                <details class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <details id="intake-review" @if ($errors->any()) open @endif class="scroll-mt-6 rounded-2xl border border-gray-200 bg-white shadow-sm" data-testid="review-details">
                     <summary class="cursor-pointer list-none px-6 py-4 text-base font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
                         Beoordeling
                         <span class="mt-1 block text-xs font-normal text-gray-500">Beslissing en aanvullende rondes · tik om te openen</span>
@@ -1016,6 +1028,9 @@
                         // Alleen actuele beoordeling voorinvullen — na een vervolgronde opnieuw kiezen.
                         $formReviewDefaults = $reviewIsCurrent ? $savedReview : null;
                         $initialDecision = old('decision', $formReviewDefaults?->decision?->value ?? '');
+                        if ($followUpRoundsExhausted && $initialDecision === \App\Enums\ReviewDecision::NeedMoreInfo->value) {
+                            $initialDecision = '';
+                        }
                         $oldFollowUpItems = array_values(old('follow_up_items', [['type' => 'text', 'prompt' => '']]));
                         $followUpCount = max(1, count($oldFollowUpItems));
                         $followUpRows = array_pad($oldFollowUpItems, (int) config('intake.follow_up.max_items_per_round', 5), ['type' => 'text', 'prompt' => '']);
@@ -1045,11 +1060,16 @@
                             <select id="decision" name="decision" x-model="decision" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 <option value="">Kies een beoordeling…</option>
                                 @foreach ($reviewDecisions as $decision)
-                                    <option value="{{ $decision->value }}" @selected($initialDecision === $decision->value)>
+                                    <option value="{{ $decision->value }}" @selected($initialDecision === $decision->value) @disabled($followUpRoundsExhausted && $decision === \App\Enums\ReviewDecision::NeedMoreInfo)>
                                         {{ $decision->label() }}
                                     </option>
                                 @endforeach
                             </select>
+                            @if ($followUpRoundsExhausted)
+                                <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950" data-testid="review-follow-up-round-exhausted">
+                                    {{ $usedFollowUpRounds }} van {{ $maxFollowUpRounds }} aanvullende rondes gebruikt. Nog meer info nodig is niet meer beschikbaar. Kies gericht contact of een locatiebezoek.
+                                </p>
+                            @endif
                             <x-input-error :messages="$errors->get('decision')" class="mt-2" />
                         </div>
 
@@ -1089,11 +1109,6 @@
                                     Maximaal {{ $maxFollowUpRounds }} aanvullende rondes
                                     ({{ $usedFollowUpRounds }} van {{ $maxFollowUpRounds }} gebruikt).
                                 </p>
-                                @if ($followUpRoundsExhausted)
-                                    <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950" data-testid="review-follow-up-round-exhausted">
-                                        Limiet bereikt. Kies gericht contact of een locatiebezoek in plaats van nog een ronde.
-                                    </p>
-                                @endif
                             </div>
 
                             @foreach ($followUpRows as $index => $item)
