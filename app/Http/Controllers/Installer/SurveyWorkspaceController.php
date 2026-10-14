@@ -918,7 +918,6 @@ final class SurveyWorkspaceController extends Controller
         Request $request,
         Intake $intake,
         AircoConnection $connection,
-        SaveInstallerObservation $saveObservation,
         DecisionReadinessService $readiness,
         RefreshStoredIntakeReport $refreshReport,
     ): RedirectResponse {
@@ -941,14 +940,6 @@ final class SurveyWorkspaceController extends Controller
             'source_type' => 'installer',
             'source_id' => $this->user($request)->id,
         ]);
-        $saveObservation->handle(
-            $intake,
-            $this->user($request),
-            $connection->subject,
-            'installer_note.'.Str::lower(Str::ulid()->toBase32()),
-            implode("\n", $segments),
-            'installer_note',
-        );
         $readiness->recalculate($intake);
         $refreshReport->handle($intake->fresh() ?? $intake);
 
