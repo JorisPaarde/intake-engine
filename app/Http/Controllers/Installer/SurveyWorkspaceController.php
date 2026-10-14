@@ -268,6 +268,32 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, 'Ruimte bijgewerkt.', 'room-'.$room->id);
     }
 
+    public function confirmRoomScope(
+        Request $request,
+        Intake $intake,
+        AircoRoom $room,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($room->intake_id === $intake->id, 404);
+        $aircoSurvey->confirmRoomExistingInstallation($intake, $this->user($request), $room);
+
+        return $this->back($intake, 'Bestaande installatie blijft: ruimte telt niet mee als ontbrekend.', 'room-'.$room->id);
+    }
+
+    public function clearRoomScope(
+        Request $request,
+        Intake $intake,
+        AircoRoom $room,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($room->intake_id === $intake->id, 404);
+        $aircoSurvey->clearRoomScopeConfirmation($intake, $this->user($request), $room);
+
+        return $this->back($intake, 'Bevestiging ongedaan gemaakt.', 'room-'.$room->id);
+    }
+
     public function syncRoomUnitCoupling(
         Request $request,
         Intake $intake,

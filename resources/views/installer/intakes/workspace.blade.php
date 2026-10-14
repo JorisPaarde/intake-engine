@@ -540,6 +540,21 @@
                                     </form>
                                     </details>
 
+                                    <div class="mt-3 border-t border-gray-100 pt-3" data-testid="room-scope-{{ $room->id }}">
+                                        @if ($room->isExistingInstallationConfirmed())
+                                            <p class="text-sm text-gray-700">Bestaande installatie blijft (bevestigd door installateur{{ $room->scope_confirmed_at ? ', '.$room->scope_confirmed_at->timezone(config('app.timezone'))->format('d-m-Y H:i') : '' }}). Deze ruimte telt niet mee als ontbrekend bij Voorstel afronden.</p>
+                                            <form method="POST" action="{{ route('intakes.workspace.rooms.scope.clear', [$intake, $room]) }}" class="mt-2">
+                                                @csrf
+                                                <button type="submit" class="min-h-11 text-sm font-medium text-gray-700 underline">Bevestiging ongedaan maken</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('intakes.workspace.rooms.scope.confirm', [$intake, $room]) }}">
+                                                @csrf
+                                                <button type="submit" class="min-h-11 text-sm font-medium text-gray-700 underline">Bestaande installatie blijft — geen nieuwe airco hier</button>
+                                            </form>
+                                        @endif
+                                    </div>
+
                                     @php
                                         $roomIndoor = $room->placements
                                             ->firstWhere('type', \App\Enums\AircoPlacementType::IndoorUnit);

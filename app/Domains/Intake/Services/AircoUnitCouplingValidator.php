@@ -89,6 +89,7 @@ final class AircoUnitCouplingValidator
 
     /**
      * Requested rooms that have no indoor unit in the selected installation option.
+     * Rooms the installer confirmed as "bestaande installatie blijft" (N68) do not count.
      *
      * @return Collection<int, AircoRoom>
      */
@@ -105,6 +106,7 @@ final class AircoUnitCouplingValidator
             ->all();
 
         return $intake->aircoRooms
+            ->reject(static fn (AircoRoom $room): bool => $room->isExistingInstallationConfirmed())
             ->reject(static fn (AircoRoom $room): bool => in_array($room->id, $coveredRoomIds, true))
             ->values();
     }

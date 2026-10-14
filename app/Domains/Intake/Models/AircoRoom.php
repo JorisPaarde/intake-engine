@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -23,10 +24,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $source_type
  * @property int|null $source_id
  * @property array<string, float|string>|null $dimensions
+ * @property string|null $scope_status
+ * @property int|null $scope_confirmed_by
+ * @property Carbon|null $scope_confirmed_at
  * @property-read DossierSubject $subject
  */
 class AircoRoom extends Model
 {
+    public const SCOPE_EXISTING_REMAINS = 'existing_remains';
+
     protected $fillable = [
         'intake_id',
         'company_id',
@@ -41,6 +47,9 @@ class AircoRoom extends Model
         'source_type',
         'source_id',
         'dimensions',
+        'scope_status',
+        'scope_confirmed_by',
+        'scope_confirmed_at',
     ];
 
     /** @return array<string, string> */
@@ -53,6 +62,8 @@ class AircoRoom extends Model
             'sort_order' => 'integer',
             'source_id' => 'integer',
             'dimensions' => 'array',
+            'scope_confirmed_by' => 'integer',
+            'scope_confirmed_at' => 'datetime',
         ];
     }
 
@@ -72,5 +83,11 @@ class AircoRoom extends Model
     public function placements(): HasMany
     {
         return $this->hasMany(AircoPlacementOption::class);
+    }
+
+    /** Installateur bevestigde: bestaande installatie blijft, ruimte valt buiten het voorstel. */
+    public function isExistingInstallationConfirmed(): bool
+    {
+        return $this->scope_status === self::SCOPE_EXISTING_REMAINS;
     }
 }
