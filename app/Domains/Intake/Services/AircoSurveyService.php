@@ -159,6 +159,7 @@ final class AircoSurveyService
         $updates = [];
 
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        $dimensions = $this->dropStaleAreaWhenLengthWidthChanged($existingDimensions, $dimensions);
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
             // Bewuste leegmaking: syncRooms mag klantmaten niet terugzetten.
@@ -327,6 +328,47 @@ final class AircoSurveyService
                 ]);
             }
         }
+    }
+
+    /**
+     * L×B changed while the (unchanged) derived m² field was just echoed back by the form:
+     * that m² is stale, so L×B wins and the area is derived again.
+     *
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, float|string>  $submitted
+     * @return array<string, float|string>
+     */
+    private function dropStaleAreaWhenLengthWidthChanged(array $existing, array $submitted): array
+    {
+        if (! isset($submitted['length_m'], $submitted['width_m'], $submitted['area_m2'])
+            || ! isset($existing['area_m2']) || ! is_numeric($existing['area_m2'])) {
+            return $submitted;
+        }
+
+        $oldLength = isset($existing['length_m']) && is_numeric($existing['length_m']) ? (float) $existing['length_m'] : null;
+        $oldWidth = isset($existing['width_m']) && is_numeric($existing['width_m']) ? (float) $existing['width_m'] : null;
+        $areaWasDerived = ($existing['area_source'] ?? null) === 'derived_lxw'
+            || ($oldLength !== null && $oldWidth !== null
+                && abs($oldLength * $oldWidth - (float) $existing['area_m2']) <= 0.01);
+
+        if (! $areaWasDerived) {
+            return $submitted; // declared/measured m² is not overridden by L×B
+        }
+
+        $lengthWidthChanged = false;
+        foreach (['length_m' => $oldLength, 'width_m' => $oldWidth] as $key => $old) {
+            if ($old === null || abs($old - (float) $submitted[$key]) > 0.0001) {
+                $lengthWidthChanged = true;
+            }
+        }
+
+        $areaUnchanged = abs((float) $existing['area_m2'] - (float) $submitted['area_m2']) <= 0.0001;
+
+        if ($lengthWidthChanged && $areaUnchanged) {
+            unset($submitted['area_m2'], $submitted['area_source'], $submitted['area_confidence'], $submitted['area_evidence']);
+        }
+
+        return $submitted;
     }
 
     /**
