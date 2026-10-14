@@ -47,6 +47,6 @@
     "C7",
     "C8"
   ],
-  "note": "N44: room_assessment evidence/retake_instruction moeten NL zijn. model_fields.evidence documenteert de huidige Engelse fout uit prod v1.4.24. Expected claims = forbidden English; fake/stub scoort wrong tot voorgestelde prompt-v9. Foto: synthetische slaapkamer-1.jpg (geen EXIF/PII); echte vision-run op de box.",
+  "note": "N44: room_assessment evidence/retake_instruction moeten NL zijn (live room-assessment-v10). model_fields.evidence = Engelse regressie-input; stub scoort forbidden wrong; live-vision met NL model → concept_absent. Foto: synthetische slaapkamer-1.jpg.",
   "disputed_facts": {}
 }
