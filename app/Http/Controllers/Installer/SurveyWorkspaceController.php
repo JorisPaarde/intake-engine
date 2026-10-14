@@ -38,6 +38,7 @@ use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Services\RefreshStoredIntakeReport;
+use App\Domains\Intake\Support\ConnectionRouteDecisionPresenter;
 use App\Domains\Intake\Support\ContributionSubjectLinker;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Domains\Intake\Support\PhotoUploadLimits;
@@ -911,6 +912,47 @@ final class SurveyWorkspaceController extends Controller
             : null;
 
         return $this->back($intake, 'Route en gekoppelde verbinding goedgekeurd.', $fragment);
+    }
+
+    public function definePowerRoute(
+        Request $request,
+        Intake $intake,
+        AircoConnection $connection,
+        SaveInstallerObservation $saveObservation,
+        DecisionReadinessService $readiness,
+        RefreshStoredIntakeReport $refreshReport,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($connection->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'segments_text' => ['required', 'string', 'max:4000'],
+        ]);
+        $segments = $this->lines($data['segments_text']);
+        if ($segments === []) {
+            throw ValidationException::withMessages(['segments_text' => 'Beschrijf de stroomroute.']);
+        }
+        if (! app(ConnectionRouteDecisionPresenter::class)->present($connection)['can_define']) {
+            throw ValidationException::withMessages(['segments_text' => 'Deze route is intussen gewijzigd. Beoordeel de huidige route.']);
+        }
+
+        $connection->update([
+            'segments' => $segments,
+            'status' => AircoConnectionStatus::Proposed,
+            'source_type' => 'installer',
+            'source_id' => $this->user($request)->id,
+        ]);
+        $saveObservation->handle(
+            $intake,
+            $this->user($request),
+            $connection->subject,
+            'installer_note.'.Str::lower(Str::ulid()->toBase32()),
+            implode("\n", $segments),
+            'installer_note',
+        );
+        $readiness->recalculate($intake);
+        $refreshReport->handle($intake->fresh() ?? $intake);
+
+        return $this->back($intake, 'Stroomroute vastgelegd. Beoordeel de route en keur deze goed.', 'connection-'.$connection->id);
     }
 
     public function decideConnection(

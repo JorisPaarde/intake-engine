@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
+use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
@@ -18,6 +21,10 @@ use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
+use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
+use App\Enums\PhotoAssessmentStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -486,4 +493,76 @@ test('N26: workspace shows customer drain answer on condensate cards only when c
         ->get(route('intakes.workspace', $intake->fresh()))
         ->assertOk()
         ->assertDontSee('Volgens de klant:', false);
+});
+
+test('N71 stroomroute met klantbewijs kan op bestaande verbinding worden vastgelegd en goedgekeurd', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'power' => $power] = createRouteDecisionWorkspace($user);
+    $power->update([
+        'status' => AircoConnectionStatus::NeedsEvidence,
+        'segments' => [],
+        'uncertainties' => ['Stroomroute nog te bepalen'],
+    ]);
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake, $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een foto van de stroomroute.',
+        'decision_area_key' => 'power',
+        'dossier_subject_id' => $power->dossier_subject_id,
+        'photo_task_subtype' => 'power_route',
+    ]]);
+    $item = $round->items()->firstOrFail();
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_upload',
+        'intake_follow_up_item_id' => $item->id,
+        'disk' => 'local',
+        'path' => 'test/power-route.jpg',
+        'original_filename' => 'stroomroute.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 100,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::PipeRoute)->toArray(),
+    ]);
+    $item->update(['answered_at' => now()]);
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+    $count = $intake->aircoConnections()->count();
+
+    $this->actingAs($user)->get(route('intakes.workspace', $intake))
+        ->assertOk()->assertSee('Stroomroute vastleggen')
+        ->assertSee('Een bruikbare foto legt de stroomroute nog niet vast.')
+        ->assertSee('Leg de stroomroute vast op basis van het bewijs');
+    $this->post(route('intakes.workspace.connections.decide', [$intake, $power]), ['decision' => 'approve'])
+        ->assertSessionHasErrors('decision');
+    $this->post(route('intakes.workspace.connections.define', [$intake, $power]), [
+        'segments_text' => "Meterkast naar achtergevel\nAchtergevel naar buitenunit",
+    ])->assertRedirect(route('intakes.workspace', $intake).'#connection-'.$power->id);
+
+    expect($power->fresh()->segments)->toBe(['Meterkast naar achtergevel', 'Achtergevel naar buitenunit'])
+        ->and($power->fresh()->status)->toBe(AircoConnectionStatus::Proposed)
+        ->and($power->fresh()->source_id)->toBe($user->id)
+        ->and($intake->aircoConnections()->count())->toBe($count);
+    expect(app(ConnectionRouteDecisionPresenter::class)->present($power->fresh())['can_approve'])->toBeTrue();
+    $this->post(route('intakes.workspace.connections.decide', [$intake, $power]), ['decision' => 'approve'])
+        ->assertRedirect();
+    expect($power->fresh()->status)->toBe(AircoConnectionStatus::Approved);
+});
+
+test('N71 stroomroute vastleggen bewaakt opname, inhoud en bestaande routestatus', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'power' => $power] = createRouteDecisionWorkspace($user);
+    ['power' => $otherPower] = createRouteDecisionWorkspace($user);
+    $power->update(['status' => AircoConnectionStatus::NeedsEvidence, 'segments' => []]);
+    $this->actingAs($user)->post(route('intakes.workspace.connections.define', [$intake, $otherPower]), [
+        'segments_text' => 'Langs de gevel',
+    ])->assertNotFound();
+    $this->post(route('intakes.workspace.connections.define', [$intake, $power]), [
+        'segments_text' => " \n ",
+    ])->assertSessionHasErrors('segments_text');
+    $intake->pipeRouteSessions()->create(['airco_connection_id' => $power->id, 'status' => PipeRouteStatus::Collecting]);
+    $this->post(route('intakes.workspace.connections.define', [$intake, $power]), [
+        'segments_text' => 'Langs de gevel',
+    ])->assertSessionHasErrors('segments_text');
+    expect($power->fresh()->status)->toBe(AircoConnectionStatus::NeedsEvidence)
+        ->and($power->fresh()->segments)->toBe([]);
 });

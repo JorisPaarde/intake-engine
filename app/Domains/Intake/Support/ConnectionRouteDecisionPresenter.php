@@ -21,6 +21,7 @@ final class ConnectionRouteDecisionPresenter
      *     title: string,
      *     steps: list<array{label: string, state: 'done'|'current'|'todo'}>,
      *     can_approve: bool,
+     *     can_define: bool,
      *     approve_blocked_reason: string|null,
      *     approve_warning: string|null,
      *     can_site_visit: bool,
@@ -63,9 +64,15 @@ final class ConnectionRouteDecisionPresenter
             )
         );
 
+        $canDefine = $connection->type === AircoConnectionType::Power
+            && $session === null
+            && in_array($status, [AircoConnectionStatus::Unknown, AircoConnectionStatus::NeedsEvidence], true);
+
         $approveBlockedReason = null;
         if (! $canApprove && ! $alreadyDone) {
-            if ($collecting) {
+            if ($canDefine) {
+                $approveBlockedReason = 'Een bruikbare foto legt de stroomroute nog niet vast. Beschrijf de route op basis van het bewijs. Daarna kun je de route goedkeuren.';
+            } elseif ($collecting) {
                 $approveBlockedReason = 'Vat eerst de route samen.';
             } elseif (in_array($status, [
                 AircoConnectionStatus::Unknown,
@@ -106,6 +113,10 @@ final class ConnectionRouteDecisionPresenter
             'Keur goed of kies locatiebezoek',
         ];
 
+        if ($canDefine) {
+            $labels[1] = 'Leg de stroomroute vast op basis van het bewijs';
+        }
+
         $steps = [];
         foreach ($labels as $index => $label) {
             $steps[] = [
@@ -122,6 +133,7 @@ final class ConnectionRouteDecisionPresenter
             'title' => 'Route beoordelen',
             'steps' => $steps,
             'can_approve' => $canApprove,
+            'can_define' => $canDefine,
             'approve_blocked_reason' => $approveBlockedReason,
             'approve_warning' => $approveWarning,
             'can_site_visit' => ! $alreadyDone,

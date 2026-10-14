@@ -14,6 +14,11 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\AircoSurveyService;
+use App\Enums\AircoConfigurationType;
+use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoConnectionType;
+use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
@@ -116,6 +121,28 @@ $round->update([
 ]);
 $intake->update(['status' => IntakeStatus::InProgress]);
 
+$survey = app(AircoSurveyService::class);
+$source = $survey->createPlacement($intake, $user, ['type' => AircoPlacementType::PowerSource, 'label' => 'Meterkast N71']);
+$outside = $survey->createPlacement($intake, $user, ['type' => AircoPlacementType::OutdoorUnit, 'label' => 'Buitenunit N71']);
+$room = $survey->createRoom($intake, $user, ['name' => 'Woonkamer N71']);
+$inside = $survey->createPlacement($intake, $user, ['type' => AircoPlacementType::IndoorUnit, 'airco_room_id' => $room->id, 'label' => 'Binnenunit N71']);
+$option = $survey->createInstallationOption($intake, $user, [
+    'label' => 'Stroomroute N71',
+    'configuration_type' => AircoConfigurationType::SingleSplit,
+    'placement_ids' => [$source->id, $outside->id, $inside->id],
+]);
+$power = $survey->createConnection($intake, $user, $option, [
+    'type' => AircoConnectionType::Power,
+    'label' => 'Stroomtoevoer buitenunit N71',
+    'from_placement_id' => $source->id,
+    'to_placement_id' => $outside->id,
+    'status' => AircoConnectionStatus::NeedsEvidence,
+    'segments' => [],
+    'uncertainties' => ['Stroomroute nog te bepalen'],
+]);
+
+$item->update(['dossier_subject_id' => $power->dossier_subject_id]);
+
 $baseUrl = rtrim((string) (getenv('E2E_BASE_URL') ?: getenv('PLAYWRIGHT_BASE_URL') ?: 'http://127.0.0.1:8000'), '/');
 
 echo json_encode([
@@ -127,4 +154,5 @@ echo json_encode([
     'intakeId' => (int) $intake->id,
     'fuseboxUploadId' => (int) $fusebox->id,
     'routeUploadId' => (int) $route->id,
+    'powerConnectionId' => (int) $power->id,
 ], JSON_THROW_ON_ERROR).PHP_EOL;
