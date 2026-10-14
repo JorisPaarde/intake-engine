@@ -91,3 +91,23 @@ test.describe('N27 detail status signals after PrepareQuote review', () => {
     await expect(page.getByTestId('quote-readiness-count')).toContainText('onderdelen');
   });
 });
+
+test('N52 review validation opens the form and focuses a visible error summary', async ({ page }) => {
+  const data = bootstrapReviewSignals();
+  await page.goto(data.baseUrl+'/login');
+  await page.locator('#email').fill(data.email);
+  await page.locator('#password').fill(data.password);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL(/dashboard|intakes|opname/);
+  await page.goto(data.showUrl);
+  await page.getByTestId('review-details').locator('summary').click();
+  await page.locator('#decision').selectOption('need_more_info');
+  // Empty follow-up rows are filtered by the server, which rejects the review.
+  await page.getByTestId('review-form').evaluate((form: HTMLFormElement) => form.submit());
+  const errors = page.getByTestId('validation-error-summary');
+  await expect(errors).toBeVisible();
+  await expect(errors).toBeFocused();
+  await expect(errors).toContainText(/aanvullende vragen/i);
+  await expect(page.getByTestId('review-details')).toHaveAttribute('open', '');
+  await expect(page.locator('#decision')).toHaveValue('need_more_info');
+});

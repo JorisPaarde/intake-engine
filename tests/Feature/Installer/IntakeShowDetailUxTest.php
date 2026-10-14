@@ -20,6 +20,7 @@ use App\Enums\AiRunType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\ReviewDecision;
@@ -476,3 +477,56 @@ test('review form shows follow-up round limit up front', function () {
         ->assertSee('Maximaal 3 aanvullende rondes', false)
         ->assertSee('0 van 3 gebruikt', false);
 });
+
+test('review validation errors are visible above details and open the review block', function (bool $exhausted) {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user);
+    $intake->update(['status' => IntakeStatus::Completed, 'completed_at' => now()]);
+
+    if ($exhausted) {
+        foreach (range(1, 3) as $number) {
+            $intake->followUpRounds()->create([
+                'requested_by' => $user->id,
+                'round_number' => $number,
+                'status' => FollowUpRoundStatus::Completed,
+                'sent_at' => now(),
+                'completed_at' => now(),
+            ]);
+        }
+    }
+
+    $payload = $exhausted ? [
+        'decision' => ReviewDecision::NeedMoreInfo->value,
+        'summary' => 'Bewaar deze notitie.',
+        'follow_up_items' => [['type' => 'text', 'prompt' => 'Welke gevel?']],
+    ] : [];
+    $key = $exhausted ? 'follow_up_items' : 'decision';
+    $message = $exhausted
+        ? 'Maximaal 3 aanvullende rondes toegestaan. Plan nu gericht contact of een locatiebezoek.'
+        : 'Beoordeling is verplicht.';
+
+    $this->actingAs($user)->from(route('intakes.show', $intake))
+        ->post(route('intakes.review', $intake), $payload)
+        ->assertRedirect(route('intakes.show', $intake))
+        ->assertSessionHasErrors($key);
+
+    // Preserve the browser session across the validation redirect.
+    $this->withCookie(config('session.cookie'), session()->getId());
+    $html = $this->get(route('intakes.show', $intake))->assertOk()->getContent();
+    $dom = new DOMDocument;
+    @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+    $xpath = new DOMXPath($dom);
+    $summary = $xpath->query('//*[@data-testid="validation-error-summary"]')->item(0);
+    expect($summary)->not->toBeNull()
+        ->and($summary->textContent)->toContain($message)
+        ->and($xpath->query('//*[@data-testid="validation-error-summary"]/ancestor::details')->length)->toBe(0)
+        ->and($xpath->query('//*[@data-testid="review-details"][@open]')->length)->toBe(1);
+
+    if ($exhausted) {
+        expect($xpath->query('//select[@id="decision"]/option[@value="need_more_info"][@disabled]')->length)->toBe(1)
+            ->and($xpath->query('//*[@data-testid="review-follow-up-round-exhausted"]/ancestor::*[@x-show]')->length)->toBe(0)
+            ->and($html)->toContain('Bewaar deze notitie.')
+            ->and($intake->followUpRounds()->count())->toBe(3);
+    }
+})->with([false, true]);
