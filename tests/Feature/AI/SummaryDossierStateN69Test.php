@@ -24,9 +24,9 @@ use App\Enums\DossierRecordStatus;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Testing\Fakes\QueueFake;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
@@ -183,21 +183,23 @@ test('dossier records: only established, value capped, installer first, hash ove
     expect($context->hash($intake->fresh()))->toBe($before);
 });
 
-test('a persistently stale summary is queued at most three times per dossier state', function () {
+test('a stale summary is queued; a fresh one is not', function () {
     [, $intake] = n69IntakeWithSelectedBedroomsOnly();
     $intake = n69CompletedWithReport($intake);
     $intake->report->update(['meta' => ['ai_summary' => ['summary' => 's'], 'ai_dossier_hash' => 'old']]);
 
     Queue::fake();
     $context = app(SummaryDossierContext::class);
-    $results = collect(range(1, 5))->map(fn () => $context->dispatchIfStale($intake->fresh()));
+    expect($context->dispatchIfStale($intake->fresh()))->toBeTrue();
 
-    expect($results->filter()->count())->toBe(3);
+    $intake->report->update(['meta' => ['ai_summary' => ['summary' => 's'], 'ai_dossier_hash' => $context->hash($intake->fresh())]]);
+    expect($context->dispatchIfStale($intake->fresh()))->toBeFalse();
+    Queue::assertPushed(SummarizeIntakeJob::class, 1);
 });
 
 test('summarize job is unique per intake', function () {
     $job = new SummarizeIntakeJob(42);
-    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+    expect($job)->toBeInstanceOf(ShouldBeUniqueUntilProcessing::class)
         ->and($job->uniqueId())->toBe('42');
 });
 
@@ -206,8 +208,18 @@ test('a failing summary dispatch does not skip the pdf refresh', function () {
     $intake = n69CompletedWithReport($intake);
     $intake->report->update(['meta' => ['ai_summary' => ['summary' => 's'], 'ai_dossier_hash' => 'old']]);
     $intake->update(['is_demo' => false]);
-    Queue::fake();
-    Cache::shouldReceive('add')->andThrow(new RuntimeException('cache down'));
+    $fake = new class(app()) extends QueueFake
+    {
+        public function push($job, $data = '', $queue = null)
+        {
+            if ($job instanceof SummarizeIntakeJob) {
+                throw new RuntimeException('queue down');
+            }
+
+            return parent::push($job, $data, $queue);
+        }
+    };
+    Queue::swap($fake);
 
     app(RefreshStoredIntakeReport::class)->handle($intake->fresh());
 

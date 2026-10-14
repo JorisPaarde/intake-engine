@@ -10,7 +10,6 @@ use App\Domains\Intake\Models\Intake;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\IntakeStatus;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * N69: the current dossier state (rooms + installer scope decisions, installation
@@ -23,11 +22,6 @@ final class SummaryDossierContext
     private const MAX_RECORDS = 60;
 
     private const MAX_VALUE_CHARS = 300;
-
-    /** Max dispatches per intake and dossier state; a summary that keeps failing is not retried forever. */
-    private const MAX_DISPATCHES_PER_STATE = 3;
-
-    private const DEBOUNCE_SECONDS = 20;
 
     /** @return array<string, mixed> */
     public function build(Intake $intake): array
@@ -134,14 +128,7 @@ final class SummaryDossierContext
             return false;
         }
 
-        // The hash only changes after a successful run, so cap dispatches per state.
-        $key = "summary-dispatches:{$intake->id}:{$hash}";
-        Cache::add($key, 0, now()->addDay());
-        if (Cache::increment($key) > self::MAX_DISPATCHES_PER_STATE) {
-            return false;
-        }
-
-        SummarizeIntakeJob::dispatch($intake->id)->delay(now()->addSeconds(self::DEBOUNCE_SECONDS));
+        SummarizeIntakeJob::dispatch($intake->id);
 
         return true;
     }
