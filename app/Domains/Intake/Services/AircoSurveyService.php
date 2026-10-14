@@ -331,7 +331,7 @@ final class AircoSurveyService
     }
 
     /**
-     * L×B changed while the (unchanged) m² field was just echoed back by the form:
+     * L×B changed while the (unchanged) derived m² field was just echoed back by the form:
      * that m² is stale, so L×B wins and the area is derived again.
      *
      * @param  array<string, mixed>  $existing
@@ -345,9 +345,18 @@ final class AircoSurveyService
             return $submitted;
         }
 
+        $oldLength = isset($existing['length_m']) && is_numeric($existing['length_m']) ? (float) $existing['length_m'] : null;
+        $oldWidth = isset($existing['width_m']) && is_numeric($existing['width_m']) ? (float) $existing['width_m'] : null;
+        $areaWasDerived = ($existing['area_source'] ?? null) === 'derived_lxw'
+            || ($oldLength !== null && $oldWidth !== null
+                && abs($oldLength * $oldWidth - (float) $existing['area_m2']) <= 0.01);
+
+        if (! $areaWasDerived) {
+            return $submitted; // declared/measured m² is not overridden by L×B
+        }
+
         $lengthWidthChanged = false;
-        foreach (['length_m', 'width_m'] as $key) {
-            $old = isset($existing[$key]) && is_numeric($existing[$key]) ? (float) $existing[$key] : null;
+        foreach (['length_m' => $oldLength, 'width_m' => $oldWidth] as $key => $old) {
             if ($old === null || abs($old - (float) $submitted[$key]) > 0.0001) {
                 $lengthWidthChanged = true;
             }

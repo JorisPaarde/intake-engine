@@ -1961,3 +1961,17 @@ test('N70 an explicitly changed area that contradicts length and width is kept, 
 
     expect($room->fresh()->dimensions)->toMatchArray(['length_m' => 5.0, 'width_m' => 4.0, 'area_m2' => 12.0]);
 });
+
+test('N70 a declared area is kept when only length and width are edited', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-n70c@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, ['name' => 'Kantoor', 'use_type' => 'office']);
+    $room->update(['dimensions' => ['area_m2' => 20, 'area_source' => 'customer', 'area_confidence' => 'high']]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => 'Kantoor', 'use_type' => 'office', 'length_m' => 5, 'width_m' => 3, 'area_m2' => 20,
+        ])->assertRedirect();
+
+    expect($room->fresh()->dimensions)->toMatchArray(['length_m' => 5.0, 'width_m' => 3.0, 'area_m2' => 20.0]);
+});
