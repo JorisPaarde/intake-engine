@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\SummarizeIntake;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\SummaryDossierContext;
 use App\Domains\Intake\Actions\CreateIntake;
@@ -25,6 +27,7 @@ use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Testing\Fakes\QueueFake;
 
@@ -201,6 +204,28 @@ test('summarize job is unique per intake', function () {
     $job = new SummarizeIntakeJob(42);
     expect($job)->toBeInstanceOf(ShouldBeUniqueUntilProcessing::class)
         ->and($job->uniqueId())->toBe('42');
+});
+
+test('a pending unique summary job never drops the completion chain', function () {
+    Queue::fake();
+
+    // dispatchIfStale path: holds the unique lock until processing, so a second one is dropped.
+    SummarizeIntakeJob::dispatch(42);
+    SummarizeIntakeJob::dispatch(42);
+    Queue::assertPushed(SummarizeIntakeJob::class, 1);
+
+    // CompleteIntake / CompleteFollowUpRound chain: the head is not subject to the lock.
+    Bus::chain([
+        new SummarizeIntakeJob(42),
+        new SuggestAttentionPointsJob(42),
+        new SynthesizeSurveyDossierJob(42),
+    ])->dispatch();
+
+    Queue::assertPushed(SummarizeIntakeJob::class, 2);
+    Queue::assertPushedWithChain(SummarizeIntakeJob::class, [
+        SuggestAttentionPointsJob::class,
+        SynthesizeSurveyDossierJob::class,
+    ]);
 });
 
 test('a failing summary dispatch does not skip the pdf refresh', function () {
