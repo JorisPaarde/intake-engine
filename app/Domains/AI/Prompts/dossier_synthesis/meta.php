@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'dossier-synthesis-v11',
-    'description' => 'v10 + model hedge’t onzekere faseclaims zelf (ADR-0016, geen serverherschrijving).',
+    'version' => 'dossier-synthesis-v14',
+    'description' => 'v13 + tuin≠gevel geen conflict; stated fase behouden; stated weggewerkte leidingen melden.',
 ];

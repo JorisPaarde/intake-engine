@@ -57,18 +57,18 @@ test('live vision room_assessment sends fixture image through FakeAiClient with 
         JSON_THROW_ON_ERROR,
     );
 
-    $result = app(PhotoObservationCaseRunner::class)->run($fixture, 1, liveVision: true, promptVersion: 'v8');
+    $result = app(PhotoObservationCaseRunner::class)->run($fixture, 1, liveVision: true, promptVersion: 'v10');
 
     expect($captured)->toBeInstanceOf(AiCompletionRequest::class)
         ->and($captured->images)->toHaveCount(1)
-        ->and($captured->promptVersion)->toBe('room-assessment-v8')
-        ->and($captured->prompt)->not->toContain('schrijf alle vrije tekst')
+        ->and($captured->promptVersion)->toBe('room-assessment-v10')
+        ->and($captured->prompt)->toContain('uitsluitend in het Nederlands')
         ->and($result['live_vision']['executed'])->toBeTrue()
         ->and($result['status'])->toBe('ok')
         ->and($result['token_usage']['total_tokens'])->toBeInt()
         ->and($result['token_usage']['total_tokens'])->toBeGreaterThan(0)
         ->and($result['token_usage']['estimated_cost_cents'])->toBeInt()
-        ->and($result['prompt_versions']['room_assessment'])->toBe('room-assessment-v8')
+        ->and($result['prompt_versions']['room_assessment'])->toBe('room-assessment-v10')
         ->and($result['prompt_source'])->toBe('live')
         ->and($result['scores']['model_raw']['room_type']['status'])->toBe('correct')
         ->and($result['scores']['model_raw']['claim.english_free_text']['status'])->toBe('wrong')
@@ -76,7 +76,7 @@ test('live vision room_assessment sends fixture image through FakeAiClient with 
         ->and($result['rejections']['vision_gateway'])->toBeNull();
 });
 
-test('live vision proposed-v9 loads held-out prompt without touching live meta', function () {
+test('live vision explicit v10 selector loads the live NL prompt', function () {
     $captured = null;
     FakeAiClient::respondUsing(function (AiCompletionRequest $request) use (&$captured): array {
         $captured = $request;
@@ -108,17 +108,17 @@ test('live vision proposed-v9 loads held-out prompt without touching live meta',
         $fixture,
         1,
         liveVision: true,
-        promptVersion: 'proposed-v9',
+        promptVersion: 'v10',
     );
 
     expect($captured)->toBeInstanceOf(AiCompletionRequest::class)
-        ->and($captured->promptVersion)->toBe('room-assessment-v9')
-        ->and($captured->prompt)->toContain('schrijf alle vrije tekst')
+        ->and($captured->promptVersion)->toBe('room-assessment-v10')
+        ->and($captured->prompt)->toContain('uitsluitend in het Nederlands')
         ->and($captured->prompt)->toContain('Nederlands')
-        ->and($result['prompt_versions']['room_assessment'])->toBe('room-assessment-v9')
-        ->and($result['prompt_source'])->toBe('proposed')
+        ->and($result['prompt_versions']['room_assessment'])->toBe('room-assessment-v10')
+        ->and($result['prompt_source'])->toBe('live')
         ->and($result['scores']['model_raw']['claim.english_free_text']['status'])->toBe('correct')
-        ->and(app(PromptVersionRepository::class)->version('room_assessment'))->toBe('room-assessment-v8');
+        ->and(app(PromptVersionRepository::class)->version('room_assessment'))->toBe('room-assessment-v10');
 });
 
 test('live vision outdoor fixture stays stub until prompt is enabled', function () {
@@ -164,7 +164,7 @@ test('eval:interpretation --fake --live-vision --kind=photo_observation writes r
         '--repeats' => 1,
         '--kind' => 'photo_observation',
         '--live-vision' => true,
-        '--prompt-version' => 'v8',
+        '--prompt-version' => 'v10',
         '--output' => $tmp,
     ]);
     $output = Artisan::output();
@@ -180,7 +180,7 @@ test('eval:interpretation --fake --live-vision --kind=photo_observation writes r
     $report = json_decode((string) file_get_contents($jsonFiles[0]), true);
     expect($report)->toBeArray()
         ->and($report['live_vision'])->toBeTrue()
-        ->and($report['prompt_version_selector'])->toBe('v8');
+        ->and($report['prompt_version_selector'])->toBe('v10');
 
     $executedIds = [];
     foreach ($report['cases'] as $case) {
@@ -202,7 +202,7 @@ test('eval:interpretation --fake --live-vision --kind=photo_observation writes r
 test('EvalPromptVersionResolver rejects unknown selector', function () {
     $resolver = app(EvalPromptVersionResolver::class);
 
-    expect(fn () => $resolver->resolve('room_assessment', 'proposed-v99'))
+    expect(fn () => $resolver->resolve('room_assessment', 'proposed-missing'))
         ->toThrow(InvalidArgumentException::class);
 });
 
@@ -239,11 +239,11 @@ test('interpretation eval runner passes liveVision flag into photo cases', funct
         forceFake: true,
         kinds: ['photo_observation'],
         liveVision: true,
-        promptVersion: 'proposed-v9',
+        promptVersion: 'v10',
     );
 
     expect($result['report']['live_vision'])->toBeTrue()
-        ->and($result['report']['prompt_version_selector'])->toBe('proposed-v9');
+        ->and($result['report']['prompt_version_selector'])->toBe('v10');
 
     $liveCases = array_values(array_filter(
         $result['report']['cases'],
@@ -251,8 +251,8 @@ test('interpretation eval runner passes liveVision flag into photo cases', funct
     ));
     expect($liveCases)->not->toBeEmpty();
     foreach ($liveCases as $case) {
-        expect($case['prompt_versions']['room_assessment'] ?? null)->toBe('room-assessment-v9')
-            ->and($case['prompt_source'])->toBe('proposed');
+        expect($case['prompt_versions']['room_assessment'] ?? null)->toBe('room-assessment-v10')
+            ->and($case['prompt_source'])->toBe('live');
     }
 
     File::deleteDirectory($tmp);

@@ -79,24 +79,17 @@ test('N44 outdoor English evidence risk fails forbidden claim (sibling prompt we
         ->and($result['scores']['model_raw']['outdoor_location']['status'])->toBe('correct');
 });
 
-test('N44 proposed room-assessment-v9 is held out; live prompt stays v8', function () {
+test('N44 room-assessment-v10 is live with Dutch evidence instructions', function () {
     $liveMeta = require __DIR__.'/../../../app/Domains/AI/Prompts/room_assessment/meta.php';
-    expect($liveMeta['version'])->toBe('room-assessment-v8');
+    expect($liveMeta['version'])->toBe('room-assessment-v10');
 
-    $proposedMeta = require __DIR__.'/../../../app/Domains/AI/Prompts/room_assessment/proposed-v9/meta.php';
-    expect($proposedMeta['version'])->toBe('room-assessment-v9');
-
-    $proposedBody = (string) file_get_contents(
-        __DIR__.'/../../../app/Domains/AI/Prompts/room_assessment/proposed-v9/prompt.md',
-    );
     $liveBody = (string) file_get_contents(
         __DIR__.'/../../../app/Domains/AI/Prompts/room_assessment/prompt.md',
     );
 
-    expect($proposedBody)->toContain('schrijf alle vrije tekst')
-        ->and($proposedBody)->toContain('Nederlands')
-        ->and($liveBody)->not->toContain('schrijf alle vrije tekst')
-        ->and($liveBody)->not->toBe($proposedBody);
+    expect($liveBody)->toContain('Taal (hard')
+        ->and($liveBody)->toContain('Nederlands')
+        ->and($liveBody)->toContain('The room contains a bed and a dresser');
 });
 
 test('N44 photo fixtures exist without EXIF marker', function () {
