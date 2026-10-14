@@ -107,6 +107,12 @@ final class DerivePhotoAnswers
         $matchingOutputs = [];
         $anyMismatch = false;
         $assessedAny = false;
+        $needsRebuild = ! IntakeExternalFact::query()
+            ->where('intake_id', $intake->id)
+            ->where('fact_key', $this->factKey($photoQuestionKey, $sectionInstanceKey))
+            ->where('source', self::SOURCE)
+            ->exists();
+        $matchingUploadIds = [];
         /** @var array{run: AiRun, trace: AiTraceHandle, dossier_before: array<string, mixed>, questions_before: array<string, mixed>}|null $applyContext */
         $applyContext = null;
 
@@ -117,6 +123,27 @@ final class DerivePhotoAnswers
                 if ($existing->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
                     && ! $existing->customerAcceptedMismatch()) {
                     $anyMismatch = true;
+                }
+
+                // After removal, rebuild from the surviving photo's own successful run.
+                // Definitive assessments and completed intakes are never rewritten.
+                if ($needsRebuild
+                    && in_array($intake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)
+                    && $existing->status() === PhotoContentAssessment::STATUS_OK
+                    && in_array($upload->id, $recentIds, true)) {
+                    $cachedRun = AiRun::query()
+                        ->where('intake_id', $intake->id)
+                        ->where('upload_id', $upload->id)
+                        ->where('type', AiRunType::PhotoAssessment)
+                        ->where('status', AiRunStatus::Succeeded)
+                        ->latest('id')->first();
+                    if ($cachedRun instanceof AiRun
+                        && is_array($cachedRun->output)
+                        && ($cachedRun->output['subject_match'] ?? 'yes') === 'yes') {
+                        $matchingOutputs[] = $cachedRun->output;
+                        $matchingUploadIds[] = $upload->id;
+                        $lastRun = $cachedRun;
+                    }
                 }
 
                 continue;
@@ -167,6 +194,7 @@ final class DerivePhotoAnswers
 
             if ($isMatching) {
                 $matchingOutputs[] = $run->output;
+                $matchingUploadIds[] = $upload->id;
                 if ($assessed['trace'] instanceof AiTraceHandle) {
                     // Eerdere apply-kandidaat sluiten zonder apply — alleen de laatste krijgt apply.
                     if ($applyContext !== null) {
@@ -190,7 +218,7 @@ final class DerivePhotoAnswers
         }
 
         // Geen nieuwe beoordeling én geen onopgeloste mismatch → afleidingen intact.
-        if (! $assessedAny && ! $anyMismatch) {
+        if (! $assessedAny && ! $anyMismatch && $matchingOutputs === []) {
             return AiRun::query()
                 ->where('intake_id', $intake->id)
                 ->where('type', AiRunType::PhotoAssessment)
@@ -206,8 +234,8 @@ final class DerivePhotoAnswers
 
         if ($matchingOutputs !== []) {
             $output = $this->mergeOutputs($matchingOutputs, $profile);
-            $matchingUploads = $allUploads->filter(static function (IntakeUpload $upload) use ($recentIds): bool {
-                if (! in_array($upload->id, $recentIds, true)) {
+            $matchingUploads = $allUploads->filter(static function (IntakeUpload $upload) use ($matchingUploadIds): bool {
+                if (! in_array($upload->id, $matchingUploadIds, true)) {
                     return false;
                 }
 
