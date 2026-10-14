@@ -23,11 +23,16 @@ class RefreshStoredIntakeReport
     {
         try {
             $this->rebuildIntakeReportHtml->handle($intake);
-            // N69: installer decisions change the dossier; refresh the AI proposal when it is stale.
-            $this->summaryDossierContext->dispatchIfStale($intake);
             if (! $intake->is_demo) {
                 GenerateIntakePdfJob::dispatch($intake->id);
             }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            // N69: installer decisions change the dossier; refresh the AI proposal when it is stale.
+            $this->summaryDossierContext->dispatchIfStale($intake);
         } catch (\Throwable $e) {
             report($e);
         }

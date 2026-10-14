@@ -8,16 +8,24 @@ use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\SummaryDossierContext;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\DossierRecord;
+use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
+use App\Enums\DossierRecordKind;
+use App\Enums\DossierRecordStatus;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -135,4 +143,73 @@ test('no re-queue without an existing ai summary or when the intake is not compl
     $intake->update(['status' => IntakeStatus::Sent]);
     expect($context->dispatchIfStale($intake->fresh()))->toBeFalse();
     Queue::assertNothingPushed();
+});
+
+function n69Record(Intake $intake, DossierSubject $subject, string $key, mixed $value, DossierRecordStatus $status, string $source = 'ai'): void
+{
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $subject->id,
+        'kind' => DossierRecordKind::Observation,
+        'key' => $key,
+        'value' => $value,
+        'actor_type' => 'system',
+        'method' => 'test',
+        'observed_at' => now(),
+        'source_type' => $source,
+        'status' => $status,
+    ]);
+}
+
+test('dossier records: only established, value capped, installer first, hash over passed set', function () {
+    [, $intake] = n69IntakeWithSelectedBedroomsOnly();
+    $subject = DossierSubject::query()->create([
+        'intake_id' => $intake->id, 'company_id' => $intake->company_id, 'type' => 'survey', 'key' => 'n69-subject', 'label' => 'X',
+    ]);
+    n69Record($intake, $subject, 'a_ai', 'x', DossierRecordStatus::Established, 'ai');
+    n69Record($intake, $subject, 'b_installer', str_repeat('z', 2000), DossierRecordStatus::Established, 'installer');
+    n69Record($intake, $subject, 'c_unconfirmed', 'maybe', DossierRecordStatus::Proposed, 'ai');
+
+    $context = app(SummaryDossierContext::class);
+    $built = $context->build($intake->fresh());
+    $records = collect($built['dossier_records'])->where('subject', 'n69-subject')->values();
+
+    expect($records->pluck('key')->all())->toBe(['b_installer', 'a_ai'])
+        ->and(mb_strlen($records[0]['value']))->toBe(300);
+
+    $before = $context->hash($intake->fresh());
+    n69Record($intake, $subject, 'd_unconfirmed', 'again', DossierRecordStatus::Proposed, 'ai');
+    expect($context->hash($intake->fresh()))->toBe($before);
+});
+
+test('a persistently stale summary is queued at most three times per dossier state', function () {
+    [, $intake] = n69IntakeWithSelectedBedroomsOnly();
+    $intake = n69CompletedWithReport($intake);
+    $intake->report->update(['meta' => ['ai_summary' => ['summary' => 's'], 'ai_dossier_hash' => 'old']]);
+
+    Queue::fake();
+    $context = app(SummaryDossierContext::class);
+    $results = collect(range(1, 5))->map(fn () => $context->dispatchIfStale($intake->fresh()));
+
+    expect($results->filter()->count())->toBe(3);
+});
+
+test('summarize job is unique per intake', function () {
+    $job = new SummarizeIntakeJob(42);
+    expect($job)->toBeInstanceOf(ShouldBeUnique::class)
+        ->and($job->uniqueId())->toBe('42');
+});
+
+test('a failing summary dispatch does not skip the pdf refresh', function () {
+    [, $intake] = n69IntakeWithSelectedBedroomsOnly();
+    $intake = n69CompletedWithReport($intake);
+    $intake->report->update(['meta' => ['ai_summary' => ['summary' => 's'], 'ai_dossier_hash' => 'old']]);
+    $intake->update(['is_demo' => false]);
+    Queue::fake();
+    Cache::shouldReceive('add')->andThrow(new RuntimeException('cache down'));
+
+    app(RefreshStoredIntakeReport::class)->handle($intake->fresh());
+
+    Queue::assertPushed(GenerateIntakePdfJob::class);
 });
