@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
+use App\Domains\Intake\Services\SyncRouteAttentionPoints;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoOptionStatus;
 use App\Enums\IntakeStatus;
@@ -168,6 +169,9 @@ final class CompleteInstallerSurvey
 
             return $fresh;
         }, 3);
+
+        // N77: bulk-approved routes must resolve the corresponding system attention points.
+        app(SyncRouteAttentionPoints::class)->handle($completed);
 
         SynthesizeSurveyDossierJob::dispatch($completed->id);
 

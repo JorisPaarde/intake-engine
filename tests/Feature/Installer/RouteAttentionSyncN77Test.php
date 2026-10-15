@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\Intake\Actions\ApprovePipeRoute;
+use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\DecideAircoConnection;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
@@ -112,4 +113,44 @@ test('N77 recreates missing system points when a previously-approved route is re
     expect($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'condensate_pump_open')->where('is_resolved', false)->exists())->toBeTrue()
         ->and($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'drillings_open')->where('is_resolved', false)->exists())->toBeTrue()
         ->and($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'pipe_route_open')->where('is_resolved', false)->exists())->toBeFalse();
+});
+
+test('N77 bulk approval via CompleteInstallerSurvey resolves the three route attention points', function () {
+    $user = User::factory()->create();
+    [
+        'intake' => $intake,
+        'connection' => $connection,
+        'condensate' => $condensate,
+        'power' => $power,
+    ] = createRouteDecisionWorkspace($user);
+
+    foreach (['condensate_pump_open', 'pipe_route_open', 'drillings_open'] as $code) {
+        $intake->attentionPoints()->updateOrCreate(
+            ['source' => AttentionPointSource::System, 'code' => $code],
+            ['label' => 'Oud punt', 'is_resolved' => false, 'resolved_at' => null, 'resolved_by' => null],
+        );
+    }
+    expect($intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->where('is_resolved', false)->count())->toBe(3);
+
+    foreach ([$connection, $condensate, $power] as $toApprove) {
+        $this->actingAs($user)
+            ->post(route('intakes.workspace.connections.decide', [$intake, $toApprove]), [
+                'decision' => 'approve',
+            ])
+            ->assertRedirect();
+    }
+
+    // Individual decides already sync via RefreshStoredIntakeReport; force open again
+    // so the bulk path is what must resolve them.
+    $intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->update([
+        'is_resolved' => false,
+        'resolved_at' => null,
+        'resolved_by' => null,
+        'label' => 'Oud punt',
+    ]);
+
+    app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
+
+    expect($intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->where('is_resolved', false)->count())->toBe(0)
+        ->and($intake->fresh()->status->value)->toBe('completed');
 });
