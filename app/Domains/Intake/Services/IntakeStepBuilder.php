@@ -13,6 +13,7 @@ use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
+use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\QuestionType;
@@ -312,6 +313,10 @@ final class IntakeStepBuilder
                 $context,
                 $forceShow,
             );
+
+            if (PhotoFollowUpWaiver::waives($intake, $intake->templateVersion, $question, $sectionInstanceKey)) {
+                $presentation['required'] = false;
+            }
 
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
             $wizardGroup = is_string($question->meta['wizard_group'] ?? null)

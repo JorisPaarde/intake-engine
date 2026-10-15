@@ -521,7 +521,18 @@
                                                 @endunless
                                             </div>
                                         </div>
-                                        @if ($roomMeasures->hasTrustedAreaM2() || $roomMeasures->areaSource())
+                                        @php
+                                            $areaAnswer = $intake->answers->first(fn ($answer) => $answer->question_key === 'room_area_m2' && $answer->section_instance_key === $room->key);
+                                            $areaFactSource = \App\Domains\Intake\Support\FactSource::tryFrom((string) $areaAnswer?->fact_source);
+                                            $areaProvenance = \App\Domains\Intake\Support\FactProvenance::tryFromMixed($areaAnswer?->fact_provenance);
+                                        @endphp
+                                        @if (! \App\Domains\Intake\Support\RoomDimensions::isInstallerOwned($room->dimensions) && $areaFactSource)
+                                            <div class="sm:col-span-2 text-xs text-gray-500">
+                                                Bron oppervlak: {{ $areaFactSource->installerLabel() }}
+                                                @if ($areaProvenance) · {{ $areaProvenance->installerLabel() }} @endif
+                                                @if ($areaAnswer->fact_confidence !== null) · zekerheid: {{ $areaAnswer->fact_confidence }}% @endif
+                                            </div>
+                                        @elseif ($roomMeasures->hasTrustedAreaM2() || $roomMeasures->areaSource())
                                             <div class="sm:col-span-2 text-xs text-gray-500">
                                                 @if ($roomMeasures->areaSource())
                                                     Bron oppervlak: {{ \App\Domains\Intake\Support\InstallerDisplayLabels::source($roomMeasures->areaSource()) }}
