@@ -999,6 +999,21 @@ final class SurveyWorkspaceController extends Controller
         }
 
         abort_unless(($task->meta['source_type'] ?? null) === 'ai', 404);
+        if ($request->has('contribution_items')) {
+            $data = $request->validate([
+                'contribution_items' => ['array', 'max:'.config('intake.follow_up.max_items_per_round', 5)],
+                'contribution_items.*' => ['array'],
+                'contribution_items.*.type' => ['required', Rule::enum(FollowUpItemType::class)],
+                'contribution_items.*.prompt' => ['nullable', 'string', 'max:500'],
+                'contribution_items.*.decision_area_key' => ['nullable', 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote'],
+                'contribution_items.*.dossier_subject_id' => ['nullable', 'integer'],
+                'contribution_items.*.photo_task_subtype' => ['nullable', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
+                'contribution_items.*.proposal_id' => ['nullable', 'integer'],
+            ]);
+            $request->session()->put('customer_task_drafts', $data['contribution_items']);
+            $request->session()->forget('customer_task_draft');
+        }
+
         // Keep proposal identity separate from installer-controlled concepts, even
         // when their area, subject and photo subtype are identical.
         $drafts = $this->sessionCustomerTaskDrafts($request);

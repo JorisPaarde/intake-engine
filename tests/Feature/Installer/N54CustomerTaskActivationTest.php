@@ -44,8 +44,9 @@ test('N54 proposal enters concept list without activating or replacing installer
         'meta' => ['source_type' => 'ai', ...PhotoSubject::photoTaskMetaForSubtype('power_route')],
     ]);
     $this->actingAs($this->user)->post(route('intakes.workspace.tasks.prepare', $this->intake), $this->item);
-    $this->post(route('intakes.workspace.tasks.send', [$this->intake, $proposal]))
-        ->assertSessionHas('customer_task_drafts.0.prompt', $this->item['prompt'])
+    $edited = [...$this->item, 'prompt' => 'Mijn gecontroleerde stroomkabelopdracht.'];
+    $this->post(route('intakes.workspace.tasks.send', [$this->intake, $proposal]), ['contribution_items' => [$edited]])
+        ->assertSessionHas('customer_task_drafts.0.prompt', $edited['prompt'])
         ->assertSessionHas('customer_task_drafts.1.proposal_id', $proposal->id)
         ->assertSessionHas('customer_task_drafts.1.photo_task_subtype', 'power_route');
     expect($this->intake->followUpRounds()->count())->toBe(0)
@@ -55,6 +56,8 @@ test('N54 proposal enters concept list without activating or replacing installer
     $this->post(route('intakes.workspace.tasks.send', [$this->intake, $proposal]));
     expect(session('customer_task_drafts'))->toHaveCount(2);
     $this->get(route('intakes.workspace', $this->intake))->assertOk()
+        ->assertSee('form="customer-task-draft-form"', false)
+        ->assertSee('formaction="'.route('intakes.workspace.tasks.send', [$this->intake, $proposal]).'"', false)
         ->assertSee('Voorstel toevoegen aan conceptlijst')->assertDontSee('Controleren en klantweergave activeren');
     $this->post(route('intakes.workspace.tasks.store', $this->intake), ['contribution_items' => [$this->item]])->assertSessionHasNoErrors();
     expect($this->intake->followUpRounds()->sole()->items()->sole()->prompt)->toBe($this->item['prompt'])
@@ -107,7 +110,7 @@ test('N54 answered usable evidence requires explicit repeat confirmation and dis
     expect($this->intake->followUpRounds()->count())->toBe(3);
 })->with(['usable' => [true, false], 'wrong subject' => [false, false], 'removed' => [true, true]]);
 
-test('N54 stale proposal ids cannot activate', function () {
+test('N54 reviewed concept can activate after original AI proposal is cancelled', function () {
     $proposal = ContributionTask::query()->create([
         'intake_id' => $this->intake->id, 'company_id' => $this->intake->company_id,
         'audience' => ContributionAudience::Customer, 'type' => FollowUpItemType::Photo,
@@ -116,6 +119,41 @@ test('N54 stale proposal ids cannot activate', function () {
     ]);
     $this->actingAs($this->user)->post(route('intakes.workspace.tasks.store', $this->intake), [
         'contribution_items' => [[...$this->item, 'proposal_id' => $proposal->id]],
-    ])->assertSessionHasErrors('contribution_items');
-    expect($this->intake->followUpRounds()->count())->toBe(0);
+    ])->assertSessionHasNoErrors();
+    expect($this->intake->followUpRounds()->sole()->items()->sole()->prompt)->toBe($this->item['prompt'])
+        ->and($proposal->fresh()->status)->toBe(ContributionTaskStatus::Cancelled);
 });
+
+test('N54 document evidence requires repeat confirmation without response text', function (string $state) {
+    $item = ['type' => 'document', 'prompt' => 'Upload het document.', 'decision_area_key' => 'power'];
+    $round = app(CreateCustomerContributionRequest::class)->handle($this->intake, $this->user, [$item]);
+    $answer = $round->items()->sole();
+    $answer->update(['answered_at' => now()]);
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $this->intake->id, 'intake_follow_up_item_id' => $answer->id,
+        'question_key' => 'follow_up_'.$answer->id, 'disk' => 'local', 'path' => 'document.pdf',
+        'original_filename' => 'document.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 100,
+        'checksum' => hash('sha256', 'document'), 'sort_order' => 1,
+        'content_assessment' => $state === 'rejected'
+            ? PhotoContentAssessment::wrongSubject(PhotoSubject::PipeRoute, PhotoSubject::Room)->toArray() : null,
+    ]);
+    if ($state === 'removed') {
+        $upload->delete();
+    }
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+    $this->intake->update(['status' => IntakeStatus::InProgress, 'customer_access_enabled' => false]);
+    expect($answer->fresh()->response_text)->toBeNull();
+    $response = $this->actingAs($this->user)->post(route('intakes.workspace.tasks.store', $this->intake), [
+        'contribution_items' => [[...$item, 'prompt' => 'Andere tekst voor hetzelfde document.']],
+    ]);
+    if ($state === 'usable') {
+        $response->assertSessionHasErrors('contribution_items.0.repeat_confirmed');
+        expect($this->intake->followUpRounds()->count())->toBe(1);
+        $this->post(route('intakes.workspace.tasks.store', $this->intake), [
+            'contribution_items' => [[...$item, 'repeat_confirmed' => '1']],
+        ])->assertSessionHasNoErrors();
+    } else {
+        $response->assertSessionHasNoErrors();
+    }
+    expect($this->intake->followUpRounds()->count())->toBe(2);
+})->with(['usable', 'removed', 'rejected']);

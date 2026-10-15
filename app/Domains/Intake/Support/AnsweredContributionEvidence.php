@@ -54,9 +54,13 @@ final class AnsweredContributionEvidence
                 continue;
             }
 
-            $usable = $type === FollowUpItemType::Photo->value
-                ? $answer->uploads->contains(static fn ($upload): bool => $upload->contentAssessment()?->status() === PhotoContentAssessment::STATUS_OK)
-                : filled($answer->response_text);
+            $usable = match ($type) {
+                FollowUpItemType::Photo->value => $answer->uploads->contains(static fn ($upload): bool => $upload->contentAssessment()?->status() === PhotoContentAssessment::STATUS_OK),
+                FollowUpItemType::Document->value => $answer->uploads->contains(static fn ($upload): bool => $upload->mime_type === 'application/pdf'
+                    && $upload->size_bytes > 0
+                    && $upload->isDossierEvidenceEligible()),
+                default => filled($answer->response_text),
+            };
             if ($usable) {
                 return 'Voor dit onderdeel is in klantronde '.$answer->round->round_number.' al een antwoord met bruikbaar bewijs ontvangen. Controleer dit voordat je opnieuw iets vraagt.';
             }

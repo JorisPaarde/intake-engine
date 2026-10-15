@@ -1458,12 +1458,9 @@
                                             <p class="mt-2 text-sm text-amber-900" role="status">{{ $proposalWarning }}</p>
                                         @endif
                                         <p class="mt-2 text-xs text-gray-600">Voeg dit voorstel toe om het te controleren. Hiermee activeer je nog geen klanttaak.</p>
-                                        <form method="POST" action="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3">
-                                            @csrf
-                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" @disabled($customerRoundsExhausted)>
-                                                Voorstel toevoegen aan conceptlijst
-                                            </button>
-                                        </form>
+                                        <button form="customer-task-draft-form" formaction="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3 min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" @disabled($customerRoundsExhausted)>
+                                            Voorstel toevoegen aan conceptlijst
+                                        </button>
                                     </article>
                                 @endforeach
                             </div>
@@ -1485,7 +1482,7 @@
                             @if ($customerRoundsExhausted)
                                 <p class="mt-3 text-sm text-amber-900">Je kunt geen nieuwe klanttaak meer versturen.</p>
                             @else
-                            <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4" data-testid="customer-task-draft-form">
+                            <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4" id="customer-task-draft-form" data-testid="customer-task-draft-form">
                                 @csrf
                                 @for ($index = 0; $index < $customerTaskDraftSlotCount; $index++)
                                     @php

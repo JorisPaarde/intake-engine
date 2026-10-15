@@ -137,17 +137,6 @@ final class CreateCustomerContributionRequest
 
             $aligned = [];
             foreach ($items as $index => $item) {
-                if (isset($item['proposal_id'])) {
-                    $proposal = ContributionTask::query()
-                        ->where('intake_id', $intake->id)
-                        ->where('status', ContributionTaskStatus::Proposed)
-                        ->find($item['proposal_id']);
-                    if (! $proposal || ($proposal->meta['source_type'] ?? null) !== 'ai') {
-                        throw ValidationException::withMessages([
-                            'contribution_items' => 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.',
-                        ]);
-                    }
-                }
                 $aligned[] = $this->subjectLinker->alignItem(
                     $intake,
                     $item,
@@ -230,6 +219,8 @@ final class CreateCustomerContributionRequest
             foreach ($items as $item) {
                 if (isset($item['proposal_id'])) {
                     ContributionTask::query()->where('intake_id', $intake->id)
+                        ->where('meta->source_type', 'ai')
+                        ->where('status', ContributionTaskStatus::Proposed)
                         ->whereKey($item['proposal_id'])->update(['status' => ContributionTaskStatus::Cancelled]);
                 }
             }
