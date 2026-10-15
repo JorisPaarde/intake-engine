@@ -27,7 +27,9 @@ use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -40,6 +42,8 @@ use Throwable;
 final class AssessFuseboxPhotos
 {
     public const SOURCE = 'AI-fotoanalyse';
+
+    public const MAX_FOLLOW_UP_CANDIDATES = 3;
 
     private const PHOTO_QUESTION = 'fusebox_photo';
 
@@ -59,6 +63,110 @@ final class AssessFuseboxPhotos
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
         private readonly AiTraceRequestIdResolver $requestIdResolver,
     ) {}
+
+    /** Follow-up analysis adds an AI run; uploaded evidence remains immutable. */
+    public function handleFollowUp(Intake $intake, int $roundId): void
+    {
+        if (! self::mayAnalyzeFollowUp($intake) || ! config('ai.photo_inference.enabled', false)) {
+            return;
+        }
+
+        $matched = null;
+        foreach (self::followUpFuseboxCandidates($intake, $roundId) as $candidate) {
+            if (! self::mayAnalyzeFollowUp($intake->fresh() ?? $intake)) {
+                return;
+            }
+            $result = $this->assessUpload($intake, $candidate, PhotoSubject::Fusebox, writeAssessment: false);
+            $candidateOutput = $result['run']->output;
+            if ($result['run']->status === AiRunStatus::Succeeded
+                && ($candidateOutput['subject_match'] ?? null) === 'yes') {
+                $matched = [$candidate, $result, $candidateOutput];
+                break;
+            }
+            if ($result['trace'] instanceof AiTraceHandle) {
+                $this->finalizeContentOnlyTrace($result['trace'], $intake, $result['dossier_before'], $result['questions_before']);
+            }
+        }
+        if ($matched === null) {
+            return;
+        }
+        [$upload, $assessed, $output] = $matched;
+        $run = $assessed['run'];
+
+        DB::transaction(function () use ($intake, $upload, $run, $output, $assessed): void {
+            $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            if (! self::mayAnalyzeFollowUp($locked)) {
+                return;
+            }
+            $current = IntakeUpload::query()->find($upload->id);
+            if (! $current instanceof IntakeUpload || ! $current->isDossierEvidenceEligible()
+                || $this->aiImageResolver->identity($current) !== $this->aiImageResolver->identity($upload)) {
+                return;
+            }
+            $fact = $locked->externalFacts()->where('fact_key', 'fusebox_photo_assessment')
+                ->where('source', self::SOURCE)->first();
+            $previousIds = $fact?->value['upload_ids'] ?? [];
+            if (($fact?->source_reference === 'ai-run:'.$run->id)
+                || (is_array($previousIds) && $previousIds !== [] && max($previousIds) > $upload->id)) {
+                return;
+            }
+
+            $this->storeObservation($locked, $run, $output, collect([$current]), $assessed['trace']?->traceId());
+            // Only AI-derived answers may change; customer/installer answers stay authoritative.
+            $locked->answers()->whereNull('section_instance_key')
+                ->where('question_key', self::TARGET_QUESTION)
+                ->whereIn('prefill_source', [PrefillSources::AI_PHOTO, PrefillSources::AI_PHOTO_SUGGESTION])
+                ->delete();
+            if ($this->hasQuestion($locked, self::CLARITY_QUESTION)) {
+                $answer = $locked->answers()->whereNull('section_instance_key')
+                    ->where('question_key', self::CLARITY_QUESTION)->first();
+                if ($answer === null || PrefillSources::photoMayOverwrite($answer->prefill_source)) {
+                    $this->saveIntakeAnswer->handle(
+                        $locked,
+                        self::CLARITY_QUESTION,
+                        null,
+                        ['value' => $this->clarityValue($output)],
+                        PrefillSources::AI_PHOTO,
+                        factProvenance: 'inferred',
+                        factConfidence: $output['confidence'] === 'high' ? 90 : 60,
+                        factEvidence: $output['evidence'],
+                        factSource: 'foto',
+                        allowFollowUpPhotoPrefill: true,
+                    );
+                }
+            }
+        });
+
+        if ($assessed['trace'] instanceof AiTraceHandle) {
+            $this->finalizeContentOnlyTrace($assessed['trace'], $intake, $assessed['dossier_before'], $assessed['questions_before']);
+        }
+    }
+
+    /** @return Collection<int, IntakeUpload> */
+    public static function followUpFuseboxCandidates(Intake $intake, int $roundId, int $limit = self::MAX_FOLLOW_UP_CANDIDATES): Collection
+    {
+        return $intake->uploads()
+            ->where('mime_type', 'like', 'image/%')
+            ->whereHas('followUpItem.round', static fn ($query) => $query
+                ->whereKey($roundId)->where('status', FollowUpRoundStatus::Completed))
+            ->orderByDesc('id')->cursor()
+            ->filter(static function (IntakeUpload $upload): bool {
+                if (! $upload->isDossierEvidenceEligible()) {
+                    return false;
+                }
+                $assessment = $upload->contentAssessment();
+
+                return $upload->assessment_status === PhotoAssessmentStatus::Pending
+                    || $assessment === null || $assessment->needsReassessment()
+                    || in_array($assessment->detectedSubject(), [null, PhotoSubject::Fusebox, PhotoSubject::Other], true);
+            })->take($limit)->collect();
+    }
+
+    public static function mayAnalyzeFollowUp(Intake $intake): bool
+    {
+        return $intake->reviewed_at === null
+            && ! in_array($intake->status, [IntakeStatus::Reviewed, IntakeStatus::Cancelled], true);
+    }
 
     public function handle(Intake $intake, ?string $correlationId = null): ?AiRun
     {
@@ -447,7 +555,7 @@ final class AssessFuseboxPhotos
      *     persistence: array{id: int|string, checksum: mixed, mime_type: string, variant: string}
      * }
      */
-    private function assessUpload(Intake $intake, IntakeUpload $upload, PhotoSubject $expected, ?string $correlationId = null): array
+    private function assessUpload(Intake $intake, IntakeUpload $upload, PhotoSubject $expected, ?string $correlationId = null, bool $writeAssessment = true): array
     {
         $promptName = (string) config('ai.fusebox_prompt', 'fusebox_assessment');
         $promptVersion = $this->promptVersions->version($promptName);
@@ -478,7 +586,9 @@ final class AssessFuseboxPhotos
             ->first();
 
         if ($existing instanceof AiRun && is_array($existing->output)) {
-            $this->applyUploadAssessment($upload, $expected, $existing->output);
+            if ($writeAssessment) {
+                $this->applyUploadAssessment($upload, $expected, $existing->output);
+            }
 
             return [
                 'run' => $existing,
@@ -503,7 +613,9 @@ final class AssessFuseboxPhotos
         ]);
 
         // Per-upload correlation via #136 AiTraceRequestIdResolver (not a shared batch id).
-        $uploadCorrelationId = $this->requestIdResolver->resolveCorrelationIdForUpload($upload);
+        $uploadCorrelationId = $writeAssessment
+            ? $this->requestIdResolver->resolveCorrelationIdForUpload($upload)
+            : $this->requestIdResolver->resolveCorrelationId($upload->processing_timings['correlation_id'] ?? $correlationId);
 
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, [
             'ai_run_id' => $run->id,
@@ -571,7 +683,9 @@ final class AssessFuseboxPhotos
                 'finished_at' => now(),
             ]);
 
-            $this->applyUploadAssessment($current, $expected, $output);
+            if ($writeAssessment) {
+                $this->applyUploadAssessment($current, $expected, $output);
+            }
 
             $freshRun = $run->fresh() ?? $run;
             $trace->linkAiRun($freshRun);
@@ -600,7 +714,7 @@ final class AssessFuseboxPhotos
                 'finished_at' => now(),
             ]);
 
-            if (IntakeUpload::query()->whereKey($upload->id)->exists()) {
+            if ($writeAssessment && IntakeUpload::query()->whereKey($upload->id)->exists()) {
                 $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
             }
 

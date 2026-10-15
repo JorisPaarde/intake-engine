@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Actions\AssessFuseboxPhotos;
+use App\Domains\AI\Jobs\AssessFollowUpFuseboxJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
@@ -151,17 +153,29 @@ final class CompleteFollowUpRound
         $this->applyTextContributions($completed, $round->fresh()?->load('items') ?? $round);
         $this->decisionReadiness->recalculate($completed);
 
+        $fuseboxJobs = AssessFuseboxPhotos::mayAnalyzeFollowUp($completed)
+            && AssessFuseboxPhotos::followUpFuseboxCandidates($completed, $round->id, limit: 1)->isNotEmpty()
+                ? [new AssessFollowUpFuseboxJob($completed->id, $round->id)]
+                : [];
+
         if ($completed->status !== IntakeStatus::Completed) {
-            SynthesizeSurveyDossierJob::dispatch($completed->id);
+            if ($fuseboxJobs === []) {
+                SynthesizeSurveyDossierJob::dispatch($completed->id);
+            } else {
+                Bus::chain([
+                    ...$fuseboxJobs,
+                    new SynthesizeSurveyDossierJob($completed->id),
+                ])->dispatch();
+            }
             $this->rebuildIntakeReportHtml->handle($completed);
 
             return $completed;
         }
 
-        // N58: re-summarize so the report's "AI-voorstel" reflects round answers
-        // (e.g. "3x25A"); same chain as CompleteIntake so synthesis applies on a
-        // stable post-summary/attention context. SummarizeIntake re-renders the PDF.
+        // N58: re-summarize so the report reflects round answers. N49: refresh
+        // fusebox evidence first, outside the customer request.
         Bus::chain([
+            ...$fuseboxJobs,
             new SummarizeIntakeJob($completed->id),
             new SuggestAttentionPointsJob($completed->id),
             new SynthesizeSurveyDossierJob($completed->id),
