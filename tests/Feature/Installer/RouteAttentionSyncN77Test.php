@@ -41,8 +41,12 @@ beforeEach(function () {
         'type' => AircoConnectionType::Condensate, 'label' => 'Afvoer slaapkamer',
         'from_placement_id' => $inside->id, 'status' => AircoConnectionStatus::Proposed,
     ]);
+    // SyncRouteAttentionPoints may already have created these during survey setup.
     foreach (['condensate_pump_open', 'pipe_route_open', 'drillings_open'] as $code) {
-        $this->intake->attentionPoints()->create(['source' => AttentionPointSource::System, 'code' => $code, 'label' => 'Oud punt', 'is_resolved' => false]);
+        $this->intake->attentionPoints()->updateOrCreate(
+            ['source' => AttentionPointSource::System, 'code' => $code],
+            ['label' => 'Oud punt', 'is_resolved' => false, 'resolved_at' => null, 'resolved_by' => null],
+        );
     }
 });
 
@@ -90,4 +94,22 @@ test('N77 session state prevents stale approval and synchronization preserves re
     app(ApprovePipeRoute::class)->handle($session, $this->user);
     expect($reviewer->fresh()->is_resolved)->toBeFalse()
         ->and($reviewer->fresh()->label)->toBe('Eigen aandachtspunt');
+});
+
+test('N77 recreates missing system points when a previously-approved route is restarted', function () {
+    app(DecideAircoConnection::class)->handle($this->intake, $this->cooling, $this->user, 'approve');
+    $session = app(StartPipeRouteSession::class)->handle($this->intake, $this->drain);
+    $session->refresh()->update(['status' => PipeRouteStatus::Proposed]);
+    app(ApprovePipeRoute::class)->handle($session, $this->user);
+    expect($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->where('is_resolved', false)->count())->toBe(0);
+
+    // Simulate customer completion after all routes approved: CompletenessChecker
+    // would not have created these codes, so purge the resolved system records.
+    $this->intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->delete();
+    expect($this->intake->attentionPoints()->where('code', 'condensate_pump_open')->count())->toBe(0);
+
+    app(StartPipeRouteSession::class)->handle($this->intake, $this->drain);
+    expect($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'condensate_pump_open')->where('is_resolved', false)->exists())->toBeTrue()
+        ->and($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'drillings_open')->where('is_resolved', false)->exists())->toBeTrue()
+        ->and($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'pipe_route_open')->where('is_resolved', false)->exists())->toBeFalse();
 });

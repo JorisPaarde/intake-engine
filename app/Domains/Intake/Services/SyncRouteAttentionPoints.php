@@ -17,20 +17,43 @@ final class SyncRouteAttentionPoints
             'pipe_route_open' => 'Open technisch punt: leidingroute nog te beoordelen',
             'drillings_open' => 'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
         ];
-        foreach ($intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', array_keys($labels))->get() as $point) {
-            $current = $checker->routeDecisionAttention($intake, $point->code, $labels[$point->code]);
+
+        foreach ($labels as $code => $label) {
+            $current = $checker->routeDecisionAttention($intake, $code, $label);
             if ($current === null) {
-                // No option: restore the original unresolved decision.
-                $current = [['label' => $labels[$point->code]]];
+                // No installation option yet — leave any existing point alone.
+                continue;
             }
-            $resolved = $current === [];
-            $point->update([
-                'label' => $current[0]['label'] ?? $point->label,
-                'is_resolved' => $resolved,
-                'resolved_at' => $resolved ? ($point->resolved_at ?? now()) : null,
-                'resolved_by' => null,
-            ]);
+
+            $point = $intake->attentionPoints()
+                ->where('source', AttentionPointSource::System)
+                ->where('code', $code)
+                ->first();
+
+            if ($current === []) {
+                if ($point !== null && ! $point->is_resolved) {
+                    $point->update([
+                        'is_resolved' => true,
+                        'resolved_at' => $point->resolved_at ?? now(),
+                        'resolved_by' => null,
+                    ]);
+                }
+
+                continue;
+            }
+
+            $newLabel = $current[0]['label'];
+            $intake->attentionPoints()->updateOrCreate(
+                ['source' => AttentionPointSource::System, 'code' => $code],
+                [
+                    'label' => $newLabel,
+                    'is_resolved' => false,
+                    'resolved_at' => null,
+                    'resolved_by' => null,
+                ],
+            );
         }
+
         $intake->unsetRelation('attentionPoints');
     }
 }
