@@ -207,3 +207,33 @@ test('N54 stale proposal still keeps posted concept edits', function () {
         ->post(route('intakes.workspace.tasks.send', [$this->intake, $proposal]), ['contribution_items' => [$edited]])
         ->assertSessionHas('customer_task_drafts.0.prompt', $edited['prompt']);
 });
+
+test('N54 discarded subtype after normalization counts as overlap; quick better-photo flow is not blocked', function () {
+    $placement = ['type' => 'photo', 'prompt' => 'Maak een foto rond het huis.', 'decision_area_key' => 'placement', 'photo_task_subtype' => 'around_house'];
+    $round = app(CreateCustomerContributionRequest::class)->handle($this->intake, $this->user, [$placement]);
+    $answer = $round->items()->sole();
+    $answer->update(['answered_at' => now()]);
+    IntakeUpload::query()->create([
+        'intake_id' => $this->intake->id, 'intake_follow_up_item_id' => $answer->id,
+        'question_key' => 'follow_up', 'disk' => 'local', 'path' => 'n54-sub.jpg',
+        'original_filename' => 'n54s.jpg', 'mime_type' => 'image/jpeg', 'size_bytes' => 10,
+        'checksum' => hash('sha256', 'n54-sub'), 'sort_order' => 1,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Room)->toArray(),
+    ]);
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+
+    // Normalized meta without subtype (stale top-level power_route discarded) => ambiguous overlap.
+    expect(app(AnsweredContributionEvidence::class)->warning($this->intake, [
+        'type' => 'photo', 'prompt' => 'Andere tekst', 'decision_area_key' => 'placement',
+        'photo_task_subtype' => 'power_route', 'meta' => [],
+    ]))->not->toBeNull();
+
+    $this->intake->update(['status' => IntakeStatus::InProgress, 'customer_access_enabled' => false]);
+    $this->actingAs($this->user)
+        ->post(route('intakes.workspace.tasks.quick', $this->intake), [
+            'type' => 'photo', 'prompt' => 'Maak een scherpere foto rond het huis.',
+            'decision_area_key' => 'placement', 'photo_task_subtype' => 'around_house',
+        ])
+        ->assertSessionHasNoErrors();
+    expect($this->intake->followUpRounds()->count())->toBe(2);
+});

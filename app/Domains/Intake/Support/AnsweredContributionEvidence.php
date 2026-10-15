@@ -28,7 +28,10 @@ final class AnsweredContributionEvidence
         $area = is_string($area) && $area !== '' ? $area : null;
 
         $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
-        $subtype = $item['photo_task_subtype'] ?? ($meta['photo_task_subtype'] ?? null);
+        // Once meta is normalized it is authoritative: a discarded subtype means ambiguous overlap.
+        $subtype = array_key_exists('meta', $item)
+            ? ($meta['photo_task_subtype'] ?? null)
+            : ($item['photo_task_subtype'] ?? null);
         $field = $meta['requested_field'] ?? null;
         $tasks = ContributionTask::query()
             ->where('intake_id', $intake->id)

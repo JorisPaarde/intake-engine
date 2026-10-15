@@ -870,6 +870,8 @@ final class SurveyWorkspaceController extends Controller
             'prompt' => $prompt,
             'decision_area_key' => $data['decision_area_key'] ?? null,
             'dossier_subject_id' => $data['dossier_subject_id'] ?? null,
+            // "Vraag betere foto" is itself the installer's explicit request to ask again.
+            'repeat_confirmed' => true,
         ];
         if (isset($data['photo_task_subtype']) && is_string($data['photo_task_subtype']) && $data['photo_task_subtype'] !== '') {
             $quickItem['photo_task_subtype'] = $data['photo_task_subtype'];
