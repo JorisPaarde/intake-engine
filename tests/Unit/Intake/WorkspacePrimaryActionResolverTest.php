@@ -6,7 +6,9 @@ use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
+use App\Domains\Intake\Models\InstallationOutcome;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
 use App\Enums\AircoOptionFeasibility;
@@ -340,4 +342,62 @@ test('N27: stale review row without reviewed_at does not lead with Je koos', fun
     expect($action['summary'])->toBe('Leg eerst vast waar de binnenunit en buitenunit komen')
         ->and($action['summary'])->not->toContain('Je koos')
         ->and($action['label'])->toBe('Binnen- of buitenunit toevoegen');
+});
+
+test('N75: current site visit decision overrides customer tasks and proposal actions', function (int $usedRounds, bool $approved, bool $canApprove, bool $hasOutcome) {
+    $intake = bareIntake();
+    $intake->forceFill(['reviewed_at' => now()]);
+    $intake->setRelation('review', new IntakeReview(['decision' => ReviewDecision::SiteVisitNeeded]));
+    $intake->setRelation('followUpRounds', collect(range(1, $usedRounds))->take($usedRounds)->map(
+        fn (int $number) => new IntakeFollowUpRound(['round_number' => $number]),
+    ));
+    $intake->setRelation('outcome', $hasOutcome ? new InstallationOutcome : null);
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake, fakeOpenArea('quote'), $canApprove, $approved,
+        collect([['prompt' => 'Ontbrekende foto']]), collect([fakeOpenArea('power')]),
+    );
+
+    expect($action['href'])->toBe('#workspace-outcome')
+        ->and($action['label'])->toBe('Locatiebezoek plannen')
+        ->and($action['summary'])->toContain('Plan een locatiebezoek; de beoordeling is vastgelegd.')
+        ->and($action['summary'])->not->toContain('taak voor de klant');
+})->with([
+    [3, false, false, false],
+    [3, false, false, true],
+    [1, false, true, false],
+    [0, true, false, false],
+]);
+
+test('N75: exhausted rounds suppress draft and quote customer task actions', function (bool $hasDraft, bool $hasOpenArea) {
+    $intake = bareIntake();
+    $intake->setRelation('followUpRounds', collect([1, 2, 3])->map(
+        fn (int $number) => new IntakeFollowUpRound(['round_number' => $number]),
+    ));
+    $intake->setRelation('aircoRooms', collect([new AircoRoom]));
+    $intake->setRelation('aircoPlacements', collect([new AircoPlacementOption]));
+    $intake->setRelation('aircoInstallationOptions', collect([
+        new AircoInstallationOption(['status' => AircoOptionStatus::Selected, 'feasibility' => AircoOptionFeasibility::Feasible]),
+    ]));
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake, fakeOpenArea('quote'), false, false,
+        $hasDraft ? collect([['prompt' => 'Ontbrekende foto']]) : collect(),
+        $hasOpenArea ? collect([fakeOpenArea('power')]) : collect(),
+    );
+
+    expect($action['href'])->toBe($hasOpenArea ? '#demo-proposal' : '#workspace-complete')
+        ->and($action['label'])->not->toContain('Klanttaak');
+})->with([[true, true], [true, false], [false, false]]);
+
+test('N75: available rounds retain the executable customer task action and ignore stale site visit reviews', function () {
+    $intake = bareIntake();
+    $intake->setRelation('review', new IntakeReview(['decision' => ReviewDecision::SiteVisitNeeded]));
+    $intake->setRelation('followUpRounds', collect());
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake, null, false, false, collect([['prompt' => 'Ontbrekende foto']]), collect(),
+    );
+
+    expect($action['href'])->toBe('#demo-customer-task')
+        ->and($action['label'])->toBe('Klanttaak controleren');
 });
