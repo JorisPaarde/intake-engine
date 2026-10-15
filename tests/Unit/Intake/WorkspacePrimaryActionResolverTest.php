@@ -376,9 +376,10 @@ test('N75: exhausted rounds suppress draft and quote customer task actions', fun
     ));
     $intake->setRelation('aircoRooms', collect([new AircoRoom]));
     $intake->setRelation('aircoPlacements', collect([new AircoPlacementOption]));
-    $intake->setRelation('aircoInstallationOptions', collect([
-        new AircoInstallationOption(['status' => AircoOptionStatus::Selected, 'feasibility' => AircoOptionFeasibility::Feasible]),
-    ]));
+    $option = new AircoInstallationOption(['status' => AircoOptionStatus::Selected, 'feasibility' => AircoOptionFeasibility::Feasible]);
+    $option->setRelation('connections', collect());
+    $option->setRelation('placements', collect());
+    $intake->setRelation('aircoInstallationOptions', collect([$option]));
     $action = app(WorkspacePrimaryActionResolver::class)->resolve(
         $intake, fakeOpenArea('quote'), false, false,
         $hasDraft ? collect([['prompt' => 'Ontbrekende foto']]) : collect(),
