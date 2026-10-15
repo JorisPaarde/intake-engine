@@ -184,7 +184,11 @@ test('1A: achtergrond-synthese behoudt Proposed taak zodat send-by-id werkt', fu
 
     $this->actingAs($user)
         ->post(route('intakes.workspace.tasks.send', [$intake, $taskId]))
-        ->assertRedirect(route('intakes.workspace', $intake));
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task');
+
+    $this->post(route('intakes.workspace.tasks.store', $intake), [
+        'contribution_items' => session('customer_task_drafts'),
+    ])->assertSessionHasNoErrors();
 
     expect(ContributionTask::query()->find($taskId)?->status)->toBe(ContributionTaskStatus::Cancelled);
 });

@@ -771,6 +771,8 @@ final class SurveyWorkspaceController extends Controller
             [
                 'contribution_items' => ['required', 'array', 'min:1', 'max:'.$maxItems],
                 'contribution_items.*.type' => ['required', Rule::enum(FollowUpItemType::class)],
+                'contribution_items.*.repeat_confirmed' => ['sometimes', 'boolean'],
+                'contribution_items.*.proposal_id' => ['nullable', 'integer'],
                 'contribution_items.*.prompt' => ['required', 'string', 'max:500'],
                 'contribution_items.*.decision_area_key' => [
                     'nullable',
@@ -868,6 +870,8 @@ final class SurveyWorkspaceController extends Controller
             'prompt' => $prompt,
             'decision_area_key' => $data['decision_area_key'] ?? null,
             'dossier_subject_id' => $data['dossier_subject_id'] ?? null,
+            // "Vraag betere foto" is itself the installer's explicit request to ask again.
+            'repeat_confirmed' => true,
         ];
         if (isset($data['photo_task_subtype']) && is_string($data['photo_task_subtype']) && $data['photo_task_subtype'] !== '') {
             $quickItem['photo_task_subtype'] = $data['photo_task_subtype'];
@@ -986,36 +990,60 @@ final class SurveyWorkspaceController extends Controller
         Request $request,
         Intake $intake,
         ContributionTask $task,
-        CreateCustomerContributionRequest $createRequest,
-        SendCustomerFollowUpRequest $sendRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
         abort_unless($task->intake_id === $intake->id, 404);
 
+        abort_unless(($task->meta['source_type'] ?? null) === 'ai', 404);
+        if ($request->has('contribution_items')) {
+            $data = $request->validate([
+                'contribution_items' => ['array', 'max:'.config('intake.follow_up.max_items_per_round', 5)],
+                'contribution_items.*' => ['array'],
+                'contribution_items.*.type' => ['required', Rule::enum(FollowUpItemType::class)],
+                'contribution_items.*.prompt' => ['nullable', 'string', 'max:500'],
+                'contribution_items.*.decision_area_key' => ['nullable', 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote'],
+                'contribution_items.*.dossier_subject_id' => ['nullable', 'integer'],
+                'contribution_items.*.photo_task_subtype' => ['nullable', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
+                'contribution_items.*.proposal_id' => ['nullable', 'integer'],
+            ]);
+            $request->session()->put('customer_task_drafts', $data['contribution_items']);
+            $request->session()->forget('customer_task_draft');
+        }
+
+        // Checked after saving the posted concepts so installer edits survive a stale proposal.
         if ($task->status !== ContributionTaskStatus::Proposed) {
             return redirect()
                 ->route('intakes.workspace', $intake)
                 ->with('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
         }
 
-        abort_unless(($task->meta['source_type'] ?? null) === 'ai', 404);
-        $user = $this->user($request);
-        $round = $createRequest->handle($intake, $user, [[
-            'type' => $task->type,
+        // Keep proposal identity separate from installer-controlled concepts, even
+        // when their area, subject and photo subtype are identical.
+        $drafts = $this->sessionCustomerTaskDrafts($request);
+        foreach ($drafts as $draft) {
+            if (($draft['proposal_id'] ?? null) === $task->id) {
+                return $this->back($intake, 'Dit voorstel staat al in de conceptlijst.', 'demo-customer-task');
+            }
+        }
+        if (count($drafts) >= (int) config('intake.follow_up.max_items_per_round', 5)) {
+            return redirect()->to(route('intakes.workspace', $intake).'#demo-customer-task')
+                ->withErrors(['contribution_items' => 'De conceptlijst is vol. Controleer eerst de bestaande taken.']);
+        }
+
+        $drafts[] = [
+            'proposal_id' => $task->id,
+            'type' => $task->type->value,
             'prompt' => CustomerFacingTaskText::ensureCustomerFacing((string) $task->prompt),
             'decision_area_key' => $task->decision_area_key,
-            'dossier_subject_id' => $task->dossier_subject_id,
-        ]]);
-        $task->update(['status' => ContributionTaskStatus::Cancelled]);
-        $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
+            'dossier_subject_id' => app(ContributionSubjectLinker::class)->resolve(
+                $intake, $task->dossier_subject_id, $task->decision_area_key,
+            ),
+            'photo_task_subtype' => $task->meta['photo_task_subtype'] ?? null,
+        ];
+        $request->session()->put('customer_task_drafts', $drafts);
+        $request->session()->forget('customer_task_draft');
 
-        return $this->back($intake, match ($mailResult) {
-            CustomerLinkMailResult::Sent => 'AI-taak gecontroleerd en als klanttaak gemaild.',
-            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.',
-            CustomerLinkMailResult::SkippedLogMailer => 'Klanttaak aangemaakt. Mail is lokaal uit. Deel de link zelf.',
-            CustomerLinkMailResult::Failed => 'Klanttaak aangemaakt, maar mailen mislukte. Deel de link zelf.',
-            default => 'AI-taak gecontroleerd en als klanttaak aangemaakt.',
-        });
+        return $this->back($intake, 'AI-voorstel toegevoegd. Controleer de conceptlijst en verstuur daarna de ronde.', 'demo-customer-task');
     }
 
     private function contributionMailMessage(CustomerLinkMailResult $mailResult): string
@@ -1178,7 +1206,9 @@ final class SurveyWorkspaceController extends Controller
      *     type: string,
      *     prompt: string,
      *     decision_area_key: string|null,
-     *     dossier_subject_id: int|null
+     *     dossier_subject_id: int|null,
+     *     photo_task_subtype?: string,
+     *     proposal_id?: int
      * }>
      */
     private function sessionCustomerTaskDrafts(Request $request): array
@@ -1229,6 +1259,9 @@ final class SurveyWorkspaceController extends Controller
                 && in_array($subtype, PhotoSubject::PHOTO_TASK_SUBTYPES, true)) {
                 $draft['photo_task_subtype'] = $subtype;
             }
+            if (is_numeric($item['proposal_id'] ?? null)) {
+                $draft['proposal_id'] = (int) $item['proposal_id'];
+            }
             $drafts[] = $draft;
 
             if (count($drafts) >= $maxItems) {
@@ -1245,7 +1278,8 @@ final class SurveyWorkspaceController extends Controller
      *     prompt?: mixed,
      *     decision_area_key?: mixed,
      *     dossier_subject_id?: mixed,
-     *     photo_task_subtype?: mixed
+     *     photo_task_subtype?: mixed,
+     *     proposal_id?: int
      * }  $draft
      */
     private function customerTaskDraftFingerprint(array $draft): string

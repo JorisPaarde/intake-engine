@@ -734,7 +734,7 @@ test('AI synthesis failed-only run-243 shape still stores tokens and cost', func
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
 });
 
-test('installer explicitly sends an AI proposed task before customer access becomes active', function () {
+test('installer reviews an AI proposed task in the draft before customer access becomes active', function () {
     [$intake, $user] = synthesisSurveyWithPlacements();
     FakeAiClient::respondUsing(fn (AiCompletionRequest $request): array => validDossierSynthesisOutput($request));
     app(SynthesizeSurveyDossier::class)->handle($intake);
@@ -745,7 +745,13 @@ test('installer explicitly sends an AI proposed task before customer access beco
 
     $this->actingAs($user)
         ->post(route('intakes.workspace.tasks.send', [$intake, $task]))
-        ->assertRedirect(route('intakes.workspace', $intake));
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task')
+        ->assertSessionHas('customer_task_drafts.0.proposal_id', $task->id);
+
+    expect($intake->fresh()->customer_access_enabled)->toBeFalse();
+    $this->post(route('intakes.workspace.tasks.store', $intake), [
+        'contribution_items' => session('customer_task_drafts'),
+    ])->assertSessionHasNoErrors();
 
     expect($intake->fresh()->workflow_mode)->toBe(ContributionMode::Hybrid)
         ->and($intake->fresh()->customer_access_enabled)->toBeTrue()

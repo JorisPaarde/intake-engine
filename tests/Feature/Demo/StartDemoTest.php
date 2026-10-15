@@ -430,7 +430,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->assertSee('Voorbeelddossier (demo)')
         ->assertSee('Volgende stap')
         ->assertSee('Woninggegevens')
-        ->assertSee('Controleren en klantweergave activeren')
+        ->assertSee('Klantweergave activeren')
         ->assertDontSee('AI-voorstel vernieuwen');
 });
 
@@ -775,7 +775,11 @@ it('activates a simulated customer view without sending mail', function () {
     $this->actingAs($user)
         ->withSession($session)
         ->post(route('intakes.workspace.tasks.send', [$example, $task]))
-        ->assertRedirect(route('intakes.workspace', $example))
+        ->assertRedirect(route('intakes.workspace', $example).'#demo-customer-task');
+
+    $this->post(route('intakes.workspace.tasks.store', $example), [
+        'contribution_items' => session('customer_task_drafts'),
+    ])->assertRedirect(route('intakes.workspace', $example))
         ->assertSessionHas('status', 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.');
 
     $example->refresh();
@@ -1196,6 +1200,9 @@ it('shows a visible return button on the demo follow-up thank-you screen (BL-147
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $example))
         ->post(route('intakes.workspace.tasks.send', [$example, $task]));
+    $this->post(route('intakes.workspace.tasks.store', $example), [
+        'contribution_items' => session('customer_task_drafts'),
+    ])->assertSessionHasNoErrors();
     $example->refresh();
 
     $session = app('session.store');
