@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
-use App\Domains\AI\Exceptions\PhotoSubjectMismatchException;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Support\PhotoSubject;
@@ -672,12 +671,7 @@ final class SurveyWorkspaceController extends Controller
                     // Narrowest multi-upload option: sync AI only for the first stored
                     // photo in this request (max 5 files). Later photos skip the call.
                     $suggestRan = true;
-                    try {
-                        $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
-                    } catch (PhotoSubjectMismatchException) {
-                        // The photo is stored; no AI suggestion exists for this subject type — never a rejection.
-                        $run = null;
-                    }
+                    $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
                     if ($run !== null) {
                         $hasSuggestion = DossierRecord::query()
                             ->where('intake_id', $intake->id)

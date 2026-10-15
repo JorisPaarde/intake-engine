@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
-use App\Domains\AI\Exceptions\PhotoSubjectMismatchException;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
@@ -56,6 +55,11 @@ final class SuggestInstallerPhotoObservations
         }
 
         $this->guardContext($intake, $subject, $upload);
+
+        // AI suggestions only exist for rooms/placements; other subjects simply get none.
+        if (! in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
+            return null;
+        }
 
         $promptName = (string) config(
             'ai.installer_photo_observation_prompt',
@@ -307,11 +311,6 @@ final class SuggestInstallerPhotoObservations
             ]);
         }
 
-        // Photo is stored and linked; AI suggestions only exist for rooms/placements.
-        // Other subjects simply get no suggestion; the caller keeps the plain "saved" message.
-        if (! in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
-            throw PhotoSubjectMismatchException::unsupportedSubject();
-        }
     }
 
     /**
