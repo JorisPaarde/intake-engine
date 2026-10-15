@@ -8,6 +8,8 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\AircoUnitCouplingValidator;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
+use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
@@ -137,4 +139,75 @@ test('N74 split attention disappears below two new rooms and returns on undo', f
     expect($checker->splitConfigurationPoint($intake->fresh()))->toBeNull();
     $survey->clearRoomScopeConfirmation($intake, $user, $bedroom->fresh());
     expect($checker->splitConfigurationPoint($intake->fresh())['label'])->toContain('2 ruimtes');
+});
+
+test('N74 dedicated singles exclude only the existing rooms outdoor and its routes and undo restores all', function () {
+    [$user, $intake, $living] = n74Survey();
+    $survey = app(AircoSurveyService::class);
+    $indoors = $intake->aircoPlacements()->where('type', AircoPlacementType::IndoorUnit)->get();
+    $ids = $indoors->pluck('id')->all();
+    $links = [];
+    foreach ($indoors as $indoor) {
+        $outdoor = $survey->createPlacement($intake, $user, ['type' => AircoPlacementType::OutdoorUnit, 'label' => 'Buiten '.$indoor->id]);
+        $ids[] = $outdoor->id;
+        // Exercise both refrigerant directions.
+        $links[] = ['from_placement_id' => $outdoor->id, 'to_placement_id' => $indoor->id];
+    }
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Drie singles',
+        'configuration_type' => AircoConfigurationType::MultipleSingleSplits,
+        'placement_ids' => $ids,
+        'refrigerant_links' => $links,
+    ]);
+    $power = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Voeding bestaande buitenunit',
+        'from_placement_id' => $links[0]['from_placement_id'],
+    ]);
+    expect(app(AircoUnitCouplingValidator::class)->optionProblems($option->fresh()))->toBe([]);
+    $survey->confirmRoomExistingInstallation($intake, $user, $living);
+    $option->refresh();
+    expect($option->newInstallationPlacements())->toHaveCount(4)
+        ->and($option->newInstallationConnections())->toHaveCount(2)
+        ->and($option->newInstallationConnections()->contains('id', $power->id))->toBeFalse()
+        ->and(app(AircoUnitCouplingValidator::class)->optionProblems($option))->toBe([])
+        ->and($option->placements()->count())->toBe(6)
+        ->and($option->connections()->count())->toBe(4);
+    $survey->clearRoomScopeConfirmation($intake, $user, $living->fresh());
+    $option->refresh();
+    expect($option->newInstallationPlacements())->toHaveCount(6)
+        ->and($option->newInstallationConnections())->toHaveCount(4)
+        ->and(app(AircoUnitCouplingValidator::class)->optionProblems($option))->toBe([]);
+});
+
+test('N74 primary route action skips hidden routes and falls back when none remain', function () {
+    [$user, $intake, $living] = n74Survey();
+    app(AircoSurveyService::class)->confirmRoomExistingInstallation($intake, $user, $living);
+    $intake = $intake->fresh();
+    $option = $intake->aircoInstallationOptions->first();
+    $visible = $option->newInstallationConnections()->firstWhere('type', AircoConnectionType::Refrigerant);
+    $resolver = app(WorkspacePrimaryActionResolver::class);
+    expect($resolver->targetForArea($intake, 'refrigerant')['href'])->toBe('#connection-'.$visible->id)
+        ->and($resolver->targetForArea($intake, 'condensate')['href'])->toBe('#demo-proposal');
+});
+
+test('N74 confirmation and undo refresh the report once each after attention point synchronization', function () {
+    [$user, $intake, $living] = n74Survey();
+    $intake->attentionPoints()->create([
+        'source' => AttentionPointSource::System,
+        'code' => 'review_split_configuration',
+        'label' => 'Oude telling',
+        'is_resolved' => false,
+    ]);
+    $refresh = Mockery::mock(RefreshStoredIntakeReport::class);
+    $refresh->shouldReceive('handle')->once()->ordered()->withArgs(function (Intake $current) {
+        return str_contains($current->attentionPoints()->where('code', 'review_split_configuration')->firstOrFail()->label, '2 ruimtes');
+    });
+    $refresh->shouldReceive('handle')->once()->ordered()->withArgs(function (Intake $current) {
+        return str_contains($current->attentionPoints()->where('code', 'review_split_configuration')->firstOrFail()->label, '3 ruimtes');
+    });
+    $this->app->instance(RefreshStoredIntakeReport::class, $refresh);
+    $survey = app(AircoSurveyService::class);
+    $survey->confirmRoomExistingInstallation($intake, $user, $living);
+    $survey->clearRoomScopeConfirmation($intake, $user, $living->fresh());
 });

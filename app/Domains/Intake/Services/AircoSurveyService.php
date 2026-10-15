@@ -128,7 +128,6 @@ final class AircoSurveyService
         );
         $this->surveyProgress->markStarted($intake);
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
-        $this->refreshStoredIntakeReport->handle($intake->fresh() ?? $intake);
 
         $freshIntake = $intake->fresh() ?? $intake;
         $point = app(CompletenessChecker::class)->splitConfigurationPoint($freshIntake);
