@@ -75,8 +75,18 @@ final class CreateCustomerContributionRequest
         ];
 
         foreach ($items as $item) {
+            if (($item['photo_task_subtype'] ?? null) === 'auto') {
+                unset($item['photo_task_subtype']);
+            }
             $subtype = $item['photo_task_subtype']
                 ?? (is_array($item['meta'] ?? null) ? ($item['meta']['photo_task_subtype'] ?? null) : null);
+            if (is_string($subtype) && $subtype !== ''
+                && in_array($subtype, PhotoSubject::PHOTO_TASK_SUBTYPES, true)
+                && ! in_array($subtype, PhotoSubject::photoTaskSubtypesForDecisionArea($item['decision_area_key'] ?? null), true)) {
+                throw ValidationException::withMessages([
+                    'contribution_items' => 'Dit fototype past niet bij het gekozen onderdeel.',
+                ]);
+            }
             if (trim((string) $item['prompt']) === ''
                 || mb_strlen((string) $item['prompt']) > 500
                 || (array_key_exists('dossier_subject_id', $item)
@@ -274,8 +284,20 @@ final class CreateCustomerContributionRequest
      */
     private static function normalizePhotoTaskMeta(array $item): array
     {
+        if (($item['photo_task_subtype'] ?? null) === 'auto') {
+            unset($item['photo_task_subtype']);
+        }
         $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
         unset($meta['accepted_photo_subjects'], $meta['expected_photo_subject']);
+
+        if (($item['type'] ?? null) === FollowUpItemType::Photo->value
+            && array_key_exists('photo_task_subtype', $item)
+            && ($item['photo_task_subtype'] === null || $item['photo_task_subtype'] === '')) {
+            unset($meta['photo_task_subtype']);
+            $meta['photo_subject_check'] = 'none';
+
+            return $meta;
+        }
 
         $subtype = $item['photo_task_subtype'] ?? ($meta['photo_task_subtype'] ?? null);
         if (! is_string($subtype) || $subtype === '') {
@@ -287,12 +309,7 @@ final class CreateCustomerContributionRequest
         $area = is_string($item['decision_area_key'] ?? null)
             ? $item['decision_area_key']
             : null;
-        $expectedArea = match ($subtype) {
-            'power_route', 'fusebox' => 'power',
-            'around_house' => 'placement',
-            default => null,
-        };
-        if ($expectedArea === null || $area !== $expectedArea) {
+        if (! in_array($subtype, PhotoSubject::photoTaskSubtypesForDecisionArea($area), true)) {
             unset($meta['photo_task_subtype']);
 
             return $meta;
@@ -304,6 +321,8 @@ final class CreateCustomerContributionRequest
 
             return $meta;
         }
+
+        unset($meta['photo_subject_check']);
 
         return array_merge($meta, $mapped);
     }

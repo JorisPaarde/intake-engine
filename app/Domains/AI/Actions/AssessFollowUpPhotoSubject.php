@@ -62,10 +62,8 @@ final class AssessFollowUpPhotoSubject
         $task = $this->contributionTask($item);
         $area = $task?->decision_area_key;
         $area = is_string($area) && $area !== '' ? $area : $this->decisionAreaKey($item);
-        $accepted = PhotoSubject::acceptedSubjectsForTask($task)
-            ?? PhotoSubject::acceptedSubjectsForDecisionArea($area);
-        $expected = PhotoSubject::expectedForTask($task)
-            ?? PhotoSubject::expectedFromDecisionArea($area);
+        $accepted = PhotoSubject::acceptedSubjectsForTask($task, $area);
+        $expected = $accepted[0] ?? null;
 
         if ($accepted === null || $expected === null) {
             // Gebied zonder subject-check (placement zonder taakmeta/condens/…): geen AI-call, wel skip-run.

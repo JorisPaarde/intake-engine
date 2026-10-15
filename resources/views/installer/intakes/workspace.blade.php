@@ -1523,8 +1523,15 @@
                                         @if ($draftSubjectId)
                                             <input type="hidden" name="contribution_items[{{ $index }}][dossier_subject_id]" value="{{ $draftSubjectId }}">
                                         @endif
-                                        @if (is_string($draftPhotoSubtype) && $draftPhotoSubtype !== '' && in_array($draftPhotoSubtype, \App\Domains\AI\Support\PhotoSubject::PHOTO_TASK_SUBTYPES, true))
-                                            <input type="hidden" name="contribution_items[{{ $index }}][photo_task_subtype]" value="{{ $draftPhotoSubtype }}">
+                                        @if ($draftType === 'photo')
+                                            <label class="mt-2 block text-sm text-gray-700" for="draft-photo-subtype-{{ $index }}">Wat moet de foto laten zien?</label>
+                                            <select id="draft-photo-subtype-{{ $index }}" name="contribution_items[{{ $index }}][photo_task_subtype]" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
+                                                <option value="auto" @selected(! array_key_exists('photo_task_subtype', $slotDraft) || $draftPhotoSubtype === 'auto')>Automatisch (op basis van onderdeel)</option>
+                                                <option value="" @selected(array_key_exists('photo_task_subtype', $slotDraft) && ($draftPhotoSubtype === null || $draftPhotoSubtype === ''))>Niet opgeven (geen automatische fotocontrole)</option>
+                                                @foreach (\App\Domains\AI\Support\PhotoSubject::photoTaskSubtypesForDecisionArea($draftArea ?: null) as $subtype)
+                                                    <option value="{{ $subtype }}" @selected($draftPhotoSubtype === $subtype)>{{ ['power_route' => 'Route van de stroomkabel', 'fusebox' => 'Meterkast', 'around_house' => 'Gevel, tuin of buitenplek'][$subtype] }}</option>
+                                                @endforeach
+                                            </select>
                                         @endif
                                     </fieldset>
                                 @endfor
