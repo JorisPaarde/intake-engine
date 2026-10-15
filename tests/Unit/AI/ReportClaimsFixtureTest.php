@@ -35,7 +35,7 @@ test('report_claims fixtures have required schema fields', function () {
         foreach ($decoded['expected']['claims'] as $claim) {
             expect($claim)->toBeArray()
                 ->and($claim)->toHaveKeys(['id', 'concept', 'allowed'])
-                ->and($claim['allowed'])->toBeIn(['assert', 'hedged_only', 'forbidden']);
+                ->and($claim['allowed'])->toBeIn(['assert', 'hedged_only', 'forbidden', 'once']);
         }
 
         // Prod does not store photo_assessments[] on the fusebox external fact.
