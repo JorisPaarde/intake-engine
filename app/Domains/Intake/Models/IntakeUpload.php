@@ -97,11 +97,6 @@ class IntakeUpload extends Model
         );
     }
 
-    /**
-     * Filename for Content-Disposition / downloads. Stored dossier variants are JPEG;
-     * keep the original basename but force .jpg when the served mime is JPEG
-     * (demotest 8 okt: PNG/HEIC converted yet still offered as .png).
-     */
     /** Wie de foto aanleverde; volgt de uploader, niet de weergave. */
     public function sourceLabel(): string
     {
@@ -110,6 +105,11 @@ class IntakeUpload extends Model
             : 'aangeleverd door klant';
     }
 
+    /**
+     * Filename for Content-Disposition / downloads. Stored dossier variants are JPEG;
+     * keep the original basename but force .jpg when the served mime is JPEG
+     * (demotest 8 okt: PNG/HEIC converted yet still offered as .png).
+     */
     public function downloadFilename(): string
     {
         $name = trim((string) $this->original_filename);

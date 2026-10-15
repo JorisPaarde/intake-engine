@@ -4,25 +4,18 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Exceptions;
 
-use App\Domains\AI\Support\PhotoSubject;
 use Illuminate\Validation\ValidationException;
 
 /**
- * De foto hoort niet bij het type dossieronderdeel waarvoor de AI-constatering
- * is bedoeld. Draagt het gestructureerde `detected_subject` (indien bekend) voor
- * een zachte hint; nooit afgeleid uit tekst.
+ * Het dossieronderdeel heeft geen AI-constatering (alleen ruimtes/plekken).
+ * De foto is opgeslagen; de aanroeper toont geen afwijzing.
  */
 final class PhotoSubjectMismatchException extends ValidationException
 {
-    public ?PhotoSubject $detectedSubject = null;
-
-    public static function forDetected(?PhotoSubject $detected): self
+    public static function unsupportedSubject(): self
     {
-        $exception = self::withMessages([
+        return self::withMessages([
             'photo' => 'Deze foto hoort niet bij dit onderdeel van de opname.',
         ]);
-        $exception->detectedSubject = $detected;
-
-        return $exception;
     }
 }

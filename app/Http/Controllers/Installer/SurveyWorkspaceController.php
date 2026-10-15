@@ -652,7 +652,6 @@ final class SurveyWorkspaceController extends Controller
         $failures = [];
         $total = count($photos);
         $suggestRan = false;
-        $mismatchSubject = null;
 
         foreach ($photos as $photo) {
             $photoName = $photo->getClientOriginalName() ?: 'foto';
@@ -675,10 +674,9 @@ final class SurveyWorkspaceController extends Controller
                     $suggestRan = true;
                     try {
                         $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
-                    } catch (PhotoSubjectMismatchException $mismatch) {
-                        // The photo is stored; a subject mismatch is a soft hint, never a rejection.
+                    } catch (PhotoSubjectMismatchException) {
+                        // The photo is stored; no AI suggestion exists for this subject type — never a rejection.
                         $run = null;
-                        $mismatchSubject = $mismatch->detectedSubject;
                     }
                     if ($run !== null) {
                         $hasSuggestion = DossierRecord::query()
@@ -723,8 +721,6 @@ final class SurveyWorkspaceController extends Controller
             $message = $stored === 1
                 ? 'Foto opgeslagen. Controleer wat de AI voorstelt.'
                 : $stored.' foto\'s opgeslagen. Controleer wat de AI voorstelt.';
-        } elseif ($mismatchSubject !== null && $mismatchSubject !== PhotoSubject::Other) {
-            $message = 'Opgeslagen. Let op: de AI herkent hier vooral '.$mismatchSubject->dutchLabel().'.';
         } else {
             $message = $stored === 1
                 ? 'Foto opgeslagen bij '.$subject->label.'.'

@@ -308,11 +308,9 @@ final class SuggestInstallerPhotoObservations
         }
 
         // Photo is stored and linked; AI suggestions only exist for rooms/placements.
-        // Other subjects get a soft hint from the structured assessment, never a rejection.
+        // Other subjects simply get no suggestion; the caller keeps the plain "saved" message.
         if (! in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
-            throw PhotoSubjectMismatchException::forDetected(
-                $upload->contentAssessment()?->detectedSubject(),
-            );
+            throw PhotoSubjectMismatchException::unsupportedSubject();
         }
     }
 

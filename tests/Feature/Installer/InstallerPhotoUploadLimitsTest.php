@@ -404,7 +404,7 @@ test('N60/N62: rapport labelt installateursfoto als Woninggegevens en door insta
         ->and($html)->not->toContain('Bron: aangeleverd door klant');
 });
 
-test('N60: zachte hint bij afwijkend onderwerp is gestructureerd en geen afwijzing', function () {
+test('N60: afwijkend onderwerp op Woninggegevens is geen afwijzing en geen AI-hint', function () {
     config([
         'ai.photo_inference.enabled' => true,
         'ai.provider' => 'fake',
@@ -429,7 +429,7 @@ test('N60: zachte hint bij afwijkend onderwerp is gestructureerd en geen afwijzi
                 'photo' => [UploadedFile::fake()->image('kast.jpg', 1200, 900)],
             ])
             ->assertRedirect(route('intakes.workspace', $intake))
-            ->assertSessionHas('status', 'Opgeslagen. Let op: de AI herkent hier vooral de meterkast.')
+            ->assertSessionHas('status', 'Foto opgeslagen bij '.$root->label.'.')
             ->assertSessionMissing('errors');
     } finally {
         $active = false;
