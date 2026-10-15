@@ -56,14 +56,6 @@
             <h1 id="follow-up-prompt-{{ $item->id }}" class="break-words font-display text-2xl font-semibold tracking-tight text-brand-ink">{{ $item->prompt }}</h1>
         </div>
 
-        @error('follow_up')
-            @if ($item->type !== \App\Enums\FollowUpItemType::Text && empty($followUpMismatchAssessment) && empty($followUpNeedsOverride))
-                <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
-                    {{ $message }}
-                </div>
-            @endif
-        @enderror
-
         <div class="flex-1 rounded-lg bg-white p-4 shadow-sm">
             @if ($item->type === \App\Enums\FollowUpItemType::Choice)
                 <fieldset class="space-y-3">
@@ -225,11 +217,6 @@
                         <p class="text-sm text-brand-ink" data-testid="photo-mismatch-explain">
                             {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanation($followUpUnresolvedCount) }}
                         </p>
-                        @error('follow_up')
-                            <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
-                                {{ $message }}
-                            </p>
-                        @enderror
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <button
                                 type="button"
@@ -342,6 +329,14 @@
                 @endif
             @endif
         </div>
+
+        @error('follow_up')
+            @if ($item->type !== \App\Enums\FollowUpItemType::Text)
+                <p class="mt-4 text-sm font-medium text-brand-ember" role="alert" data-testid="follow-up-submit-error">
+                    {{ $message }}
+                </p>
+            @endif
+        @enderror
 
         <div class="mt-5 flex items-center justify-between gap-3">
             <button
