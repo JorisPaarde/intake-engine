@@ -1382,11 +1382,15 @@ final class DerivePhotoAnswers
 
             // Geen montage-/bereikbaarheidsgok bij verkeerd onderwerp, onduidelijke plek of lage zekerheid.
             // Medium+high met bekende plek blijft een voorzet (bestaande derive-pad).
-            if ($match !== 'yes' || $location === 'unknown' || $confidence === 'low') {
+            // N76: een foto van een bestaande buitenunit is toestand/observatie, geen klantvoorkeur
+            // voor bevestiging (outdoor_mount_type is optionele wens in de template).
+            $detected = (string) ($output['detected_subject'] ?? '');
+            $existingUnit = $detected === 'outdoor_unit';
+            if ($match !== 'yes' || $location === 'unknown' || $confidence === 'low' || $existingUnit) {
                 if (array_key_exists('outdoor_mount_type', $output)) {
                     $output['outdoor_mount_type'] = 'unknown';
                 }
-                if (array_key_exists('outdoor_accessibility', $output)) {
+                if (array_key_exists('outdoor_accessibility', $output) && ($match !== 'yes' || $location === 'unknown' || $confidence === 'low')) {
                     $output['outdoor_accessibility'] = 'unknown';
                 }
             }

@@ -387,3 +387,37 @@ test('an unknown field is skipped while its siblings are still applied', functio
     expect($stepKeys)->toContain('outdoor_accessibility')
         ->and($stepKeys)->not->toContain('outdoor_mount_type');
 });
+
+test('N76 existing outdoor unit photo does not fill outdoor_mount_type preference', function () {
+    $intake = makeDerivationIntake();
+    FakeAiClient::alwaysReturn([
+        ...outdoorOutput(),
+        'outdoor_location' => 'facade',
+        'outdoor_mount_type' => 'wall',
+        'detected_subject' => 'outdoor_unit',
+        'evidence' => 'Bestaande buitenunit hangt aan de bakstenen gevel op een muurbeugel.',
+    ]);
+    uploadOutdoorPhoto($intake);
+
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'outdoor_location_photos',
+        null,
+        PhotoDerivationProfile::require('outdoor'),
+    );
+
+    expect($intake->answers()->where('question_key', 'outdoor_mount_type')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'outdoor_location')->exists())->toBeTrue();
+
+    // Empty location photo still fills mount preference (control: not an existing unit).
+    $control = makeDerivationIntake();
+    FakeAiClient::alwaysReturn(outdoorOutput());
+    uploadOutdoorPhoto($control);
+    app(DerivePhotoAnswers::class)->handle(
+        $control,
+        'outdoor_location_photos',
+        null,
+        PhotoDerivationProfile::require('outdoor'),
+    );
+    expect($control->answers()->where('question_key', 'outdoor_mount_type')->exists())->toBeTrue();
+});
