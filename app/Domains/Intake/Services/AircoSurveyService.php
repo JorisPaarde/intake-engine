@@ -287,7 +287,7 @@ final class AircoSurveyService
                 key: 'dimensions.'.$dimensionKey,
                 value: [
                     'number' => $value,
-                    'unit' => 'm',
+                    'unit' => $dimensionKey === 'area_m2' ? 'm²' : 'm',
                     '_field_label' => $dimensionLabels[$dimensionKey],
                     '_display_value' => (string) $value,
                     '_source_label' => 'installateur',

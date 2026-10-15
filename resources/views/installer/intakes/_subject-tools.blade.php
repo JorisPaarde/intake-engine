@@ -31,7 +31,13 @@
                 ], true)
                 && is_string($record->value['text'] ?? $record->value['_display_value'] ?? null)
         )
-        ->sortByDesc('id');
+        ->sortBy(fn ($record) => match ($record->key) {
+            'dimensions.length_m' => 0,
+            'dimensions.width_m' => 1,
+            'dimensions.area_m2' => 2,
+            'dimensions.height_m' => 3,
+            default => 4,
+        });
     $fieldPrefix = 'subject-'.$subject?->id;
     $subjectPhotos = $subject
         ? $intake->uploads
@@ -227,7 +233,7 @@
             <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">Notities</p>
             @foreach ($technicalNotes as $note)
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
-                    <p class="text-sm leading-relaxed text-gray-800">{{ $note->value['text'] ?? $note->value['_display_value'] ?? '' }}</p>
+                    <p class="text-sm leading-relaxed text-gray-800">@if (isset($note->value['_field_label'])){{ $note->value['_field_label'] }}: @endif{{ $note->value['text'] ?? $note->value['_display_value'] ?? '' }}</p>
                     <p class="mt-1 text-xs text-gray-500">
                         {{ match ($note->method) {
                             'installer_confirmed' => 'Door installateur bevestigd',

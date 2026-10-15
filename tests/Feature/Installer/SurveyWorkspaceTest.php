@@ -1975,3 +1975,42 @@ test('N70 a declared area is kept when only length and width are edited', functi
 
     expect($room->fresh()->dimensions)->toMatchArray(['length_m' => 5.0, 'width_m' => 3.0, 'area_m2' => 20.0]);
 });
+
+test('N73 dimension correction notes show labelled units in length width area height order', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'n73-notes@example.com');
+    foreach (['room_length_m' => 4, 'room_width_m' => 3, 'room_area_m2' => 12, 'ceiling_height_m' => 2.5] as $key => $value) {
+        app(SaveIntakeAnswer::class)->handle($intake, $key, 'room-1', ['number' => $value], 'ai_text');
+    }
+    $this->actingAs($user)->get(route('intakes.workspace', $intake))->assertOk();
+    $room = $intake->aircoRooms()->where('key', 'room-1')->firstOrFail();
+    $this->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+        'name' => $room->name, 'use_type' => 'bedroom',
+        'length_m' => 5, 'width_m' => 3.6, 'area_m2' => 18, 'height_m' => 2.6,
+    ])->assertRedirect();
+
+    $this->get(route('intakes.workspace', $intake))->assertOk()->assertSeeInOrder([
+        'Lengte (m): 5', 'Breedte (m): 3.6', 'Oppervlak (m²): 18', 'Hoogte (m): 2.6',
+    ]);
+    expect(DossierRecord::query()->where('dossier_subject_id', $room->dossier_subject_id)->where('key', 'dimensions.area_m2')->latest('id')->firstOrFail()->value['unit'])->toBe('m²');
+});
+
+test('N73 workspace area provenance uses structured source instead of AI transport', function (string $source, string $provenance, string $label) {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'n73-source@example.com');
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_area_m2', 'room-1', ['number' => 32], 'ai_text');
+    $intake->answers()->where('question_key', 'room_area_m2')->update([
+        'fact_source' => $source, 'fact_provenance' => $provenance, 'fact_confidence' => 93,
+        'fact_evidence' => 'De kamer is 32 m².',
+    ]);
+
+    $this->actingAs($user)->get(route('intakes.workspace', $intake))->assertOk()
+        ->assertSee('Bron oppervlak: '.$label)
+        ->assertDontSee('Bron oppervlak: AI')
+        ->assertDontSee('Uit bekende context of AI-prefill');
+})->with([
+    ['aanvraag (installateur)', 'stated', 'aanvraag (installateur)'],
+    ['klantantwoord', 'stated', 'klantantwoord'],
+    ['afgeleid', 'inferred', 'afgeleid, niet bevestigd'],
+    ['foto', 'inferred', 'foto'],
+]);

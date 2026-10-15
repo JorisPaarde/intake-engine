@@ -45,6 +45,7 @@ use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoAssessmentSoftTimeout;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PhotoCustomerStatus;
+use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Domains\Intake\Support\PrefillSources;
@@ -4372,6 +4373,10 @@ class IntakeWizard extends Component
 
         // Photos: trust DB uploads, not possibly stale Livewire form upload_ids (reload used to "fix" this).
         if ($question->type === QuestionType::Photo) {
+            if (PhotoFollowUpWaiver::waives($this->intake(), $this->version(), $question, $step['section_instance_key'])) {
+                return true;
+            }
+
             return $this->photoStepContentSatisfied($question->key, $step['section_instance_key']);
         }
 

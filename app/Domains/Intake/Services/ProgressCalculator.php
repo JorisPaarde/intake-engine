@@ -12,6 +12,7 @@ use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
@@ -100,6 +101,11 @@ final class ProgressCalculator
             $state = $visibility[$compositeKey] ?? ['visible' => false, 'required' => false];
 
             if (! $state['visible'] || ! $state['required']) {
+                continue;
+            }
+
+            // N73: vervolgfoto vervalt na “Toch doorgaan” op de hoofdfoto.
+            if (PhotoFollowUpWaiver::waives($intake, $version, $question, $target['section_instance_key'])) {
                 continue;
             }
 
