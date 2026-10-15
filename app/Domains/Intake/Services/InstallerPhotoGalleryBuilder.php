@@ -99,7 +99,7 @@ final class InstallerPhotoGalleryBuilder
 
                 $groups[$bucketKey]['uploads'][] = [
                     'upload' => $upload,
-                    'caption' => 'Dossierfoto',
+                    'caption' => $subject?->type === 'survey' ? 'Woninggegevens' : 'Dossierfoto',
                     'question_sort' => $upload->sort_order,
                 ];
 

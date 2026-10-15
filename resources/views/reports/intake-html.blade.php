@@ -127,7 +127,7 @@
                             >
                             <figcaption>
                                 {{ $item['caption'] }} · {{ $item['upload']->original_filename }}<br>
-                                Bron: aangeleverd door klant
+                                Bron: {{ $item['upload']->question_key === 'installer_evidence' ? 'door installateur toegevoegd' : 'aangeleverd door klant' }}
                                 @if ($item['upload']->followUpItem?->round)
                                     · aanvulling ronde {{ $item['upload']->followUpItem->round->round_number }}
                                 @endif
@@ -141,7 +141,7 @@
                             <a href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}">{{ $item['upload']->original_filename }}</a>
                             <p>
                                 {{ $item['caption'] }} · PDF · {{ number_format($item['upload']->size_bytes / 1024, 0, ',', '.') }} KB<br>
-                                Bron: aangeleverd door klant
+                                Bron: {{ $item['upload']->question_key === 'installer_evidence' ? 'door installateur toegevoegd' : 'aangeleverd door klant' }}
                                 @if ($item['upload']->followUpItem?->round)
                                     · aanvulling ronde {{ $item['upload']->followUpItem->round->round_number }}
                                 @endif

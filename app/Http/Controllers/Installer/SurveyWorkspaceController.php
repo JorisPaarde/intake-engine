@@ -667,11 +667,17 @@ final class SurveyWorkspaceController extends Controller
                 if ($connection instanceof AircoConnection) {
                     $session ??= $startRoute->handle($intake, $connection);
                     $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
-                } elseif (! $suggestRan) {
+                } elseif (! $suggestRan && in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
                     // Narrowest multi-upload option: sync AI only for the first stored
                     // photo in this request (max 5 files). Later photos skip the call.
                     $suggestRan = true;
-                    $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
+                    try {
+                        $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
+                    } catch (\Throwable $suggestException) {
+                        // The photo is stored; an AI hint failure is never a rejection.
+                        report($suggestException);
+                        $run = null;
+                    }
                     if ($run !== null) {
                         $hasSuggestion = DossierRecord::query()
                             ->where('intake_id', $intake->id)

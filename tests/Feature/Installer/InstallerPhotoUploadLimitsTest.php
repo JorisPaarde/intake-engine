@@ -8,6 +8,7 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\ContributionMode;
 use App\Models\User;
@@ -364,4 +365,40 @@ test('N57: survey-subject van een andere intake blijft 404', function () {
         ->assertNotFound();
 
     expect($intake->uploads()->count())->toBe(0);
+});
+
+test('N60: foto bij Woninggegevens geeft één opgeslagen-melding zonder afwijzing, ook met AI aan', function () {
+    config(['ai.photo_inference.enabled' => true]);
+    $user = User::factory()->create();
+    [$intake] = createPhotoLimitSurvey($user);
+    $root = app(DossierManager::class)->root($intake);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $root]), [
+            'photo' => [UploadedFile::fake()->image('voorgevel.jpg', 1200, 900)],
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake));
+
+    expect($intake->uploads()->count())->toBe(1)
+        ->and(session()->all())->not->toHaveKey('errors')
+        ->and(json_encode(session()->all()))->not->toContain('hoort niet bij dit onderdeel')
+        ->and(json_encode(session()->all()))->not->toContain('van 1 foto');
+});
+
+test('N60/N62: rapport labelt installateursfoto als Woninggegevens en door installateur toegevoegd', function () {
+    $user = User::factory()->create();
+    [$intake, $room] = createPhotoLimitSurvey($user);
+    $root = app(DossierManager::class)->root($intake);
+
+    $this->actingAs($user)->post(route('intakes.workspace.photos.store', [$intake, $root]), [
+        'photo' => [UploadedFile::fake()->image('voorgevel.jpg', 1200, 900)],
+    ]);
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules', 'template'])->firstOrFail();
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+
+    expect($html)->toContain('Woninggegevens · voorgevel.jpg')
+        ->and($html)->toContain('Bron: door installateur toegevoegd')
+        ->and($html)->not->toContain('Dossierfoto · voorgevel.jpg')
+        ->and($html)->not->toContain('Bron: aangeleverd door klant');
 });
