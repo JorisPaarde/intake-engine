@@ -19,7 +19,7 @@ final class AssessFollowUpFuseboxJob implements ShouldQueue
 
     public int $timeout = 120;
 
-    public function __construct(public readonly int $intakeId) {}
+    public function __construct(public readonly int $intakeId, public readonly int $roundId) {}
 
     /** @return list<WithoutOverlapping> */
     public function middleware(): array
@@ -32,7 +32,7 @@ final class AssessFollowUpFuseboxJob implements ShouldQueue
         $intake = Intake::query()->find($this->intakeId);
         if ($intake !== null && AssessFuseboxPhotos::mayAnalyzeFollowUp($intake)) {
             try {
-                $assess->handleFollowUp($intake);
+                $assess->handleFollowUp($intake, $this->roundId);
             } catch (Throwable $e) {
                 report($e);
             }

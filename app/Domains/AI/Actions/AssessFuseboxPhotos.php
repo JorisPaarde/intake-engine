@@ -29,6 +29,7 @@ use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -41,6 +42,8 @@ use Throwable;
 final class AssessFuseboxPhotos
 {
     public const SOURCE = 'AI-fotoanalyse';
+
+    public const MAX_FOLLOW_UP_CANDIDATES = 3;
 
     private const PHOTO_QUESTION = 'fusebox_photo';
 
@@ -62,25 +65,33 @@ final class AssessFuseboxPhotos
     ) {}
 
     /** Follow-up analysis adds an AI run; uploaded evidence remains immutable. */
-    public function handleFollowUp(Intake $intake): void
+    public function handleFollowUp(Intake $intake, int $roundId): void
     {
         if (! self::mayAnalyzeFollowUp($intake) || ! config('ai.photo_inference.enabled', false)) {
             return;
         }
 
-        $upload = self::latestFollowUpFusebox($intake);
-
-        if (! $upload instanceof IntakeUpload) {
+        $matched = null;
+        foreach (self::followUpFuseboxCandidates($intake, $roundId) as $candidate) {
+            if (! self::mayAnalyzeFollowUp($intake->fresh() ?? $intake)) {
+                return;
+            }
+            $result = $this->assessUpload($intake, $candidate, PhotoSubject::Fusebox, writeAssessment: false);
+            $candidateOutput = $result['run']->output;
+            if ($result['run']->status === AiRunStatus::Succeeded
+                && ($candidateOutput['subject_match'] ?? null) === 'yes') {
+                $matched = [$candidate, $result, $candidateOutput];
+                break;
+            }
+            if ($result['trace'] instanceof AiTraceHandle) {
+                $this->finalizeContentOnlyTrace($result['trace'], $intake, $result['dossier_before'], $result['questions_before']);
+            }
+        }
+        if ($matched === null) {
             return;
         }
-
-        $assessed = $this->assessUpload($intake, $upload, PhotoSubject::Fusebox, writeAssessment: false);
+        [$upload, $assessed, $output] = $matched;
         $run = $assessed['run'];
-        $output = $run->output;
-        if ($run->status !== AiRunStatus::Succeeded || ! is_array($output)
-            || ($output['subject_match'] ?? 'yes') !== 'yes') {
-            return;
-        }
 
         DB::transaction(function () use ($intake, $upload, $run, $output, $assessed): void {
             $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
@@ -132,14 +143,24 @@ final class AssessFuseboxPhotos
         }
     }
 
-    public static function latestFollowUpFusebox(Intake $intake): ?IntakeUpload
+    /** @return Collection<int, IntakeUpload> */
+    public static function followUpFuseboxCandidates(Intake $intake, int $roundId, int $limit = self::MAX_FOLLOW_UP_CANDIDATES): Collection
     {
         return $intake->uploads()
-            ->whereHas('followUpItem.round', static fn ($query) => $query->where('status', FollowUpRoundStatus::Completed))
-            ->orderByDesc('id')->get()
-            ->first(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible()
-                && $upload->contentAssessment()?->solvesContent()
-                && $upload->contentAssessment()->detectedSubject() === PhotoSubject::Fusebox);
+            ->where('mime_type', 'like', 'image/%')
+            ->whereHas('followUpItem.round', static fn ($query) => $query
+                ->whereKey($roundId)->where('status', FollowUpRoundStatus::Completed))
+            ->orderByDesc('id')->cursor()
+            ->filter(static function (IntakeUpload $upload): bool {
+                if (! $upload->isDossierEvidenceEligible()) {
+                    return false;
+                }
+                $assessment = $upload->contentAssessment();
+
+                return $upload->assessment_status === PhotoAssessmentStatus::Pending
+                    || $assessment === null || $assessment->needsReassessment()
+                    || in_array($assessment->detectedSubject(), [null, PhotoSubject::Fusebox, PhotoSubject::Other], true);
+            })->take($limit)->collect();
     }
 
     public static function mayAnalyzeFollowUp(Intake $intake): bool

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessFollowUpFuseboxJob;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
@@ -183,7 +184,7 @@ test('N49: versturen queued analyse zonder AI-call of wijzigingen aan fotorecord
         ->and($old->fresh()->getAttributes())->toBe($oldState)
         ->and($new->fresh()->getAttributes())->toBe($newState);
     FakeAiClient::alwaysReturn(n49FuseboxOutput());
-    $job = new AssessFollowUpFuseboxJob($intake->id);
+    $job = new AssessFollowUpFuseboxJob($intake->id, $round->id);
     $job->handle(app(AssessFuseboxPhotos::class));
     $fact = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail();
     expect($fact->value['phase'])->toBe('three_phase')
@@ -206,7 +207,7 @@ test('N49: reviewed en gesloten opnames krijgen geen analyse of wijzigingen', fu
     $fact = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail();
     $before = $fact->getAttributes();
     $count = AiRun::query()->count();
-    (new AssessFollowUpFuseboxJob($intake->id))->handle(app(AssessFuseboxPhotos::class));
+    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
     expect(AiRun::query()->count())->toBe($count)
         ->and($fact->fresh()->getAttributes())->toBe($before);
 })->with([
@@ -226,7 +227,7 @@ test('N49: beoordeling tijdens AI-call voorkomt toepassen van de nieuwe analyse'
 
         return n49FuseboxOutput();
     });
-    (new AssessFollowUpFuseboxJob($intake->id))->handle(app(AssessFuseboxPhotos::class));
+    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
     expect($fact->fresh()->getAttributes())->toBe($before)
         ->and($new->fresh()->getAttributes())->toBe($photoBefore)
         ->and($intake->answers()->where('question_key', 'fusebox_clarity')->firstOrFail()->value)->toBe(['value' => 'needs_clearer_photo']);
@@ -255,7 +256,7 @@ test('N49: nieuwste geldige foto wint en menselijke antwoorden blijven behouden'
     ['intake' => $intake, 'round' => $round, 'new' => $first] = n49Evidence();
     $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
     FakeAiClient::alwaysReturn(n49FuseboxOutput('one_phase'));
-    $job = new AssessFollowUpFuseboxJob($intake->id);
+    $job = new AssessFollowUpFuseboxJob($intake->id, $round->id);
     $job->handle(app(AssessFuseboxPhotos::class));
     $firstRun = AiRun::query()->where('upload_id', $first->id)->firstOrFail();
     $firstRunState = $firstRun->getAttributes();
@@ -279,6 +280,7 @@ test('N49: nieuwste geldige foto wint en menselijke antwoorden blijven behouden'
     ]);
     $next->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
     FakeAiClient::alwaysReturn(n49FuseboxOutput('three_phase'));
+    $job = new AssessFollowUpFuseboxJob($intake->id, $next->id);
     $job->handle(app(AssessFuseboxPhotos::class));
     $fact = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail();
     expect($fact->value['phase'])->toBe('three_phase')
@@ -300,20 +302,92 @@ test('N49: hoofdflow NeedMoreInfo → klant rondt af met nieuwe meterkastfoto qu
     $round = $intake->followUpRounds()->with('items')->firstOrFail();
     $new = app(StoreFollowUpUpload::class)->handle($intake, $round->items->firstOrFail(),
         UploadedFile::fake()->image('meterkast-nieuw.jpg', 1600, 1200));
-    $new->update([
-        'assessment_status' => PhotoAssessmentStatus::Assessed,
-        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Fusebox)->toArray(),
-        'usability_verdict' => PhotoUsabilityVerdict::Ok,
-    ]);
+    app()->call([new AssessUploadedPhotoJob($new->id), 'handle']);
+    expect($new->fresh()->contentAssessment()->detectedSubject())->toBe(PhotoSubject::Other);
     Bus::fake();
     app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
     Bus::assertChained([AssessFollowUpFuseboxJob::class, SummarizeIntakeJob::class, SuggestAttentionPointsJob::class, SynthesizeSurveyDossierJob::class]);
+    $photoBefore = $new->fresh()->getAttributes();
+    FakeAiClient::alwaysReturn(n49FuseboxOutput());
+    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
+    expect($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail()->value['upload_ids'])
+        ->toBe([$new->id])->and($new->fresh()->getAttributes())->toBe($photoBefore);
+
 });
 
 test('N49: falende meterkastjob blokkeert de rest van de keten niet', function () {
-    ['intake' => $intake] = n49Evidence();
+    ['intake' => $intake, 'round' => $round] = n49Evidence();
     Queue::fake();
-    $job = (new AssessFollowUpFuseboxJob($intake->id))->chain([new SummarizeIntakeJob($intake->id)]);
+    $job = (new AssessFollowUpFuseboxJob($intake->id, $round->id))->chain([new SummarizeIntakeJob($intake->id)]);
     $job->failed(new MaxAttemptsExceededException('x'));
     Queue::assertPushed(SummarizeIntakeJob::class);
+});
+
+test('N49: pending na soft-timeout is kandidaat zonder fotorecord te wijzigen', function () {
+    ['intake' => $intake, 'round' => $round, 'new' => $new] = n49Evidence();
+    $new->forceFill([
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+        'content_assessment' => null,
+        'created_at' => now()->subMinutes(3),
+    ])->save();
+    $before = $new->fresh()->getAttributes();
+    Bus::fake();
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
+    Bus::assertDispatched(AssessFollowUpFuseboxJob::class, fn ($job) => $job->roundId === $round->id);
+    FakeAiClient::alwaysReturn(n49FuseboxOutput());
+    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
+    expect($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail()->value['upload_ids'])
+        ->toBe([$new->id])->and($new->fresh()->getAttributes())->toBe($before);
+});
+
+test('N49: latere ronde met alleen tekst triggert geen historische foto', function () {
+    ['intake' => $intake, 'round' => $round] = n49Evidence();
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+    $next = $intake->followUpRounds()->create([
+        'round_number' => 2, 'requested_by' => $round->requested_by,
+        'status' => FollowUpRoundStatus::Open, 'sent_at' => now(),
+    ]);
+    $item = $next->items()->create(['type' => FollowUpItemType::Text, 'prompt' => 'Wat is de hoogte?']);
+    Bus::fake();
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $next, [$item->id => '2,5 meter']);
+    Bus::assertNotDispatched(AssessFollowUpFuseboxJob::class);
+});
+
+test('N49: model subject_match no laat feiten en fotorecords ongewijzigd', function () {
+    ['intake' => $intake, 'round' => $round, 'new' => $new] = n49Evidence();
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+    $fact = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail();
+    $before = $fact->getAttributes();
+    $photoBefore = $new->fresh()->getAttributes();
+    FakeAiClient::alwaysReturn([...n49FuseboxOutput(), 'subject_match' => 'no', 'detected_subject' => 'room']);
+    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
+    expect($fact->fresh()->getAttributes())->toBe($before)
+        ->and($new->fresh()->getAttributes())->toBe($photoBefore);
+});
+
+test('N49: kandidaten nieuwste eerst met maximaal drie pogingen en eerste modelmatch wint', function () {
+    ['intake' => $intake, 'round' => $round, 'new' => $oldest] = n49Evidence();
+    $uploads = [$oldest];
+    for ($i = 0; $i < 3; $i++) {
+        $item = $round->items()->create(['type' => FollowUpItemType::Photo, 'prompt' => "Meterkast extra {$i}"]);
+        $upload = app(StoreFollowUpUpload::class)->handle($intake->fresh(), $item,
+            UploadedFile::fake()->image("candidate-{$i}.jpg", 1600, 1200));
+        $upload->storeContentAssessment(PhotoContentAssessment::ok(PhotoSubject::Other));
+        $uploads[] = $upload;
+    }
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+    $calls = 0;
+    FakeAiClient::respondUsing(function () use (&$calls): array {
+        $calls++;
+
+        return $calls === 2
+            ? n49FuseboxOutput()
+            : [...n49FuseboxOutput(), 'subject_match' => 'no', 'detected_subject' => 'room'];
+    });
+    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
+    expect($calls)->toBe(2)
+        ->and($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail()->value['upload_ids'])
+        ->toBe([$uploads[2]->id]);
+    expect(AssessFuseboxPhotos::followUpFuseboxCandidates($intake, $round->id)->pluck('id')->all())
+        ->toBe([$uploads[3]->id, $uploads[2]->id, $uploads[1]->id]);
 });

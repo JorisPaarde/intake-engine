@@ -42,8 +42,7 @@ final class CompleteFollowUpRound
         // “Aanvulling versturen”: weggehaalde foto's gaan nu echt weg (BL-147, UX #16.4).
         $this->deleteFollowUpUpload->purgePendingFor($intake);
 
-        $mayAnalyzeFusebox = false;
-        $completed = DB::transaction(function () use ($intake, $round, $textResponses, &$mayAnalyzeFusebox): Intake {
+        $completed = DB::transaction(function () use ($intake, $round, $textResponses): Intake {
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $round = IntakeFollowUpRound::query()
                 ->with(['items.uploads'])
@@ -155,8 +154,8 @@ final class CompleteFollowUpRound
         $this->decisionReadiness->recalculate($completed);
 
         $fuseboxJobs = AssessFuseboxPhotos::mayAnalyzeFollowUp($completed)
-            && AssessFuseboxPhotos::latestFollowUpFusebox($completed) !== null
-                ? [new AssessFollowUpFuseboxJob($completed->id)]
+            && AssessFuseboxPhotos::followUpFuseboxCandidates($completed, $round->id, limit: 1)->isNotEmpty()
+                ? [new AssessFollowUpFuseboxJob($completed->id, $round->id)]
                 : [];
 
         if ($completed->status !== IntakeStatus::Completed) {
