@@ -125,7 +125,7 @@ test('prepare rejects unknown photo_task_subtype', function () {
         ->assertSessionHasErrors('photo_task_subtype');
 });
 
-test('POST prepare power_route then store with other area drops power_route meta', function () {
+test('POST prepare power_route then store with other area rejects incompatible subtype', function () {
     $user = User::factory()->create();
     $intake = photoSubtypeIntake($user);
     $prompt = 'Maak een foto van de plek waar de stroomkabel naar de buitenunit kan lopen, bijvoorbeeld langs de gevel of vanaf de meterkast.';
@@ -140,7 +140,7 @@ test('POST prepare power_route then store with other area drops power_route meta
         ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task')
         ->assertSessionHas('customer_task_drafts.0.photo_task_subtype', 'power_route');
 
-    // Installer changed “onderdeel” in the draft form away from power.
+    // Installer changed “onderdeel” in the draft form away from power without clearing subtype.
     $this->actingAs($user)
         ->post(route('intakes.workspace.tasks.store', $intake), [
             'contribution_items' => [[
@@ -150,15 +150,9 @@ test('POST prepare power_route then store with other area drops power_route meta
                 'photo_task_subtype' => 'power_route',
             ]],
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors([
+            'contribution_items.0.photo_task_subtype' => 'Dit fototype past niet bij het gekozen onderdeel.',
+        ]);
 
-    $task = ContributionTask::query()->where('intake_id', $intake->id)->latest('id')->first();
-    expect($task)->not->toBeNull()
-        ->and($task->decision_area_key)->toBe('capacity')
-        ->and($task->meta['photo_task_subtype'] ?? null)->toBeNull()
-        ->and($task->meta['expected_photo_subject'] ?? null)->toBeNull()
-        ->and($task->meta['accepted_photo_subjects'] ?? null)->toBeNull()
-        ->and(PhotoSubject::acceptedSubjectsForTask($task))->toBe(
-            PhotoSubject::acceptedSubjectsForDecisionArea('capacity'),
-        );
+    expect(ContributionTask::query()->where('intake_id', $intake->id)->count())->toBe(0);
 });

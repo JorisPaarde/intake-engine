@@ -151,7 +151,7 @@ test('N40: concept stroom→condens koppelt aanvulling aan condens, niet aan str
                 'prompt' => $prompt,
                 'decision_area_key' => 'condensate',
                 'dossier_subject_id' => $power->dossier_subject_id,
-                'photo_task_subtype' => 'power_route',
+                'photo_task_subtype' => 'auto',
             ]],
         ])
         ->assertRedirect();
