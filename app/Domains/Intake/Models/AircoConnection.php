@@ -88,6 +88,12 @@ class AircoConnection extends Model
         ];
     }
 
+    public function isOutsideNewInstallationScope(): bool
+    {
+        return $this->fromPlacement?->isOutsideNewInstallationScope() === true
+            || $this->toPlacement?->isOutsideNewInstallationScope() === true;
+    }
+
     /** @return BelongsTo<AircoInstallationOption, $this> */
     public function installationOption(): BelongsTo
     {

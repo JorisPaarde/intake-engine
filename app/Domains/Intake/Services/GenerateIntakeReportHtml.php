@@ -371,7 +371,7 @@ final class GenerateIntakeReportHtml
     private function presentInstallationOption(Intake $intake, AircoInstallationOption $option): array
     {
         $units = [];
-        foreach ($option->placements as $placement) {
+        foreach ($option->newInstallationPlacements() as $placement) {
             $parts = [$placement->type->label(), $placement->label];
             if ($placement->room?->name) {
                 $parts[] = $placement->room->name;
@@ -380,7 +380,7 @@ final class GenerateIntakeReportHtml
         }
 
         $routes = [];
-        foreach ($option->connections as $connection) {
+        foreach ($option->newInstallationConnections() as $connection) {
             $rawSegments = $connection->segments ?? [];
             $segments = [];
             foreach ($rawSegments as $segment) {

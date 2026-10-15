@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Models;
 
 use App\Enums\AircoConfigurationType;
+use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
+use App\Enums\AircoPlacementType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -84,6 +87,59 @@ class AircoInstallationOption extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return Collection<int, AircoPlacementOption> */
+    public function newInstallationPlacements(): Collection
+    {
+        $this->loadMissing('placements.room');
+        $excludedOutdoorIds = $this->excludedOutdoorIds();
+
+        return $this->placements->reject(
+            static fn (AircoPlacementOption $placement): bool => $placement->isOutsideNewInstallationScope()
+                || in_array($placement->id, $excludedOutdoorIds, true),
+        )->values();
+    }
+
+    /** @return Collection<int, AircoConnection> */
+    public function newInstallationConnections(): Collection
+    {
+        $this->loadMissing(['connections.fromPlacement.room', 'connections.toPlacement.room']);
+        $excludedOutdoorIds = $this->excludedOutdoorIds();
+
+        return $this->connections->reject(
+            static fn (AircoConnection $connection): bool => $connection->isOutsideNewInstallationScope()
+                || in_array($connection->from_placement_id, $excludedOutdoorIds, true)
+                || in_array($connection->to_placement_id, $excludedOutdoorIds, true),
+        )->values();
+    }
+
+    /** @return list<int> */
+    private function excludedOutdoorIds(): array
+    {
+        $this->loadMissing(['connections.fromPlacement.room', 'connections.toPlacement.room']);
+        $servedIndoors = [];
+        foreach ($this->connections as $connection) {
+            if ($connection->type !== AircoConnectionType::Refrigerant) {
+                continue;
+            }
+            $from = $connection->fromPlacement;
+            $to = $connection->toPlacement;
+            if ($from?->type === AircoPlacementType::OutdoorUnit && $to?->type === AircoPlacementType::IndoorUnit) {
+                $servedIndoors[$from->id][] = $to;
+            } elseif ($to?->type === AircoPlacementType::OutdoorUnit && $from?->type === AircoPlacementType::IndoorUnit) {
+                $servedIndoors[$to->id][] = $from;
+            }
+        }
+
+        $excluded = [];
+        foreach ($servedIndoors as $outdoorId => $indoors) {
+            if (collect($indoors)->every(static fn (AircoPlacementOption $indoor): bool => $indoor->isOutsideNewInstallationScope())) {
+                $excluded[] = $outdoorId;
+            }
+        }
+
+        return $excluded;
     }
 
     /** @return BelongsToMany<AircoPlacementOption, $this> */

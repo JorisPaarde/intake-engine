@@ -550,7 +550,7 @@ final class WorkspacePrimaryActionResolver
             return ['href' => '#demo-proposal', 'label' => 'Kies multi-split of singles'];
         }
 
-        $connection = $option->connections
+        $connection = $option->newInstallationConnections()
             ->filter(static fn ($connection): bool => $connection->type === $type)
             ->sortBy(static fn ($connection): int => $connection->status === AircoConnectionStatus::Approved ? 1 : 0)
             ->first();

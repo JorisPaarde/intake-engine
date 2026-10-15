@@ -36,8 +36,8 @@
                 \App\Enums\IntakeStatus::Completed,
                 \App\Enums\IntakeStatus::Reviewed,
             ], true)
-            && $selectedOption->connections->isNotEmpty()
-            && $selectedOption->connections->every(
+            && $selectedOption->newInstallationConnections()->isNotEmpty()
+            && $selectedOption->newInstallationConnections()->every(
                 fn ($connection) => $connection->status === \App\Enums\AircoConnectionStatus::Approved
                     && (! $connection->routeSession
                         || $connection->routeSession->status === \App\Enums\PipeRouteStatus::Approved)
@@ -575,7 +575,7 @@
                                         $linkedOutdoor = null;
                                         $refrigerantLink = null;
                                         if ($roomIndoor && $activeOption) {
-                                            $refrigerantLink = $activeOption->connections
+                                            $refrigerantLink = $activeOption->newInstallationConnections()
                                                 ->filter(static fn ($c) => $c->type === \App\Enums\AircoConnectionType::Refrigerant)
                                                 ->first(static function ($c) use ($roomIndoor) {
                                                     return in_array($roomIndoor->id, [$c->from_placement_id, $c->to_placement_id], true);
@@ -585,7 +585,7 @@
                                                     ? $refrigerantLink->to_placement_id
                                                     : $refrigerantLink->from_placement_id;
                                                 $linkedOutdoor = $intake->aircoPlacements->firstWhere('id', $otherId)
-                                                    ?? $activeOption->placements->firstWhere('id', $otherId);
+                                                    ?? $activeOption->newInstallationPlacements()->firstWhere('id', $otherId);
                                             }
                                         }
                                         $outdoorChoices = $intake->aircoPlacements
@@ -604,6 +604,9 @@
                                         $couplingOutdoorLabel = $couplingFormActive ? old('outdoor_label') : null;
                                     @endphp
 
+                                    @if ($room->isExistingInstallationConfirmed())
+                                        <p class="mt-3 text-sm text-gray-600">Bestaande installatie blijft — geen nieuwe unit of routes in deze keuze.</p>
+                                    @else
                                     <details class="group/units border-t border-gray-100 pt-3 mt-3" @if ($couplingFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $couplingFormKey }}">
                                         <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden">
                                             <span class="font-semibold text-gray-800">Binnen- en buitenunit</span>
@@ -697,6 +700,8 @@
                                         </div>
                                     </details>
 
+                                    @endif
+
                                     @if ($room->placements->filter(static fn ($p) => $p->type !== \App\Enums\AircoPlacementType::IndoorUnit)->isNotEmpty())
                                         <ul class="mt-4 grid gap-2 sm:grid-cols-2">
                                             @foreach ($room->placements->filter(static fn ($p) => $p->type !== \App\Enums\AircoPlacementType::IndoorUnit) as $placement)
@@ -789,6 +794,9 @@
                                     <article id="placement-{{ $placement->id }}" class="scroll-mt-36 rounded-2xl border border-gray-200 p-4">
                                         <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">{{ $placement->type->label() }}</p>
                                         <h4 class="mt-1 font-semibold text-gray-950">{{ $placement->label }}</h4>
+                                        @if ($placement->isOutsideNewInstallationScope())
+                                            <p class="mt-2 text-sm font-semibold text-gray-600">Bestaande installatie blijft — telt niet mee als nieuwe unit.</p>
+                                        @endif
                                         @if ($placement->room)
                                             <p class="mt-1 text-xs text-gray-500">{{ $placement->room->name }}</p>
                                         @endif
@@ -1077,7 +1085,7 @@
                                     </div>
 
                                     <ul class="mt-4 flex flex-wrap gap-2">
-                                        @foreach ($option->placements as $placement)
+                                        @foreach ($option->newInstallationPlacements() as $placement)
                                             <li class="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                                                 {{ $placement->type->label() }} · {{ $placement->label }}
                                                 @if ($placement->room)
@@ -1087,7 +1095,7 @@
                                         @endforeach
                                     </ul>
                                     @php
-                                        $optionRefrigerantLinks = $option->connections
+                                        $optionRefrigerantLinks = $option->newInstallationConnections()
                                             ->filter(static fn ($c) => $c->type === \App\Enums\AircoConnectionType::Refrigerant);
                                     @endphp
                                     @if ($optionRefrigerantLinks->isNotEmpty())
@@ -1107,7 +1115,7 @@
                                             ->present($intake);
                                     @endphp
                                     <div class="mt-5 space-y-3">
-                                        @foreach ($option->connections as $connection)
+                                        @foreach ($option->newInstallationConnections() as $connection)
                                             @php
                                                 $connectionSubject = $intake->dossierSubjects->firstWhere('id', $connection->dossier_subject_id);
                                                 // Condensate: one ask via decision-area overview, not per route card (N26).
@@ -1268,7 +1276,7 @@
                                                 <x-input-label value="Van" />
                                                 <select name="from_placement_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                                     <option value="">Nog open</option>
-                                                    @foreach ($option->placements as $placement)
+                                                    @foreach ($option->newInstallationPlacements() as $placement)
                                                         <option value="{{ $placement->id }}">{{ $placement->label }}</option>
                                                     @endforeach
                                                 </select>
@@ -1277,7 +1285,7 @@
                                                 <x-input-label value="Naar" />
                                                 <select name="to_placement_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                                     <option value="">Nog open</option>
-                                                    @foreach ($option->placements as $placement)
+                                                    @foreach ($option->newInstallationPlacements() as $placement)
                                                         <option value="{{ $placement->id }}">{{ $placement->label }}</option>
                                                     @endforeach
                                                 </select>
@@ -1366,7 +1374,7 @@
                                 <div class="sm:col-span-2">
                                     <x-input-label value="Units in deze keuze" />
                                     <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                        @foreach ($intake->aircoPlacements as $placement)
+                                        @foreach ($intake->aircoPlacements->reject(static fn ($p) => $p->isOutsideNewInstallationScope()) as $placement)
                                             <label class="flex min-h-11 items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
                                                 <input type="checkbox" name="placement_ids[]" value="{{ $placement->id }}" class="rounded border-gray-300 text-indigo-600">
                                                 <span><strong>{{ $placement->type->label() }}</strong> · {{ $placement->label }}</span>

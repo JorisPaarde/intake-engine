@@ -78,9 +78,11 @@ final class CompleteInstallerSurvey
                 ]);
             }
 
+            // N74: routes of rooms confirmed as "bestaande installatie blijft" are outside scope and untouched.
+            $scopedConnections = $selected->newInstallationConnections();
             $alreadyApproved = in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)
-                && $selected->connections->isNotEmpty()
-                && $selected->connections->every(
+                && $scopedConnections->isNotEmpty()
+                && $scopedConnections->every(
                     static fn (AircoConnection $connection): bool => $connection->status === AircoConnectionStatus::Approved
                         && ($connection->routeSession === null
                             || $connection->routeSession->status === PipeRouteStatus::Approved),
@@ -90,7 +92,7 @@ final class CompleteInstallerSurvey
                 return $intake->fresh() ?? $intake;
             }
 
-            foreach ($selected->connections as $connection) {
+            foreach ($scopedConnections as $connection) {
                 $uncertainties = array_values(array_filter(
                     array_map(
                         static fn (string $item): string => trim($item),

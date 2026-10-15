@@ -38,6 +38,12 @@ final class AircoUnitCouplingValidator
         Collection $connections,
         bool $requireComplete = true,
     ): array {
+        $placements = $placements->reject(
+            static fn (AircoPlacementOption $placement): bool => $placement->isOutsideNewInstallationScope(),
+        );
+        $connections = $connections->reject(
+            static fn (AircoConnection $connection): bool => $connection->isOutsideNewInstallationScope(),
+        );
         $indoors = $placements
             ->filter(static fn (AircoPlacementOption $p): bool => $p->type === AircoPlacementType::IndoorUnit)
             ->values();
@@ -81,8 +87,8 @@ final class AircoUnitCouplingValidator
 
         return $this->problems(
             $option->configuration_type,
-            $option->placements,
-            $option->connections,
+            $option->newInstallationPlacements(),
+            $option->newInstallationConnections(),
             $requireComplete,
         );
     }

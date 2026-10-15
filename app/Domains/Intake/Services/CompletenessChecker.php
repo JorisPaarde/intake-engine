@@ -95,19 +95,9 @@ final class CompletenessChecker
         ]);
         $points = [];
 
-        $indoorUnitCount = $intake->answers
-            ->first(static fn ($answer): bool => $answer->question_key === 'indoor_unit_count'
-                && $answer->section_instance_key === null);
-        $indoorUnitCountValue = is_array($indoorUnitCount?->value)
-            ? ($indoorUnitCount->value['number'] ?? null)
-            : null;
-
-        if (is_numeric($indoorUnitCountValue) && (int) $indoorUnitCountValue > 1) {
-            $count = (int) $indoorUnitCountValue;
-            $points[] = [
-                'code' => 'review_split_configuration',
-                'label' => "Beoordeel voor {$count} ruimtes: één multi-split of meerdere single-splits.",
-            ];
+        $splitPoint = $this->splitConfigurationPoint($intake);
+        if ($splitPoint !== null) {
+            $points[] = $splitPoint;
         }
 
         $points = [
@@ -146,6 +136,31 @@ final class CompletenessChecker
                 'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
             ),
         ];
+    }
+
+    /** @return array{code: string, label: string}|null */
+    public function splitConfigurationPoint(Intake $intake): ?array
+    {
+        $intake->loadMissing(['answers', 'aircoRooms']);
+        $indoorUnitCount = $intake->answers
+            ->first(static fn ($answer): bool => $answer->question_key === 'indoor_unit_count'
+                && $answer->section_instance_key === null);
+        $indoorUnitCountValue = is_array($indoorUnitCount?->value)
+            ? ($indoorUnitCount->value['number'] ?? null)
+            : null;
+
+        $count = $intake->aircoRooms->isNotEmpty()
+            ? $intake->aircoRooms->reject(static fn ($room): bool => $room->isExistingInstallationConfirmed())->count()
+            : (is_numeric($indoorUnitCountValue) ? (int) $indoorUnitCountValue : 0);
+
+        if ($count > 1) {
+            return [
+                'code' => 'review_split_configuration',
+                'label' => "Beoordeel voor {$count} ruimtes: één multi-split of meerdere single-splits.",
+            ];
+        }
+
+        return null;
     }
 
     /**

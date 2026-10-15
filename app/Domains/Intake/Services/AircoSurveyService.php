@@ -20,6 +20,7 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
+use App\Enums\AttentionPointSource;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 use App\Models\User;
@@ -127,7 +128,28 @@ final class AircoSurveyService
         );
         $this->surveyProgress->markStarted($intake);
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
-        $this->refreshStoredIntakeReport->handle($intake->fresh() ?? $intake);
+
+        $freshIntake = $intake->fresh() ?? $intake;
+        $point = app(CompletenessChecker::class)->splitConfigurationPoint($freshIntake);
+        $storedPoint = $freshIntake->attentionPoints()
+            ->where('source', AttentionPointSource::System)
+            ->where('code', 'review_split_configuration')
+            ->first();
+        if ($storedPoint !== null) {
+            // Only derived system text changes; installer/AI attention points stay intact.
+            if ($point !== null) {
+                $storedPoint->update(['label' => $point['label']]);
+            } else {
+                $storedPoint->delete();
+            }
+        } elseif ($point !== null && $freshIntake->completed_at !== null) {
+            $freshIntake->attentionPoints()->create([
+                'source' => AttentionPointSource::System,
+                ...$point,
+                'is_resolved' => false,
+            ]);
+        }
+        $this->refreshStoredReport($freshIntake);
 
         return $room->fresh() ?? $room;
     }
@@ -529,6 +551,12 @@ final class AircoSurveyService
             ]);
         }
 
+        if ($placements->contains(static fn (AircoPlacementOption $placement): bool => $placement->isOutsideNewInstallationScope())) {
+            throw ValidationException::withMessages([
+                'placement_ids' => 'Een bestaande installatie die blijft telt niet mee als nieuwe unit.',
+            ]);
+        }
+
         if (! $placements->contains('type', AircoPlacementType::IndoorUnit)
             || ! $placements->contains('type', AircoPlacementType::OutdoorUnit)) {
             throw ValidationException::withMessages([
@@ -846,6 +874,12 @@ final class AircoSurveyService
         $this->guardTenant($intake, $installer);
         $this->guardModel($intake, $room);
 
+        if ($room->isExistingInstallationConfirmed()) {
+            throw ValidationException::withMessages([
+                'indoor_label' => 'Maak eerst de bevestiging van de bestaande installatie ongedaan.',
+            ]);
+        }
+
         $configuration = $data['configuration_type'] instanceof AircoConfigurationType
             ? $data['configuration_type']
             : AircoConfigurationType::from((string) $data['configuration_type']);
@@ -973,7 +1007,7 @@ final class AircoSurveyService
             return false;
         }
 
-        foreach ($option->connections as $connection) {
+        foreach ($option->newInstallationConnections() as $connection) {
             if ($connection->type !== AircoConnectionType::Refrigerant) {
                 continue;
             }
@@ -1037,7 +1071,7 @@ final class AircoSurveyService
         $from = $this->placement($intake, $data['from_placement_id'] ?? null);
         $to = $this->placement($intake, $data['to_placement_id'] ?? null);
         $option->loadMissing(['placements', 'connections']);
-        $optionPlacementIds = $option->placements->pluck('id')
+        $optionPlacementIds = $option->newInstallationPlacements()->pluck('id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
 

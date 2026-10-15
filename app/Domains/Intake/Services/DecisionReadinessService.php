@@ -200,7 +200,7 @@ final class DecisionReadinessService
                 ->map(static fn (AircoRoom $room): string => $room->name)
                 ->all();
 
-            foreach ($proposal->connections as $connection) {
+            foreach ($proposal->newInstallationConnections() as $connection) {
                 $uncertainties = array_values(array_filter(
                     array_map(
                         static fn (string $item): string => trim($item),
@@ -478,7 +478,7 @@ final class DecisionReadinessService
             }
         }
 
-        $indoorsWithoutRoom = $candidate->placements
+        $indoorsWithoutRoom = $candidate->newInstallationPlacements()
             ->filter(static fn (AircoPlacementOption $placement): bool => $placement->type === AircoPlacementType::IndoorUnit)
             ->filter(static fn (AircoPlacementOption $placement): bool => $placement->airco_room_id === null);
         if ($indoorsWithoutRoom->isNotEmpty()) {
@@ -540,7 +540,7 @@ final class DecisionReadinessService
             'evidence_summary' => [
                 'option_id' => $candidate->id,
                 'configuration' => $candidate->configuration_type->value,
-                'placements' => $candidate->placements->count(),
+                'placements' => $candidate->newInstallationPlacements()->count(),
                 'feasible_count' => $feasibleCount,
             ],
         ];
@@ -570,7 +570,7 @@ final class DecisionReadinessService
             ];
         }
 
-        $connections = $option->connections->filter(
+        $connections = $option->newInstallationConnections()->filter(
             static fn (AircoConnection $connection): bool => $connection->type === $type,
         );
 
@@ -606,7 +606,7 @@ final class DecisionReadinessService
         }
 
         if (in_array($type, [AircoConnectionType::Refrigerant, AircoConnectionType::Condensate], true)) {
-            $uncoveredIndoorPlacements = $option->placements
+            $uncoveredIndoorPlacements = $option->newInstallationPlacements()
                 ->filter(
                     static fn (AircoPlacementOption $placement): bool => $placement->type === AircoPlacementType::IndoorUnit,
                 )
@@ -701,7 +701,7 @@ final class DecisionReadinessService
             ];
         }
 
-        $risks = $option->connections
+        $risks = $option->newInstallationConnections()
             ->flatMap(static fn (AircoConnection $connection): array => [
                 ...($connection->obstacles ?? []),
                 ...($connection->uncertainties ?? []),
@@ -819,7 +819,7 @@ final class DecisionReadinessService
         }
 
         foreach ($intake->aircoInstallationOptions as $option) {
-            foreach ($option->connections as $connection) {
+            foreach ($option->newInstallationConnections() as $connection) {
                 if ($connection->type === AircoConnectionType::Power
                     && $this->subjectHasUploadEvidence($intake, (int) $connection->dossier_subject_id)) {
                     return true;
