@@ -70,9 +70,34 @@ test('N65: installateursmaten vervangen klantmaten in Ruimtes en blijven consist
     $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
     $text = reportDimsText($intake, $version);
 
-    expect($text)->toContain('4,5 (Vervangen door installateur) — klant gaf eerder op: 4')
-        ->and($text)->toContain('2,6 (Vervangen door installateur) — klant gaf eerder op: 2,5')
+    expect($text)->toContain('4,5 (Vervangen door installateur)')
+        ->and($text)->toContain('2,6 (Vervangen door installateur)')
         ->and($text)->toContain('15,8 (Vervangen door installateur)')
         ->and($text)->toContain('(15,8 m²)')
+        ->and($text)->not->toContain('klant gaf eerder op')
         ->and($html)->not->toMatch('/Oppervlak[^<]*<[^>]*>\s*14\b/');
+});
+
+test('N65: alle maten wissen door installateur laat geen oude maten als actueel terugkomen', function () {
+    [$user, $intake, $version] = makeReportDimsIntake();
+    $room = $intake->aircoRooms()->firstOrFail();
+
+    $room = app(AircoSurveyService::class)->updateRoom($intake, $user, $room, [
+        'name' => $room->name,
+        'length_m' => null,
+        'width_m' => null,
+        'height_m' => null,
+        'area_m2' => null,
+    ]);
+
+    expect($room->dimensions)->toMatchArray([
+        'dimensions_source' => 'installer',
+        'dimensions_cleared_by_installer' => true,
+    ]);
+
+    app(DossierManager::class)->initialize($intake->fresh());
+    $text = reportDimsText($intake, $version);
+
+    expect($text)->not->toContain('3.5', '2.5', '(14 m²)', 'Vervangen door installateur', 'klant gaf eerder op')
+        ->and($text)->not->toContain('Lengte (m)', 'Breedte (m)', 'Hoogte (m)', 'Oppervlakte (m²)');
 });

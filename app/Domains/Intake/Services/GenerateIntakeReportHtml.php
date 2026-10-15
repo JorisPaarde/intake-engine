@@ -511,7 +511,7 @@ final class GenerateIntakeReportHtml
             $instanceDimensions = $installerRooms[$target['section_instance_key'] ?? ''] ?? null;
 
             if ($instanceDimensions !== null && isset(self::ROOM_DIMENSION_KEYS[$question->key])) {
-                $display = $this->presentInstallerRoomDimension($question->key, $instanceDimensions, $value);
+                $display = $this->presentInstallerRoomDimension($question->key, $instanceDimensions);
             } else {
                 $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
             }
@@ -557,7 +557,7 @@ final class GenerateIntakeReportHtml
                 || ($dimensions['area_source'] ?? null) === 'installer';
             $roomDimensions = RoomDimensions::from($dimensions);
 
-            if ($installerOwned && $roomDimensions->hasAnyMeasure()) {
+            if ($installerOwned) {
                 $rooms[$room->key] = $roomDimensions;
             }
         }
@@ -565,12 +565,7 @@ final class GenerateIntakeReportHtml
         return $rooms;
     }
 
-    /**
-     * Actuele installateursmaat; afwijkende klantwaarde alleen als gelabelde historie.
-     *
-     * @param  array<string, mixed>|null  $customerValue
-     */
-    private function presentInstallerRoomDimension(string $questionKey, RoomDimensions $dimensions, ?array $customerValue): ?string
+    private function presentInstallerRoomDimension(string $questionKey, RoomDimensions $dimensions): ?string
     {
         $current = match (self::ROOM_DIMENSION_KEYS[$questionKey]) {
             'length_m' => $dimensions->lengthM(),
@@ -583,14 +578,7 @@ final class GenerateIntakeReportHtml
             return null;
         }
 
-        $display = $this->formatMeasure($current).' (Vervangen door installateur)';
-        $previous = $customerValue['number'] ?? null;
-
-        if (is_numeric($previous) && abs((float) $previous - $current) > 0.001) {
-            $display .= ' — klant gaf eerder op: '.$this->formatMeasure((float) $previous);
-        }
-
-        return $display;
+        return $this->formatMeasure($current).' (Vervangen door installateur)';
     }
 
     private function formatMeasure(float $value): string
