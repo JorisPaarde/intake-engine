@@ -10,13 +10,14 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Enums\QuestionType;
 
 /**
- * N73: een vervolgfoto binnen hetzelfde foto-onderwerp (bijv. `fusebox_photo_extra`
- * naast `fusebox_photo`) is niet verplicht zodra de klant op de hoofdfoto
- * “Toch doorgaan” koos: doorgaan zonder extra foto. Structureel: onderwerp via
- * `meta.photo_analysis`, hoofdvraag = laagste sort_order; geen tekstvergelijking.
+ * N73: de extra meterkastfoto (`fusebox_photo_extra`) is niet verplicht zodra de
+ * klant op de hoofdfoto (`fusebox_photo`) “Toch doorgaan” koos.
  */
 final class PhotoFollowUpWaiver
 {
+    /** @var array<string, string> follow-up key => primary key */
+    private const FOLLOW_UPS = ['fusebox_photo_extra' => 'fusebox_photo'];
+
     public static function waives(
         Intake $intake,
         IntakeTemplateVersion $version,
@@ -27,9 +28,8 @@ final class PhotoFollowUpWaiver
             return false;
         }
 
-        $keys = PhotoContinueAnywayAttention::questionKeysForTopic($version, $question->key);
-        $primaryKey = $keys[0] ?? $question->key;
-        if ($primaryKey === $question->key) {
+        $primaryKey = self::FOLLOW_UPS[$question->key] ?? null;
+        if ($primaryKey === null) {
             return false;
         }
 
