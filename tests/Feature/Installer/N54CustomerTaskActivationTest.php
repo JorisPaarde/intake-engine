@@ -157,3 +157,21 @@ test('N54 document evidence requires repeat confirmation without response text',
     }
     expect($this->intake->followUpRounds()->count())->toBe(2);
 })->with(['usable', 'removed', 'rejected']);
+
+test('N54 earlier task without subject link counts as overlap for a subject-linked repeat', function () {
+    $round = app(CreateCustomerContributionRequest::class)->handle($this->intake, $this->user, [$this->item]);
+    $answer = $round->items()->sole();
+    $answer->update(['answered_at' => now()]);
+    IntakeUpload::query()->create([
+        'intake_id' => $this->intake->id, 'intake_follow_up_item_id' => $answer->id,
+        'question_key' => 'follow_up', 'disk' => 'local', 'path' => 'n54-null-subject.jpg',
+        'original_filename' => 'n54.jpg', 'mime_type' => 'image/jpeg', 'size_bytes' => 10,
+        'checksum' => hash('sha256', 'n54-null-subject'), 'sort_order' => 1,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::PipeRoute)->toArray(),
+    ]);
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+
+    $evidence = app(AnsweredContributionEvidence::class);
+    expect(ContributionTask::query()->where('intake_id', $this->intake->id)->whereNull('dossier_subject_id')->exists())->toBeTrue()
+        ->and($evidence->warning($this->intake, [...$this->item, 'dossier_subject_id' => 987654]))->not->toBeNull();
+});

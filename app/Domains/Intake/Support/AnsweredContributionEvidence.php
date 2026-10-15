@@ -36,7 +36,13 @@ final class AnsweredContributionEvidence
             ->where('audience', ContributionAudience::Customer)
             ->where('type', $type)
             ->where('decision_area_key', $area)
-            ->where('dossier_subject_id', $item['dossier_subject_id'] ?? null)
+            // An absent subject link on either side is ambiguous overlap; explicit subjects must match.
+            ->when(
+                is_numeric($item['dossier_subject_id'] ?? null),
+                static fn ($query) => $query->where(static fn ($inner) => $inner
+                    ->whereNull('dossier_subject_id')
+                    ->orWhere('dossier_subject_id', (int) $item['dossier_subject_id'])),
+            )
             ->with('followUpItem.round', 'followUpItem.uploads')
             ->get();
 
