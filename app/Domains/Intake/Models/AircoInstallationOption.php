@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -84,6 +85,26 @@ class AircoInstallationOption extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return Collection<int, AircoPlacementOption> */
+    public function newInstallationPlacements(): Collection
+    {
+        $this->loadMissing('placements.room');
+
+        return $this->placements->reject(
+            static fn (AircoPlacementOption $placement): bool => $placement->isOutsideNewInstallationScope(),
+        )->values();
+    }
+
+    /** @return Collection<int, AircoConnection> */
+    public function newInstallationConnections(): Collection
+    {
+        $this->loadMissing(['connections.fromPlacement.room', 'connections.toPlacement.room']);
+
+        return $this->connections->reject(
+            static fn (AircoConnection $connection): bool => $connection->isOutsideNewInstallationScope(),
+        )->values();
     }
 
     /** @return BelongsToMany<AircoPlacementOption, $this> */

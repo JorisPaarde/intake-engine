@@ -96,7 +96,7 @@ final class DossierOverviewBuilder
     private function hasConnectionOfType(Intake $intake, AircoConnectionType $type): bool
     {
         return $intake->aircoInstallationOptions->contains(
-            static fn (AircoInstallationOption $option): bool => $option->connections->contains(
+            static fn (AircoInstallationOption $option): bool => $option->newInstallationConnections()->contains(
                 static fn (AircoConnection $connection): bool => $connection->type === $type,
             ),
         );

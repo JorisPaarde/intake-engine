@@ -63,6 +63,12 @@ class AircoPlacementOption extends Model
         ];
     }
 
+    public function isOutsideNewInstallationScope(): bool
+    {
+        return $this->type === AircoPlacementType::IndoorUnit
+            && $this->room?->isExistingInstallationConfirmed() === true;
+    }
+
     /** @return BelongsTo<Intake, $this> */
     public function intake(): BelongsTo
     {
