@@ -16,6 +16,11 @@ use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\TechnicalProposalCopy;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
+use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionStatus;
+use App\Enums\AircoPlacementType;
+use App\Enums\PipeRouteStatus;
 use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 
@@ -259,6 +264,11 @@ final class CompletenessChecker
         string $openCode,
         string $openLabel,
     ): array {
+        $routePoints = $this->routeDecisionAttention($intake, $openCode, $openLabel);
+        if ($routePoints !== null) {
+            return $routePoints;
+        }
+
         $answer = $intake->answers
             ->first(static fn ($row): bool => $row->question_key === $questionKey
                 && $row->section_instance_key === null);
@@ -322,6 +332,52 @@ final class CompletenessChecker
         return [[
             'code' => $openCode,
             'label' => $openLabel,
+        ]];
+    }
+
+    /** @return list<array{code: string, label: string}>|null */
+    public function routeDecisionAttention(Intake $intake, string $code, string $label): ?array
+    {
+        $types = match ($code) {
+            'condensate_pump_open' => [AircoConnectionType::Condensate],
+            'pipe_route_open' => [AircoConnectionType::Refrigerant],
+            'drillings_open' => [AircoConnectionType::Refrigerant, AircoConnectionType::Condensate],
+            default => null,
+        };
+        if ($types === null) {
+            return null;
+        }
+
+        // Read fresh structured state, including scope undo and route-session changes.
+        $options = $intake->aircoInstallationOptions()
+            ->where('status', '!=', AircoOptionStatus::Rejected->value)
+            ->orderBy('rank')->orderBy('id')->get();
+        $option = $options->firstWhere('status', AircoOptionStatus::Selected) ?? $options->first();
+        if ($option === null) {
+            return null;
+        }
+
+        $connections = $option->newInstallationConnections()->whereIn('type', $types);
+        $open = [];
+        foreach ($connections as $connection) {
+            if ($connection->status !== AircoConnectionStatus::Approved
+                || ($connection->routeSession !== null && $connection->routeSession->status !== PipeRouteStatus::Approved)) {
+                $open[] = "{$connection->label} (route #{$connection->id})";
+            }
+        }
+        foreach ($option->newInstallationPlacements()->where('type', AircoPlacementType::IndoorUnit) as $indoor) {
+            foreach ($types as $type) {
+                $covered = $connections->contains(static fn ($connection): bool => $connection->type === $type
+                    && ($connection->from_placement_id === $indoor->id || $connection->to_placement_id === $indoor->id));
+                if (! $covered) {
+                    $open[] = $indoor->label.' — '.$type->label().' ontbreekt';
+                }
+            }
+        }
+
+        return $open === [] ? [] : [[
+            'code' => $code,
+            'label' => $label.' · '.$option->label.': '.implode('; ', $open),
         ]];
     }
 
