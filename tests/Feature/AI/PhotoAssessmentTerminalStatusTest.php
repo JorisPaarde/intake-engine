@@ -293,6 +293,10 @@ test('poll soft-timeout laat wizard doorgaan terwijl status pending blijft', fun
     $component->set('uploadPhaseStartedAt', now()->subSeconds(5)->getTimestamp());
     $upload->forceFill(['assessment_queued_at' => now()->subSeconds(5)])->save();
 
+    // Move the clock past the soft-timeout for every clock the wizard may consult
+    // (phase clock, created_at fallback), independent of test speed or ordering.
+    $this->travel(10)->seconds();
+
     $component
         ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
