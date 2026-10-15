@@ -511,7 +511,11 @@ final class GenerateIntakeReportHtml
             $instanceDimensions = $installerRooms[$target['section_instance_key'] ?? ''] ?? null;
 
             if ($instanceDimensions !== null && isset(self::ROOM_DIMENSION_KEYS[$question->key])) {
-                $display = $this->presentInstallerRoomDimension($question->key, $instanceDimensions);
+                $display = $this->presentInstallerRoomDimension(
+                    $question->key,
+                    $instanceDimensions,
+                    $this->customerRoomMeasure($question->key, $answers, $target['section_instance_key']),
+                );
             } else {
                 $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
             }
@@ -553,19 +557,39 @@ final class GenerateIntakeReportHtml
 
         foreach ($intake->aircoRooms as $room) {
             $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
-            $installerOwned = ($dimensions['dimensions_source'] ?? null) === 'installer'
-                || ($dimensions['area_source'] ?? null) === 'installer';
-            $roomDimensions = RoomDimensions::from($dimensions);
 
-            if ($installerOwned) {
-                $rooms[$room->key] = $roomDimensions;
+            if (RoomDimensions::isInstallerOwned($dimensions)) {
+                $rooms[$room->key] = RoomDimensions::from($dimensions);
             }
         }
 
         return $rooms;
     }
 
-    private function presentInstallerRoomDimension(string $questionKey, RoomDimensions $dimensions): ?string
+    /**
+     * Oorspronkelijke klantwaarde van een maat (oppervlakte: eigen antwoord, anders L×B van de klant).
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function customerRoomMeasure(string $questionKey, array $answers, ?string $instanceKey): ?float
+    {
+        $read = function (string $key) use ($answers, $instanceKey): ?float {
+            $number = $answers[VisibilityResolver::compositeKey($key, $instanceKey)]['number'] ?? null;
+
+            return is_numeric($number) ? (float) $number : null;
+        };
+
+        if (self::ROOM_DIMENSION_KEYS[$questionKey] !== 'area_m2') {
+            return $read($questionKey);
+        }
+
+        $length = $read('room_length_m');
+        $width = $read('room_width_m');
+
+        return $read('room_area_m2') ?? ($length !== null && $width !== null ? $length * $width : null);
+    }
+
+    private function presentInstallerRoomDimension(string $questionKey, RoomDimensions $dimensions, ?float $customerValue): ?string
     {
         $current = match (self::ROOM_DIMENSION_KEYS[$questionKey]) {
             'length_m' => $dimensions->lengthM(),
@@ -578,7 +602,13 @@ final class GenerateIntakeReportHtml
             return null;
         }
 
-        return $this->formatMeasure($current).' (Vervangen door installateur)';
+        $formatted = $this->formatMeasure($current);
+
+        if ($customerValue === null || $this->formatMeasure($customerValue) === $formatted) {
+            return $formatted;
+        }
+
+        return $formatted.' (Vervangen door installateur)';
     }
 
     private function formatMeasure(float $value): string
@@ -852,7 +882,9 @@ final class GenerateIntakeReportHtml
 
         return match ($question->type) {
             QuestionType::ShortText, QuestionType::LongText => (string) ($value['text'] ?? ''),
-            QuestionType::Number => (string) ($value['number'] ?? ''),
+            QuestionType::Number => isset(self::ROOM_DIMENSION_KEYS[$question->key]) && is_numeric($value['number'] ?? null)
+                ? $this->formatMeasure((float) $value['number'])
+                : (string) ($value['number'] ?? ''),
             QuestionType::SingleChoice => $this->optionLabel($question, (string) ($value['value'] ?? '')),
             QuestionType::MultiChoice => implode(', ', array_map(
                 fn (mixed $v): string => $this->optionLabel($question, (string) $v),

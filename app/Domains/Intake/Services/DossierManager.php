@@ -18,6 +18,7 @@ use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
+use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Domains\Intake\Support\TechnicalProposalCopy;
 use App\Enums\ContributionAudience;
@@ -674,9 +675,7 @@ final class DossierManager
             return $existing;
         }
 
-        $installerOwned = ($existing['dimensions_source'] ?? null) === 'installer'
-            // Tijdelijk: rijen van vóór dimensions_source-backfill.
-            || ($existing['area_source'] ?? null) === 'installer';
+        $installerOwned = RoomDimensions::isInstallerOwned($existing);
 
         if ($installerOwned && $this->dimensionsHavePositiveMeasures($existing)) {
             return $existing;

@@ -52,7 +52,8 @@ test('N65: zonder installateurscorrectie blijft Ruimtes de klantmaten tonen', fu
 
     $text = reportDimsText($intake, $version);
 
-    expect($text)->toContain('3.5')
+    expect($text)->toContain('3,5')
+        ->and($text)->not->toContain('3.5')
         ->and($text)->not->toContain('Vervangen door installateur');
 });
 
@@ -71,6 +72,8 @@ test('N65: installateursmaten vervangen klantmaten in Ruimtes en blijven consist
     $text = reportDimsText($intake, $version);
 
     expect($text)->toContain('4,5 (Vervangen door installateur)')
+        ->and($text)->toContain('3,5')
+        ->and($text)->not->toContain('3,5 (Vervangen door installateur)')
         ->and($text)->toContain('2,6 (Vervangen door installateur)')
         ->and($text)->toContain('15,8 (Vervangen door installateur)')
         ->and($text)->toContain('(15,8 m²)')
@@ -100,4 +103,21 @@ test('N65: alle maten wissen door installateur laat geen oude maten als actueel 
 
     expect($text)->not->toContain('3.5', '2.5', '(14 m²)', 'Vervangen door installateur', 'klant gaf eerder op')
         ->and($text)->not->toContain('Lengte (m)', 'Breedte (m)', 'Hoogte (m)', 'Oppervlakte (m²)');
+});
+
+test('N65: alleen gewijzigde hoogte krijgt het installateurslabel', function () {
+    [$user, $intake, $version] = makeReportDimsIntake();
+    $room = $intake->aircoRooms()->firstOrFail();
+
+    app(AircoSurveyService::class)->updateRoom($intake, $user, $room, [
+        'name' => $room->name,
+        'length_m' => 4,
+        'width_m' => 3.5,
+        'height_m' => 2.7,
+    ]);
+
+    $text = reportDimsText($intake, $version);
+
+    expect($text)->toContain('2,7 (Vervangen door installateur)')
+        ->and(substr_count($text, 'Vervangen door installateur'))->toBe(1);
 });

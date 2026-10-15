@@ -41,6 +41,17 @@ final class RoomDimensions
         return new self($dimensions);
     }
 
+    /**
+     * Installateurseigendom: dimensions_source=installer, of (legacy, vóór backfill) area_source=installer.
+     *
+     * @param  array<string, mixed>|null  $dimensions
+     */
+    public static function isInstallerOwned(?array $dimensions): bool
+    {
+        return ($dimensions['dimensions_source'] ?? null) === 'installer'
+            || ($dimensions['area_source'] ?? null) === 'installer';
+    }
+
     public function lengthM(): ?float
     {
         return $this->numeric('length_m');
