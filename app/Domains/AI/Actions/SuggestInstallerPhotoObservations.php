@@ -56,6 +56,11 @@ final class SuggestInstallerPhotoObservations
 
         $this->guardContext($intake, $subject, $upload);
 
+        // AI suggestions only exist for rooms/placements; other subjects simply get none.
+        if (! in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
+            return null;
+        }
+
         $promptName = (string) config(
             'ai.installer_photo_observation_prompt',
             'installer_photo_observation',
@@ -299,13 +304,13 @@ final class SuggestInstallerPhotoObservations
 
         if ($subject->intake_id !== $intake->id
             || $subject->company_id !== $intake->company_id
-            || ! in_array($subject->type, ['airco_room', 'airco_placement'], true)
             || $upload->intake_id !== $intake->id
             || ! $linked) {
             throw ValidationException::withMessages([
                 'photo' => 'Deze foto hoort niet bij dit onderdeel van de opname.',
             ]);
         }
+
     }
 
     /**

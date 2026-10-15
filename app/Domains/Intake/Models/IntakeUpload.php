@@ -97,6 +97,14 @@ class IntakeUpload extends Model
         );
     }
 
+    /** Wie de foto aanleverde; volgt de uploader, niet de weergave. */
+    public function sourceLabel(): string
+    {
+        return $this->question_key === 'installer_evidence'
+            ? 'door installateur toegevoegd'
+            : 'aangeleverd door klant';
+    }
+
     /**
      * Filename for Content-Disposition / downloads. Stored dossier variants are JPEG;
      * keep the original basename but force .jpg when the served mime is JPEG
