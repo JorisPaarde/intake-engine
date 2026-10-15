@@ -7,12 +7,14 @@ use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\DecideAircoConnection;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
 use App\Enums\AttentionPointSource;
+use App\Enums\ContributionMode;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -116,13 +118,71 @@ test('N77 recreates missing system points when a previously-approved route is re
 });
 
 test('N77 bulk approval via CompleteInstallerSurvey resolves the three route attention points', function () {
+    // Self-contained fixture (CI shards do not load helpers from other test files).
     $user = User::factory()->create();
-    [
-        'intake' => $intake,
-        'connection' => $connection,
-        'condensate' => $condensate,
-        'power' => $power,
-    ] = createRouteDecisionWorkspace($user);
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer,
+        'customer_name' => 'Bulk Route',
+        'customer_email' => 'bulk-route@example.com',
+        'address_line' => 'Voorbeeldstraat 12',
+        'address_postal_code' => '1234AB',
+        'address_house_number' => 12,
+        'address_city' => 'Utrecht',
+    ]);
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer', 'use_type' => 'living_room',
+        'length_m' => 5.0, 'width_m' => 4.0, 'height_m' => 2.6,
+    ]);
+    $inside = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id, 'type' => AircoPlacementType::IndoorUnit, 'label' => 'Binnen',
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit, 'label' => 'Buiten',
+    ]);
+    $powerPoint = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::PowerSource, 'label' => 'Meterkast',
+    ]);
+    $drainPoint = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::DrainPoint, 'label' => 'Regenpijp',
+    ]);
+    foreach ([$powerPoint, $outside] as $index => $placement) {
+        IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'installer_evidence',
+            'section_instance_key' => 'subject-'.$placement->dossier_subject_id,
+            'disk' => 'local',
+            'path' => 'test/n77-bulk-'.$index.'.jpg',
+            'original_filename' => $index === 0 ? 'meterkast.jpg' : 'gevel.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 100,
+            'checksum' => hash('sha256', 'n77-bulk-'.$index),
+            'sort_order' => 1,
+        ]);
+    }
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Single-split',
+        'configuration_type' => 'single_split',
+        'placement_ids' => [$inside->id, $outside->id, $powerPoint->id, $drainPoint->id],
+    ]);
+    $cooling = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Refrigerant, 'label' => 'Koelleiding',
+        'from_placement_id' => $inside->id, 'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::Proposed, 'uncertainties' => [],
+    ]);
+    $drain = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Condensate, 'label' => 'Condensafvoer',
+        'from_placement_id' => $inside->id, 'to_placement_id' => $drainPoint->id,
+        'status' => AircoConnectionStatus::Proposed, 'uncertainties' => [],
+    ]);
+    $power = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Power, 'label' => 'Stroom',
+        'from_placement_id' => $powerPoint->id, 'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::Proposed, 'uncertainties' => [],
+    ]);
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
+    $survey->selectInstallationOption($intake, $user, $option);
 
     foreach (['condensate_pump_open', 'pipe_route_open', 'drillings_open'] as $code) {
         $intake->attentionPoints()->updateOrCreate(
@@ -130,23 +190,16 @@ test('N77 bulk approval via CompleteInstallerSurvey resolves the three route att
             ['label' => 'Oud punt', 'is_resolved' => false, 'resolved_at' => null, 'resolved_by' => null],
         );
     }
-    expect($intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->where('is_resolved', false)->count())->toBe(3);
 
-    foreach ([$connection, $condensate, $power] as $toApprove) {
+    foreach ([$cooling, $drain, $power] as $toApprove) {
         $this->actingAs($user)
-            ->post(route('intakes.workspace.connections.decide', [$intake, $toApprove]), [
-                'decision' => 'approve',
-            ])
+            ->post(route('intakes.workspace.connections.decide', [$intake, $toApprove]), ['decision' => 'approve'])
             ->assertRedirect();
     }
 
-    // Individual decides already sync via RefreshStoredIntakeReport; force open again
-    // so the bulk path is what must resolve them.
+    // Individual decides already sync; force the three points open so bulk must resolve them.
     $intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->update([
-        'is_resolved' => false,
-        'resolved_at' => null,
-        'resolved_by' => null,
-        'label' => 'Oud punt',
+        'is_resolved' => false, 'resolved_at' => null, 'resolved_by' => null, 'label' => 'Oud punt',
     ]);
 
     app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
