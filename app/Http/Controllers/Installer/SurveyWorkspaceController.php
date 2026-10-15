@@ -137,7 +137,7 @@ final class SurveyWorkspaceController extends Controller
                 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
             ],
             'dossier_subject_id' => ['nullable', 'integer'],
-            'photo_task_subtype' => ['nullable', 'string', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
+            'photo_task_subtype' => ['nullable', 'string', Rule::in(['auto', ...PhotoSubject::PHOTO_TASK_SUBTYPES])],
         ], [
             'type.required' => 'Kies een type opdracht (tekst, foto of document).',
             'prompt.required' => 'Schrijf wat de klant moet doen.',
@@ -782,7 +782,7 @@ final class SurveyWorkspaceController extends Controller
                 'contribution_items.*.photo_task_subtype' => [
                     'nullable',
                     'string',
-                    Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES),
+                    Rule::in(['auto', ...PhotoSubject::PHOTO_TASK_SUBTYPES]),
                 ],
             ],
             [
@@ -802,12 +802,13 @@ final class SurveyWorkspaceController extends Controller
             ],
         );
         $validated = $validator->validate();
+        $this->validatePhotoDraftSubtypes($validated['contribution_items']);
         $items = array_map(static function (array $item): array {
             $item['prompt'] = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $item['prompt']));
             if (isset($item['photo_task_subtype']) && is_string($item['photo_task_subtype']) && $item['photo_task_subtype'] !== '') {
                 $item['photo_task_subtype'] = $item['photo_task_subtype'];
-            } else {
-                unset($item['photo_task_subtype']);
+            } elseif (array_key_exists('photo_task_subtype', $item)) {
+                $item['photo_task_subtype'] = null;
             }
 
             return $item;
@@ -846,7 +847,7 @@ final class SurveyWorkspaceController extends Controller
                 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
             ],
             'dossier_subject_id' => ['nullable', 'integer'],
-            'photo_task_subtype' => ['nullable', 'string', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
+            'photo_task_subtype' => ['nullable', 'string', Rule::in(['auto', ...PhotoSubject::PHOTO_TASK_SUBTYPES])],
         ], [
             'type.required' => 'Kies een type opdracht (tekst, foto of document).',
             'prompt.required' => 'Schrijf wat de klant moet doen.',
@@ -1003,9 +1004,10 @@ final class SurveyWorkspaceController extends Controller
                 'contribution_items.*.prompt' => ['nullable', 'string', 'max:500'],
                 'contribution_items.*.decision_area_key' => ['nullable', 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote'],
                 'contribution_items.*.dossier_subject_id' => ['nullable', 'integer'],
-                'contribution_items.*.photo_task_subtype' => ['nullable', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
+                'contribution_items.*.photo_task_subtype' => ['nullable', Rule::in(['auto', ...PhotoSubject::PHOTO_TASK_SUBTYPES])],
                 'contribution_items.*.proposal_id' => ['nullable', 'integer'],
             ]);
+            $this->validatePhotoDraftSubtypes($data['contribution_items']);
             $request->session()->put('customer_task_drafts', $data['contribution_items']);
             $request->session()->forget('customer_task_draft');
         }
@@ -1038,12 +1040,26 @@ final class SurveyWorkspaceController extends Controller
             'dossier_subject_id' => app(ContributionSubjectLinker::class)->resolve(
                 $intake, $task->dossier_subject_id, $task->decision_area_key,
             ),
-            'photo_task_subtype' => $task->meta['photo_task_subtype'] ?? null,
+            'photo_task_subtype' => $task->meta['photo_task_subtype'] ?? 'auto',
         ];
         $request->session()->put('customer_task_drafts', $drafts);
         $request->session()->forget('customer_task_draft');
 
         return $this->back($intake, 'AI-voorstel toegevoegd. Controleer de conceptlijst en verstuur daarna de ronde.', 'demo-customer-task');
+    }
+
+    /** @param array<int, array<string, mixed>> $items */
+    private function validatePhotoDraftSubtypes(array $items): void
+    {
+        foreach ($items as $index => $item) {
+            $subtype = $item['photo_task_subtype'] ?? null;
+            if (is_string($subtype) && $subtype !== '' && $subtype !== 'auto'
+                && ! in_array($subtype, PhotoSubject::photoTaskSubtypesForDecisionArea($item['decision_area_key'] ?? null), true)) {
+                throw ValidationException::withMessages([
+                    "contribution_items.{$index}.photo_task_subtype" => 'Dit fototype past niet bij het gekozen onderdeel.',
+                ]);
+            }
+        }
     }
 
     private function contributionMailMessage(CustomerLinkMailResult $mailResult): string
@@ -1256,8 +1272,11 @@ final class SurveyWorkspaceController extends Controller
             $subtype = $item['photo_task_subtype'] ?? null;
             if (is_string($subtype)
                 && $subtype !== ''
-                && in_array($subtype, PhotoSubject::PHOTO_TASK_SUBTYPES, true)) {
+                && in_array($subtype, ['auto', ...PhotoSubject::PHOTO_TASK_SUBTYPES], true)) {
                 $draft['photo_task_subtype'] = $subtype;
+            }
+            if (array_key_exists('photo_task_subtype', $item) && ($subtype === null || $subtype === '')) {
+                $draft['photo_task_subtype'] = null;
             }
             if (is_numeric($item['proposal_id'] ?? null)) {
                 $draft['proposal_id'] = (int) $item['proposal_id'];

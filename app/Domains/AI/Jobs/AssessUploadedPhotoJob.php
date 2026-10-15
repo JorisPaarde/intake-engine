@@ -170,11 +170,10 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             ->where('intake_follow_up_item_id', $item->id)
             ->first();
 
-        $expected = PhotoSubject::expectedForTask($task)
-            ?? PhotoSubject::expectedFromDecisionArea($this->followUpDecisionArea($item))
-            ?? PhotoSubject::Other;
+        $accepted = PhotoSubject::acceptedSubjectsForTask($task, $this->followUpDecisionArea($item));
+        $expected = $accepted[0] ?? PhotoSubject::Other;
 
-        if ($lifecycle->tryReuseFromChecksum($upload, $expected)) {
+        if ($accepted !== null && $lifecycle->tryReuseFromChecksum($upload, $expected)) {
             return;
         }
 

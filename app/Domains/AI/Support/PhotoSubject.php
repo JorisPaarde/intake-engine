@@ -29,6 +29,16 @@ enum PhotoSubject: string
         'around_house',
     ];
 
+    /** @return list<string> */
+    public static function photoTaskSubtypesForDecisionArea(?string $area): array
+    {
+        return match ($area) {
+            'power' => ['power_route', 'fusebox'],
+            'placement' => ['around_house'],
+            default => [],
+        };
+    }
+
     /**
      * Single server mapping: photo_task_subtype → accepted subjects.
      * Never accept a subjects list from the browser.
@@ -248,13 +258,16 @@ enum PhotoSubject: string
      *
      * @return list<self>|null
      */
-    public static function acceptedSubjectsForTask(?ContributionTask $task): ?array
+    public static function acceptedSubjectsForTask(?ContributionTask $task, ?string $fallbackArea = null): ?array
     {
         if ($task === null) {
-            return null;
+            return self::acceptedSubjectsForDecisionArea($fallbackArea);
         }
 
         $meta = is_array($task->meta) ? $task->meta : null;
+        if (($meta['photo_subject_check'] ?? null) === 'none') {
+            return null;
+        }
         $subtype = is_string($meta['photo_task_subtype'] ?? null)
             ? (string) $meta['photo_task_subtype']
             : '';
@@ -270,7 +283,7 @@ enum PhotoSubject: string
             return $fromMeta;
         }
 
-        return self::acceptedSubjectsForDecisionArea($task->decision_area_key);
+        return self::acceptedSubjectsForDecisionArea($task->decision_area_key ?: $fallbackArea);
     }
 
     public static function expectedForTask(?ContributionTask $task): ?self
