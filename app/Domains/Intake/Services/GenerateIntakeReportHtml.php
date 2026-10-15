@@ -19,6 +19,7 @@ use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\QuestionType;
@@ -29,6 +30,13 @@ use Illuminate\Support\Str;
 
 final class GenerateIntakeReportHtml
 {
+    private const ROOM_DIMENSION_KEYS = [
+        'room_length_m' => 'length_m',
+        'room_width_m' => 'width_m',
+        'ceiling_height_m' => 'height_m',
+        'room_area_m2' => 'area_m2',
+    ];
+
     private const INSTALLER_NOTE_METHODS = [
         'installer_note',
     ];
@@ -63,6 +71,7 @@ final class GenerateIntakeReportHtml
             'followUpRounds.items.uploads',
             'review.reviewer',
             'dossierSubjects.records',
+            'aircoRooms',
             'aircoInstallationOptions.placements.room',
             'aircoInstallationOptions.connections.fromPlacement',
             'aircoInstallationOptions.connections.toPlacement',
@@ -471,6 +480,7 @@ final class GenerateIntakeReportHtml
         );
 
         $answerModels = $this->buildAnswerModelMap($intake);
+        $installerRooms = $this->installerOwnedRoomDimensions($intake);
         $reportSections = [];
 
         foreach ($targets as $target) {
@@ -498,7 +508,17 @@ final class GenerateIntakeReportHtml
 
             $value = $answers[$composite] ?? null;
             $answerModel = $answerModels[$composite] ?? null;
-            $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
+            $instanceDimensions = $installerRooms[$target['section_instance_key'] ?? ''] ?? null;
+
+            if ($instanceDimensions !== null && isset(self::ROOM_DIMENSION_KEYS[$question->key])) {
+                $display = $this->presentInstallerRoomDimension(
+                    $question->key,
+                    $instanceDimensions,
+                    $this->customerRoomMeasure($question->key, $answers, $target['section_instance_key']),
+                );
+            } else {
+                $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
+            }
 
             if ($display === null) {
                 continue;
@@ -524,6 +544,78 @@ final class GenerateIntakeReportHtml
         }
 
         return array_values($reportSections);
+    }
+
+    /**
+     * Maten van installateursbeheerde ruimtes per room-key (AircoRoom is leidend na correctie).
+     *
+     * @return array<string, RoomDimensions>
+     */
+    private function installerOwnedRoomDimensions(Intake $intake): array
+    {
+        $rooms = [];
+
+        foreach ($intake->aircoRooms as $room) {
+            $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+
+            if (RoomDimensions::isInstallerOwned($dimensions)) {
+                $rooms[$room->key] = RoomDimensions::from($dimensions);
+            }
+        }
+
+        return $rooms;
+    }
+
+    /**
+     * Oorspronkelijke klantwaarde van een maat (oppervlakte: eigen antwoord, anders L×B van de klant).
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function customerRoomMeasure(string $questionKey, array $answers, ?string $instanceKey): ?float
+    {
+        $read = function (string $key) use ($answers, $instanceKey): ?float {
+            $number = $answers[VisibilityResolver::compositeKey($key, $instanceKey)]['number'] ?? null;
+
+            return is_numeric($number) ? (float) $number : null;
+        };
+
+        if (self::ROOM_DIMENSION_KEYS[$questionKey] !== 'area_m2') {
+            return $read($questionKey);
+        }
+
+        $length = $read('room_length_m');
+        $width = $read('room_width_m');
+
+        return $read('room_area_m2') ?? ($length !== null && $width !== null ? $length * $width : null);
+    }
+
+    private function presentInstallerRoomDimension(string $questionKey, RoomDimensions $dimensions, ?float $customerValue): ?string
+    {
+        $current = match (self::ROOM_DIMENSION_KEYS[$questionKey]) {
+            'length_m' => $dimensions->lengthM(),
+            'width_m' => $dimensions->widthM(),
+            'height_m' => $dimensions->heightM(),
+            default => $dimensions->effectiveFloorAreaM2(),
+        };
+
+        if ($current === null) {
+            return null;
+        }
+
+        $formatted = $this->formatMeasure($current);
+
+        if ($customerValue === null || $this->formatMeasure($customerValue) === $formatted) {
+            return $formatted;
+        }
+
+        return $formatted.' (Vervangen door installateur)';
+    }
+
+    private function formatMeasure(float $value): string
+    {
+        $formatted = number_format($value, 1, ',', '.');
+
+        return str_ends_with($formatted, ',0') ? substr($formatted, 0, -2) : $formatted;
     }
 
     /**
@@ -790,7 +882,9 @@ final class GenerateIntakeReportHtml
 
         return match ($question->type) {
             QuestionType::ShortText, QuestionType::LongText => (string) ($value['text'] ?? ''),
-            QuestionType::Number => (string) ($value['number'] ?? ''),
+            QuestionType::Number => isset(self::ROOM_DIMENSION_KEYS[$question->key]) && is_numeric($value['number'] ?? null)
+                ? $this->formatMeasure((float) $value['number'])
+                : (string) ($value['number'] ?? ''),
             QuestionType::SingleChoice => $this->optionLabel($question, (string) ($value['value'] ?? '')),
             QuestionType::MultiChoice => implode(', ', array_map(
                 fn (mixed $v): string => $this->optionLabel($question, (string) $v),
