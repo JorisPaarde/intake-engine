@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
 use App\Domains\Intake\Services\IntakeAccessTokenGenerator;
+use App\Domains\Intake\Support\AnsweredContributionEvidence;
 use App\Domains\Intake\Support\ContributionSubjectLinker;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\ContributionAudience;
@@ -42,6 +43,7 @@ final class CreateCustomerContributionRequest
      *     decision_area_key?: mixed,
      *     dossier_subject_id?: mixed,
      *     photo_task_subtype?: mixed,
+     *     proposal_id?: int,
      *     meta?: mixed
      * }>  $items
      */
@@ -135,6 +137,17 @@ final class CreateCustomerContributionRequest
 
             $aligned = [];
             foreach ($items as $index => $item) {
+                if (isset($item['proposal_id'])) {
+                    $proposal = ContributionTask::query()
+                        ->where('intake_id', $intake->id)
+                        ->where('status', ContributionTaskStatus::Proposed)
+                        ->find($item['proposal_id']);
+                    if (! $proposal || ($proposal->meta['source_type'] ?? null) !== 'ai') {
+                        throw ValidationException::withMessages([
+                            'contribution_items' => 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.',
+                        ]);
+                    }
+                }
                 $aligned[] = $this->subjectLinker->alignItem(
                     $intake,
                     $item,
@@ -142,6 +155,15 @@ final class CreateCustomerContributionRequest
                 );
             }
             $items = $aligned;
+
+            foreach ($items as $index => $item) {
+                $warning = app(AnsweredContributionEvidence::class)->warning($intake, $item);
+                if ($warning !== null && ! in_array($item['repeat_confirmed'] ?? false, [true, 1, '1'], true)) {
+                    throw ValidationException::withMessages([
+                        'contribution_items.'.$index.'.repeat_confirmed' => $warning.' Bevestig dat je dit opnieuw wilt vragen.',
+                    ]);
+                }
+            }
 
             $subjectIds = collect($items)
                 ->pluck('dossier_subject_id')
@@ -203,6 +225,13 @@ final class CreateCustomerContributionRequest
                     'requested_by' => $requester->id,
                     'meta' => array_merge($item['meta'], ['round_number' => $roundNumber]),
                 ]);
+            }
+
+            foreach ($items as $item) {
+                if (isset($item['proposal_id'])) {
+                    ContributionTask::query()->where('intake_id', $intake->id)
+                        ->whereKey($item['proposal_id'])->update(['status' => ContributionTaskStatus::Cancelled]);
+                }
             }
 
             $this->recordReplacedAccessToken->handle($intake, $intake->access_token);

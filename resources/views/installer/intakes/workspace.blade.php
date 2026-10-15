@@ -93,7 +93,7 @@
         $firstActionableOpenKey = $areaTargetResolver->firstActionableOpenArea($openAreas)?->key;
         $hasOpenPoints = $openAreas->isNotEmpty();
         $customerTaskDraft = is_array($customerTaskDraft ?? null) ? $customerTaskDraft : null;
-        $customerTaskDrafts = collect(is_array($customerTaskDrafts ?? null) ? $customerTaskDrafts : [])
+        $customerTaskDrafts = collect(old('contribution_items', is_array($customerTaskDrafts ?? null) ? $customerTaskDrafts : []))
             ->filter(static fn (mixed $draft): bool => is_array($draft) && filled($draft['prompt'] ?? null))
             ->values()
             ->all();
@@ -1451,10 +1451,17 @@
                                         @if (! empty($task->meta['reason']))
                                             <p class="mt-1 text-xs text-gray-600">{{ $task->meta['reason'] }}</p>
                                         @endif
+                                        @php
+                                            $proposalWarning = app(\App\Domains\Intake\Support\AnsweredContributionEvidence::class)->warning($intake, $task->toArray());
+                                        @endphp
+                                        @if ($proposalWarning)
+                                            <p class="mt-2 text-sm text-amber-900" role="status">{{ $proposalWarning }}</p>
+                                        @endif
+                                        <p class="mt-2 text-xs text-gray-600">Voeg dit voorstel toe om het te controleren. Hiermee activeer je nog geen klanttaak.</p>
                                         <form method="POST" action="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3">
                                             @csrf
                                             <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" @disabled($customerRoundsExhausted)>
-                                                {{ $intake->is_demo ? 'Controleren en klantweergave activeren' : 'Controleren en versturen' }}
+                                                Voorstel toevoegen aan conceptlijst
                                             </button>
                                         </form>
                                     </article>
@@ -1491,6 +1498,16 @@
                                     @endphp
                                     <fieldset class="rounded-2xl border border-gray-200 bg-white p-3" @if ($draftPrompt !== '') data-testid="customer-task-draft-slot" @endif>
                                         <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 && $draftPrompt === '' ? ' (optioneel)' : '' }}</legend>
+                                        @php
+                                            $repeatWarning = app(\App\Domains\Intake\Support\AnsweredContributionEvidence::class)->warning($intake, is_array($slotDraft) ? $slotDraft : []);
+                                        @endphp
+                                        @if ($repeatWarning || $errors->has('contribution_items.'.$index.'.repeat_confirmed'))
+                                            <p class="mt-2 text-sm text-amber-900" role="status">{{ $repeatWarning }}</p>
+                                            <label class="mt-2 flex items-center gap-2 text-sm text-gray-900">
+                                                <input type="checkbox" name="contribution_items[{{ $index }}][repeat_confirmed]" value="1">
+                                                Ik heb het eerdere antwoord gecontroleerd en wil dit opnieuw vragen.
+                                            </label>
+                                        @endif
                                         <select name="contribution_items[{{ $index }}][type]" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
                                             @foreach ($followUpTypes as $type)
                                                 <option value="{{ $type->value }}" @selected($draftType === $type->value)>{{ $type->label() }}</option>
@@ -1503,6 +1520,9 @@
                                                 <option value="{{ $area->key }}" @selected($draftArea === $area->key)>{{ $area->label }}</option>
                                             @endforeach
                                         </select>
+                                        @if (! empty($slotDraft['proposal_id']))
+                                            <input type="hidden" name="contribution_items[{{ $index }}][proposal_id]" value="{{ $slotDraft['proposal_id'] }}">
+                                        @endif
                                         @if ($draftSubjectId)
                                             <input type="hidden" name="contribution_items[{{ $index }}][dossier_subject_id]" value="{{ $draftSubjectId }}">
                                         @endif
