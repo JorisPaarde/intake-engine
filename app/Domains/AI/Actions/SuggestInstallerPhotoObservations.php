@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
+use App\Domains\AI\Exceptions\PhotoSubjectMismatchException;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
@@ -299,12 +300,19 @@ final class SuggestInstallerPhotoObservations
 
         if ($subject->intake_id !== $intake->id
             || $subject->company_id !== $intake->company_id
-            || ! in_array($subject->type, ['airco_room', 'airco_placement'], true)
             || $upload->intake_id !== $intake->id
             || ! $linked) {
             throw ValidationException::withMessages([
                 'photo' => 'Deze foto hoort niet bij dit onderdeel van de opname.',
             ]);
+        }
+
+        // Photo is stored and linked; AI suggestions only exist for rooms/placements.
+        // Other subjects get a soft hint from the structured assessment, never a rejection.
+        if (! in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
+            throw PhotoSubjectMismatchException::forDetected(
+                $upload->contentAssessment()?->detectedSubject(),
+            );
         }
     }
 

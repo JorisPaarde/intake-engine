@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
+use App\Domains\AI\Exceptions\PhotoSubjectMismatchException;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Support\PhotoSubject;
@@ -651,6 +652,7 @@ final class SurveyWorkspaceController extends Controller
         $failures = [];
         $total = count($photos);
         $suggestRan = false;
+        $mismatchSubject = null;
 
         foreach ($photos as $photo) {
             $photoName = $photo->getClientOriginalName() ?: 'foto';
@@ -667,16 +669,16 @@ final class SurveyWorkspaceController extends Controller
                 if ($connection instanceof AircoConnection) {
                     $session ??= $startRoute->handle($intake, $connection);
                     $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
-                } elseif (! $suggestRan && in_array($subject->type, ['airco_room', 'airco_placement'], true)) {
+                } elseif (! $suggestRan) {
                     // Narrowest multi-upload option: sync AI only for the first stored
                     // photo in this request (max 5 files). Later photos skip the call.
                     $suggestRan = true;
                     try {
                         $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
-                    } catch (\Throwable $suggestException) {
-                        // The photo is stored; an AI hint failure is never a rejection.
-                        report($suggestException);
+                    } catch (PhotoSubjectMismatchException $mismatch) {
+                        // The photo is stored; a subject mismatch is a soft hint, never a rejection.
                         $run = null;
+                        $mismatchSubject = $mismatch->detectedSubject;
                     }
                     if ($run !== null) {
                         $hasSuggestion = DossierRecord::query()
@@ -721,6 +723,8 @@ final class SurveyWorkspaceController extends Controller
             $message = $stored === 1
                 ? 'Foto opgeslagen. Controleer wat de AI voorstelt.'
                 : $stored.' foto\'s opgeslagen. Controleer wat de AI voorstelt.';
+        } elseif ($mismatchSubject !== null && $mismatchSubject !== PhotoSubject::Other) {
+            $message = 'Opgeslagen. Let op: de AI herkent hier vooral '.$mismatchSubject->dutchLabel().'.';
         } else {
             $message = $stored === 1
                 ? 'Foto opgeslagen bij '.$subject->label.'.'

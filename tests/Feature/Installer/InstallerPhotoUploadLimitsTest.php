@@ -10,6 +10,7 @@ use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Support\PhotoUploadLimits;
+use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -401,4 +402,84 @@ test('N60/N62: rapport labelt installateursfoto als Woninggegevens en door insta
         ->and($html)->toContain('Bron: door installateur toegevoegd')
         ->and($html)->not->toContain('Dossierfoto · voorgevel.jpg')
         ->and($html)->not->toContain('Bron: aangeleverd door klant');
+});
+
+test('N60: zachte hint bij afwijkend onderwerp is gestructureerd en geen afwijzing', function () {
+    config([
+        'ai.photo_inference.enabled' => true,
+        'ai.provider' => 'fake',
+    ]);
+    $user = User::factory()->create();
+    [$intake] = createPhotoLimitSurvey($user);
+    $root = app(DossierManager::class)->root($intake);
+
+    $active = true;
+    IntakeUpload::created(function (IntakeUpload $upload) use (&$active): void {
+        if ($active) {
+            $upload->forceFill(['content_assessment' => [
+                'status' => 'wrong_subject',
+                'detected_subject' => 'fusebox',
+            ]])->saveQuietly();
+        }
+    });
+
+    try {
+        $this->actingAs($user)
+            ->post(route('intakes.workspace.photos.store', [$intake, $root]), [
+                'photo' => [UploadedFile::fake()->image('kast.jpg', 1200, 900)],
+            ])
+            ->assertRedirect(route('intakes.workspace', $intake))
+            ->assertSessionHas('status', 'Opgeslagen. Let op: de AI herkent hier vooral de meterkast.')
+            ->assertSessionMissing('errors');
+    } finally {
+        $active = false;
+    }
+
+    expect($intake->uploads()->count())->toBe(1);
+});
+
+test('N60: buitenunit-plek krijgt nog steeds een AI-voorstel', function () {
+    config([
+        'ai.photo_inference.enabled' => true,
+        'ai.provider' => 'fake',
+        'ai.photo_inference.observation_min_confidence' => 0.65,
+    ]);
+    FakeAiClient::alwaysReturn([
+        'observations' => [[
+            'text' => 'Platte dakrand, unit kan op beugels.',
+            'impact' => 'installation',
+            'confidence' => 0.9,
+        ]],
+    ]);
+    $user = User::factory()->create();
+    [$intake] = createPhotoLimitSurvey($user);
+    $placement = app(AircoSurveyService::class)->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Platte dak',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $placement->subject]), [
+            'photo' => [UploadedFile::fake()->image('dak.jpg', 1200, 900)],
+        ])
+        ->assertSessionHas('status', 'Foto opgeslagen. Controleer wat de AI voorstelt.');
+
+    FakeAiClient::reset();
+});
+
+test('N62: detailweergave toont installateursbron voor installateursfoto', function () {
+    $user = User::factory()->create();
+    [$intake] = createPhotoLimitSurvey($user);
+    $root = app(DossierManager::class)->root($intake);
+
+    $this->actingAs($user)->post(route('intakes.workspace.photos.store', [$intake, $root]), [
+        'photo' => [UploadedFile::fake()->image('voorgevel.jpg', 1200, 900)],
+    ]);
+
+    $upload = $intake->uploads()->firstOrFail();
+    expect($upload->sourceLabel())->toBe('door installateur toegevoegd');
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertSee('Bron: door installateur toegevoegd');
 });

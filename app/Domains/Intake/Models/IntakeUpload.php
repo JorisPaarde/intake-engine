@@ -102,6 +102,14 @@ class IntakeUpload extends Model
      * keep the original basename but force .jpg when the served mime is JPEG
      * (demotest 8 okt: PNG/HEIC converted yet still offered as .png).
      */
+    /** Wie de foto aanleverde; volgt de uploader, niet de weergave. */
+    public function sourceLabel(): string
+    {
+        return $this->question_key === 'installer_evidence'
+            ? 'door installateur toegevoegd'
+            : 'aangeleverd door klant';
+    }
+
     public function downloadFilename(): string
     {
         $name = trim((string) $this->original_filename);
