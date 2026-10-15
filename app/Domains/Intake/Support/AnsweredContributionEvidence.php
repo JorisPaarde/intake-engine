@@ -24,9 +24,8 @@ final class AnsweredContributionEvidence
         $type = $item['type'] ?? null;
         $type = $type instanceof FollowUpItemType ? $type->value : $type;
         $area = $item['decision_area_key'] ?? null;
-        if (! is_string($area) || $area === '') {
-            return null;
-        }
+        // General tasks ("Algemene opname") have no area; match other area-less tasks.
+        $area = is_string($area) && $area !== '' ? $area : null;
 
         $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
         $subtype = $item['photo_task_subtype'] ?? ($meta['photo_task_subtype'] ?? null);
@@ -35,7 +34,13 @@ final class AnsweredContributionEvidence
             ->where('intake_id', $intake->id)
             ->where('audience', ContributionAudience::Customer)
             ->where('type', $type)
-            ->where('decision_area_key', $area)
+            ->when(
+                $area === null,
+                static fn ($query) => $query->where(static fn ($inner) => $inner
+                    ->whereNull('decision_area_key')
+                    ->orWhere('decision_area_key', '')),
+                static fn ($query) => $query->where('decision_area_key', $area),
+            )
             // An absent subject link on either side is ambiguous overlap; explicit subjects must match.
             ->when(
                 is_numeric($item['dossier_subject_id'] ?? null),

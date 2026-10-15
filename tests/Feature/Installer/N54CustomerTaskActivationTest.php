@@ -175,3 +175,35 @@ test('N54 earlier task without subject link counts as overlap for a subject-link
     expect(ContributionTask::query()->where('intake_id', $this->intake->id)->whereNull('dossier_subject_id')->exists())->toBeTrue()
         ->and($evidence->warning($this->intake, [...$this->item, 'dossier_subject_id' => 987654]))->not->toBeNull();
 });
+
+test('N54 general task without decision area still gets repeat protection', function () {
+    $general = ['type' => 'photo', 'prompt' => 'Maak een overzichtsfoto van de woonkamer.'];
+    $round = app(CreateCustomerContributionRequest::class)->handle($this->intake, $this->user, [$general]);
+    $answer = $round->items()->sole();
+    $answer->update(['answered_at' => now()]);
+    IntakeUpload::query()->create([
+        'intake_id' => $this->intake->id, 'intake_follow_up_item_id' => $answer->id,
+        'question_key' => 'follow_up', 'disk' => 'local', 'path' => 'n54-general.jpg',
+        'original_filename' => 'n54g.jpg', 'mime_type' => 'image/jpeg', 'size_bytes' => 10,
+        'checksum' => hash('sha256', 'n54-general'), 'sort_order' => 1,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Room)->toArray(),
+    ]);
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+
+    expect(app(AnsweredContributionEvidence::class)->warning($this->intake, [...$general, 'prompt' => 'Andere tekst.']))->not->toBeNull()
+        ->and(app(AnsweredContributionEvidence::class)->warning($this->intake, [...$general, 'decision_area_key' => 'placement']))->toBeNull();
+});
+
+test('N54 stale proposal still keeps posted concept edits', function () {
+    $proposal = ContributionTask::query()->create([
+        'intake_id' => $this->intake->id, 'company_id' => $this->intake->company_id,
+        'audience' => ContributionAudience::Customer, 'type' => FollowUpItemType::Photo,
+        'prompt' => 'Oud voorstel.', 'decision_area_key' => 'power',
+        'status' => ContributionTaskStatus::Cancelled,
+        'meta' => ['source_type' => 'ai'],
+    ]);
+    $edited = [...$this->item, 'prompt' => 'Mijn bewerking die niet verloren mag gaan.'];
+    $this->actingAs($this->user)
+        ->post(route('intakes.workspace.tasks.send', [$this->intake, $proposal]), ['contribution_items' => [$edited]])
+        ->assertSessionHas('customer_task_drafts.0.prompt', $edited['prompt']);
+});

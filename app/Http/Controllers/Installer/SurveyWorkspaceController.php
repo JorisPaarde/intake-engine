@@ -992,12 +992,6 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         abort_unless($task->intake_id === $intake->id, 404);
 
-        if ($task->status !== ContributionTaskStatus::Proposed) {
-            return redirect()
-                ->route('intakes.workspace', $intake)
-                ->with('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
-        }
-
         abort_unless(($task->meta['source_type'] ?? null) === 'ai', 404);
         if ($request->has('contribution_items')) {
             $data = $request->validate([
@@ -1012,6 +1006,13 @@ final class SurveyWorkspaceController extends Controller
             ]);
             $request->session()->put('customer_task_drafts', $data['contribution_items']);
             $request->session()->forget('customer_task_draft');
+        }
+
+        // Checked after saving the posted concepts so installer edits survive a stale proposal.
+        if ($task->status !== ContributionTaskStatus::Proposed) {
+            return redirect()
+                ->route('intakes.workspace', $intake)
+                ->with('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
         }
 
         // Keep proposal identity separate from installer-controlled concepts, even
