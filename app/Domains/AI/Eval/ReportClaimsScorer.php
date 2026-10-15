@@ -10,7 +10,7 @@ use App\Domains\AI\Support\SchemaEnumLabelGuard;
  * Measurement-only scorer for report_claims fixtures (eval harness, never product).
  *
  * Scoring choice (brief P1-5 rework): claim-level concepts with per-fixture
- * `claims[]` ({id, concept, allowed: assert|hedged_only|forbidden, terms[]}).
+ * `claims[]` ({id, concept, allowed: assert|hedged_only|forbidden|once, terms[]}).
  * Units scored separately: summary sentences, each highlight, each attention
  * point (code + label). Hedge detection uses an eval-only word list (not
  * DerivedClaimConfidenceGuard / product paths). ADR-0013 / ADR-0016: this
@@ -623,7 +623,7 @@ final class ReportClaimsScorer
             if ($id === null || $concept === null || $allowed === null) {
                 continue;
             }
-            if (! in_array($allowed, ['assert', 'hedged_only', 'forbidden'], true)) {
+            if (! in_array($allowed, ['assert', 'hedged_only', 'forbidden', 'once'], true)) {
                 continue;
             }
             $terms = is_array($claim['terms'] ?? null)
@@ -705,9 +705,9 @@ final class ReportClaimsScorer
         ];
 
         // Match + hedge / cannot-determine per sentence/'; clause (.!?; / newline).
-        /** @var list<array{kind: string, text: string, hedged: bool, cannot_determine: bool}> $matches */
+        /** @var list<array{kind: string, text: string, hedged: bool, cannot_determine: bool, unit: int}> $matches */
         $matches = [];
-        foreach ($units as $unit) {
+        foreach ($units as $unitIndex => $unit) {
             $layerKey = in_array($unit['kind'], ['summary_sentence', 'highlight'], true)
                 ? 'summary'
                 : 'attention';
@@ -728,11 +728,30 @@ final class ReportClaimsScorer
                     'text' => $clause,
                     'hedged' => $hedged,
                     'cannot_determine' => $this->textLooksCannotDetermine($clause),
+                    'unit' => $unitIndex,
                 ];
             }
         }
 
         $allowed = $claim['allowed'];
+
+        if ($allowed === 'once') {
+            // Concept must appear, but in at most one summary/highlight unit (no repetition, N73).
+            $summaryUnits = [];
+            foreach ($matches as $match) {
+                if (in_array($match['kind'], ['summary_sentence', 'highlight'], true)) {
+                    $summaryUnits[$match['unit']] = true;
+                }
+            }
+            $count = count($summaryUnits);
+
+            return [
+                'expected' => 1,
+                'got' => $count,
+                'detail' => $count === 0 ? 'once_concept_missing' : ($count === 1 ? 'once_ok' : 'once_repeated'),
+                'matches' => array_map(static fn (array $m): array => array_diff_key($m, ['unit' => true]), $matches),
+            ];
+        }
 
         if ($matches === []) {
             if ($allowed === 'assert') {

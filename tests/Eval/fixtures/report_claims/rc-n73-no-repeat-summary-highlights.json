@@ -1,0 +1,213 @@
+{
+  "id": "rc-n73-no-repeat-summary-highlights",
+  "kind": "report_claims",
+  "origin": "N73 punt 5 — AI-voorstel herhaalt 3x25A-zin en planning in samenvatting én bullets",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Zelfde intake als N58 + planning. Elk gegeven (3x25A, planning) hoort één keer in samenvatting+highlights te staan; bullets vullen aan, herhalen de samenvattingszin niet.",
+  "summary_input": {
+    "answers": {
+      "request_text": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin. Graag geïnstalleerd voor de zomer.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      },
+      "desired_planning": {
+        "value": "asap",
+        "label": "Zo snel mogelijk"
+      }
+    },
+    "external_facts": {},
+    "follow_up": [
+      {
+        "round_number": 1,
+        "items": [
+          {
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "upload_count": 0
+          }
+        ]
+      }
+    ],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ]
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin. Graag geïnstalleerd voor de zomer.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      },
+      "desired_planning": {
+        "value": "asap",
+        "label": "Zo snel mogelijk"
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin.",
+        "prefill_source": null
+      },
+      {
+        "reference": "desired_planning@answer:survey",
+        "question_key": "desired_planning",
+        "question_label": "Wanneer zou u de installatie het liefst laten uitvoeren?",
+        "section_key": "planning",
+        "section_label": "Planning",
+        "section_instance_key": null,
+        "answer": {
+          "value": "asap",
+          "label": "Zo snel mogelijk"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [
+      {
+        "round_number": 1,
+        "status": "completed",
+        "items": [
+          {
+            "reference": "round_1@item:item_eval_n73_phase",
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "uploads": []
+          }
+        ]
+      }
+    ],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "power_unknown_after_followup",
+        "concept": "power_unknown_after_followup",
+        "allowed": "forbidden",
+        "terms": [
+          "/(stroomvoorziening|aansluiting|fase|3-fase|krachtstroom)[^.]{0,80}\\b(onbekend|niet bekend|niet (door de klant )?bevestigd|weet (de klant|ik) niet)/iu",
+          "/(onbekend|niet bekend)[^.]{0,40}(stroomvoorziening|aansluiting|fase)/iu"
+        ]
+      },
+      {
+        "id": "customer_stated_3x25a",
+        "concept": "customer_stated_3x25a",
+        "allowed": "assert",
+        "terms": [
+          "3x25",
+          "3 x 25",
+          "3×25"
+        ]
+      },
+      {
+        "id": "phase_value_once",
+        "concept": "phase_value_once",
+        "allowed": "once",
+        "terms": [
+          "3x25",
+          "3 x 25",
+          "3×25"
+        ]
+      },
+      {
+        "id": "planning_once",
+        "concept": "planning_once",
+        "allowed": "once",
+        "terms": [
+          "zo snel mogelijk",
+          "zomer",
+          "planning"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "verify_free_group",
+        "label": "Controleer of er een vrije groep is (klant meldt 3x25A).",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "request_text@answer:survey"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco in de woonkamer en twee slaapkamers, met de buitenunit achter in de tuin.",
+    "highlights": [
+      "Volgens de klant staat er 3x25A op de hoofdschakelaar.",
+      "Planning: zo snel mogelijk, liefst voor de zomer."
+    ]
+  },
+  "disputed_facts": {}
+}
