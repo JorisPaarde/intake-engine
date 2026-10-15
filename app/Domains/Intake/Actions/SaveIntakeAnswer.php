@@ -49,6 +49,7 @@ final class SaveIntakeAnswer
         int|string|float|null $factConfidence = null,
         ?string $factEvidence = null,
         FactSource|string|null $factSource = null,
+        bool $allowFollowUpPhotoPrefill = false,
     ): IntakeAnswer {
         $question = $this->findQuestion($intake, $questionKey);
 
@@ -83,12 +84,21 @@ final class SaveIntakeAnswer
             $confidenceValue,
             $evidenceValue,
             $sourceValue,
+            $allowFollowUpPhotoPrefill,
         ): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             $allowedStatuses = $prefillSource === null
                 ? [IntakeStatus::Sent, IntakeStatus::InProgress]
                 : [IntakeStatus::Draft, IntakeStatus::Sent, IntakeStatus::InProgress];
+
+            // Follow-up photo analysis may update derived answers before installer review.
+            if ($allowFollowUpPhotoPrefill
+                && $prefillSource === PrefillSources::AI_PHOTO
+                && $lockedIntake->reviewed_at === null) {
+                $allowedStatuses[] = IntakeStatus::Completed;
+                $allowedStatuses[] = IntakeStatus::AwaitingCustomer;
+            }
 
             if (! in_array($lockedIntake->status, $allowedStatuses, true)) {
                 throw ValidationException::withMessages([

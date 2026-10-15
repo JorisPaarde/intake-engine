@@ -15,6 +15,7 @@ use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
@@ -24,6 +25,7 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\ContributionMode;
@@ -384,10 +386,48 @@ test('N49: kandidaten nieuwste eerst met maximaal drie pogingen en eerste modelm
             ? n49FuseboxOutput()
             : [...n49FuseboxOutput(), 'subject_match' => 'no', 'detected_subject' => 'room'];
     });
-    (new AssessFollowUpFuseboxJob($intake->id, $round->id))->handle(app(AssessFuseboxPhotos::class));
+    app(AssessFuseboxPhotos::class)->handleFollowUp($intake->fresh(), $round->id);
     expect($calls)->toBe(2)
         ->and($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail()->value['upload_ids'])
         ->toBe([$uploads[2]->id]);
     expect(AssessFuseboxPhotos::followUpFuseboxCandidates($intake, $round->id)->pluck('id')->all())
         ->toBe([$uploads[3]->id, $uploads[2]->id, $uploads[1]->id]);
 });
+
+test('N49: afgeleide follow-upantwoorden gebruiken antwoordopslag met voortgang', function (IntakeStatus $status) {
+    ['intake' => $intake, 'round' => $round] = n49Evidence();
+    $round->update(['status' => FollowUpRoundStatus::Completed, 'completed_at' => now()]);
+    $intake->update(['status' => $status, 'progress_percent' => 99]);
+    FakeAiClient::alwaysReturn(n49FuseboxOutput());
+
+    app(AssessFuseboxPhotos::class)->handleFollowUp($intake->fresh(), $round->id);
+
+    $fresh = $intake->fresh();
+    $answer = $fresh->answers()->where('question_key', 'fusebox_clarity')->firstOrFail();
+    $progress = app(ProgressCalculator::class)->calculate($fresh, $fresh->templateVersion);
+    expect($answer->value)->toBe(['value' => 'clear'])
+        ->and($answer->prefill_source)->toBe('ai_photo')
+        ->and($answer->fact_provenance)->toBe('inferred')
+        ->and($answer->fact_confidence)->toBe(90)
+        ->and($answer->fact_evidence)->toBe(n49FuseboxOutput()['evidence'])
+        ->and($answer->fact_source)->toBe('foto')
+        ->and($fresh->progress_percent)->toBe($progress['percent'])
+        ->and($fresh->progress_percent)->not->toBe(99)
+        ->and($fresh->status)->toBe($status);
+})->with([IntakeStatus::Sent, IntakeStatus::Completed, IntakeStatus::AwaitingCustomer]);
+
+test('N49: uitzondering voor afgeronde foto-prefill laat gewone of beoordeelde antwoorden niet door', function ($source, $reviewed, $allow) {
+    ['intake' => $intake] = n49MakeIntake();
+    $intake->update(['status' => IntakeStatus::Completed, 'reviewed_at' => $reviewed ? now() : null]);
+
+    expect(fn () => app(SaveIntakeAnswer::class)->handle(
+        $intake->fresh(), 'fusebox_clarity', null, ['value' => 'clear'], $source,
+        allowFollowUpPhotoPrefill: $allow,
+    ))->toThrow(ValidationException::class);
+    expect($intake->answers()->where('question_key', 'fusebox_clarity')->exists())->toBeFalse();
+})->with([
+    'gewone klantopslag' => [null, false, true],
+    'installateursopslag' => ['installer', false, true],
+    'beoordeelde opname' => ['ai_photo', true, true],
+    'bestaand fotopad zonder uitzondering' => ['ai_photo', false, false],
+]);

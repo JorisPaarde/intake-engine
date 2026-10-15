@@ -121,19 +121,18 @@ final class AssessFuseboxPhotos
                 $answer = $locked->answers()->whereNull('section_instance_key')
                     ->where('question_key', self::CLARITY_QUESTION)->first();
                 if ($answer === null || PrefillSources::photoMayOverwrite($answer->prefill_source)) {
-                    IntakeAnswer::query()->updateOrCreate([
-                        'intake_id' => $locked->id,
-                        'question_key' => self::CLARITY_QUESTION,
-                        'section_instance_key' => null,
-                    ], [
-                        'value' => ['value' => $this->clarityValue($output)],
-                        'prefill_source' => PrefillSources::AI_PHOTO,
-                        'fact_source' => 'foto',
-                        'fact_provenance' => 'inferred',
-                        'fact_confidence' => $output['confidence'] === 'high' ? 90 : 60,
-                        'fact_evidence' => $output['evidence'],
-                        'answered_at' => now(),
-                    ]);
+                    $this->saveIntakeAnswer->handle(
+                        $locked,
+                        self::CLARITY_QUESTION,
+                        null,
+                        ['value' => $this->clarityValue($output)],
+                        PrefillSources::AI_PHOTO,
+                        factProvenance: 'inferred',
+                        factConfidence: $output['confidence'] === 'high' ? 90 : 60,
+                        factEvidence: $output['evidence'],
+                        factSource: 'foto',
+                        allowFollowUpPhotoPrefill: true,
+                    );
                 }
             }
         });
