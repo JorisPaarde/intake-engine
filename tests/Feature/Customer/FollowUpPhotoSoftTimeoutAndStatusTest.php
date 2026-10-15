@@ -799,3 +799,50 @@ test('main wizard: upload op stap B na verstrijken klok A toont LOOKING geen sof
         ->and($component->instance()->assessmentUiReleased)->not->toContain($q2)
         ->and($component->get('saveMessage'))->not->toBe(PhotoCustomerStatus::SOFT_TIMEOUT);
 });
+
+test('follow-up versturen toont lopende beoordeling bij de knop en kan daarna afronden', function (bool $softTimeout) {
+    Queue::fake();
+    Carbon::setTestNow(now());
+    [$intake, $item] = softTimeoutFollowUpIntake();
+    $round = $item->round;
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('followUpPhotoFiles.'.$item->id, UploadedFile::fake()->image('meterkast.jpg', 800, 600))
+        ->assertSet('uploadPhase', 'assessing')
+        ->call('completeFollowUp')
+        ->assertHasErrors('follow_up')
+        ->assertSet('completed', false)
+        ->assertSeeHtml('data-testid="follow-up-submit-error"');
+
+    $html = $component->html();
+    $errorPosition = strpos($html, 'data-testid="follow-up-submit-error"');
+    $buttonPosition = strpos($html, 'wire:click="completeFollowUp"');
+    expect($errorPosition)->not->toBeFalse()
+        ->and($buttonPosition)->not->toBeFalse()
+        ->and(substr($html, $errorPosition, $buttonPosition - $errorPosition))
+        ->toContain('Even geduld: we beoordelen je foto nog.')
+        ->and($round->fresh()->status)->not->toBe(FollowUpRoundStatus::Completed);
+
+    $upload = $item->fresh()->uploads()->firstOrFail();
+    if ($softTimeout) {
+        Carbon::setTestNow(now()->addSeconds(PhotoAssessmentSoftTimeout::seconds() + 1));
+    } else {
+        $upload->forceFill([
+            'assessment_status' => PhotoAssessmentStatus::Assessed,
+            'usability_verdict' => PhotoUsabilityVerdict::Ok,
+            'content_assessment' => ['status' => 'ok', 'detected_subject' => 'fusebox'],
+        ])->save();
+    }
+
+    $component
+        ->call('pollPendingAssessments', (string) $item->id)
+        ->assertSet('uploadPhase', '')
+        ->call('completeFollowUp')
+        ->assertHasNoErrors('follow_up')
+        ->assertSet('completed', true);
+
+    expect($round->fresh()->status)->toBe(FollowUpRoundStatus::Completed);
+    if ($softTimeout) {
+        expect($upload->fresh()->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
+    }
+})->with(['beoordeling klaar' => false, 'soft-timeout' => true]);
