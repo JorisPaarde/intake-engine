@@ -21,6 +21,8 @@ class RefreshStoredIntakeReport
 
     public function handle(Intake $intake): void
     {
+        app(SyncRouteAttentionPoints::class)->handle($intake);
+
         try {
             $this->rebuildIntakeReportHtml->handle($intake);
             if (! $intake->is_demo) {

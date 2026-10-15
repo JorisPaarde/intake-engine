@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\PipeRouteSession;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\PipeRouteStatus;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ final class StartPipeRouteSession
 {
     public function handle(Intake $intake, ?AircoConnection $connection = null): PipeRouteSession
     {
-        return DB::transaction(function () use ($intake, $connection): PipeRouteSession {
+        $session = DB::transaction(function () use ($intake, $connection): PipeRouteSession {
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             if ($connection !== null && $connection->intake_id !== $intake->id) {
@@ -78,5 +79,9 @@ final class StartPipeRouteSession
                 'status' => PipeRouteStatus::Collecting,
             ]);
         }, 3);
+
+        app(RefreshStoredIntakeReport::class)->handle($intake);
+
+        return $session;
     }
 }

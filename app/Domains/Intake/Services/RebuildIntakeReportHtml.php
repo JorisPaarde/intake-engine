@@ -51,8 +51,8 @@ class RebuildIntakeReportHtml
             $attentionPoints = PhotoContinueAnywayAttention::collapseDuplicateContinueAnywayPoints(
                 $intake,
                 $intake->attentionPoints
-                    ->filter(static fn ($point): bool => $point->status === null
-                        || $point->status === AttentionPointStatus::Accepted),
+                    ->filter(static fn ($point): bool => ! $point->is_resolved
+                        && ($point->status === null || $point->status === AttentionPointStatus::Accepted)),
             )
                 ->map(function ($point) use ($intake): ?array {
                     $code = (string) ($point->code ?? '');
