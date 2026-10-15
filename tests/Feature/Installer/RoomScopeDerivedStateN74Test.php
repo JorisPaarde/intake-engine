@@ -99,7 +99,7 @@ test('N74 scope confirmation excludes existing indoor and routes without deletin
         ->and($option->placements()->count())->toBe($placementCount)
         ->and($option->connections()->count())->toBe($connectionCount)
         ->and($point->splitConfigurationPoint($intake->fresh())['label'])->toContain('2 ruimtes')
-        ->and($intake->attentionPoints()->first()->label)->toContain('2 ruimtes')
+        ->and($intake->attentionPoints()->where('code', 'review_split_configuration')->first()->label)->toContain('2 ruimtes')
         ->and(app(AircoUnitCouplingValidator::class)->optionProblems($option))->toBe([]);
 
     $response = $this->actingAs($user)->get(route('intakes.workspace', $intake));
@@ -114,7 +114,7 @@ test('N74 scope confirmation excludes existing indoor and routes without deletin
     $option->refresh();
     expect($option->newInstallationPlacements())->toHaveCount(4)
         ->and($option->newInstallationConnections())->toHaveCount(4)
-        ->and($intake->attentionPoints()->first()->label)->toContain('3 ruimtes');
+        ->and($intake->attentionPoints()->where('code', 'review_split_configuration')->first()->label)->toContain('3 ruimtes');
 });
 
 test('N74 a confirmed existing unit cannot be submitted as a new choice or coupled again', function () {
