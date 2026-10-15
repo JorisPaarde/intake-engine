@@ -2,19 +2,23 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\AircoUnitCouplingValidator;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
 use App\Enums\AircoConfigurationType;
+use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
 use App\Enums\AttentionPointSource;
 use App\Enums\ContributionMode;
+use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Validation\ValidationException;
@@ -210,4 +214,74 @@ test('N74 confirmation and undo refresh the report once each after attention poi
     $survey = app(AircoSurveyService::class);
     $survey->confirmRoomExistingInstallation($intake, $user, $living);
     $survey->clearRoomScopeConfirmation($intake, $user, $living->fresh());
+});
+
+test('N74 completion ignores and leaves untouched routes of a room outside scope', function () {
+    [$user, $intake, $living] = n74Survey();
+    $option = $intake->aircoInstallationOptions()->firstOrFail();
+    $this->actingAs($user)->post(route('intakes.workspace.rooms.scope.confirm', [$intake, $living]))->assertRedirect();
+
+    $survey = app(AircoSurveyService::class);
+    $intake->aircoRooms()->update([
+        'dimensions' => ['length_m' => 5.0, 'width_m' => 4.0, 'height_m' => 2.6],
+    ]);
+    $option->refresh();
+    $placements = $option->newInstallationPlacements();
+    $outside = $placements->firstWhere('type', AircoPlacementType::OutdoorUnit);
+    $powerPoint = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::PowerSource,
+        'label' => 'Meterkast',
+    ]);
+    $option->placements()->syncWithoutDetaching([$powerPoint->id => ['role' => AircoPlacementType::PowerSource->value]]);
+    $option->refresh();
+    foreach ([$powerPoint, $outside] as $index => $placement) {
+        IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'installer_evidence',
+            'section_instance_key' => 'subject-'.$placement->dossier_subject_id,
+            'disk' => 'local',
+            'path' => 'test/n74-evidence-'.$index.'.jpg',
+            'original_filename' => $index === 0 ? 'meterkast.jpg' : 'gevel.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 100,
+            'checksum' => hash('sha256', 'n74-evidence-'.$index),
+            'sort_order' => 1,
+        ]);
+    }
+    foreach ($placements->where('type', AircoPlacementType::IndoorUnit) as $inside) {
+        $survey->createConnection($intake, $user, $option, [
+            'type' => AircoConnectionType::Condensate,
+            'label' => 'Afvoer '.$inside->label,
+            'from_placement_id' => $inside->id,
+            'status' => AircoConnectionStatus::Proposed,
+        ]);
+    }
+    $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Stroom naar buitenunit',
+        'from_placement_id' => $powerPoint->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::Proposed,
+    ]);
+    foreach ($option->fresh()->newInstallationConnections() as $connection) {
+        $connection->update(['status' => AircoConnectionStatus::Proposed]);
+    }
+
+    $hidden = $option->connections()->where('label', 'Afvoer woonkamer')->firstOrFail();
+    // Keep the excluded refrigerant route valid so the old completion loop reaches this uncertainty.
+    $option->connections()->where('type', AircoConnectionType::Refrigerant)->update([
+        'status' => AircoConnectionStatus::Proposed,
+    ]);
+    $hidden->forceFill([
+        'status' => AircoConnectionStatus::Proposed,
+        'uncertainties' => ['Afschot onbekend'],
+    ])->save();
+    $statusBefore = $hidden->fresh()->status;
+    expect($statusBefore)->not->toBe(AircoConnectionStatus::Approved);
+
+    $completed = app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
+
+    expect($completed->status)->toBe(IntakeStatus::Completed)
+        ->and($intake->fresh()->status)->toBe(IntakeStatus::Completed)
+        ->and($hidden->fresh()->status)->toBe($statusBefore);
 });
