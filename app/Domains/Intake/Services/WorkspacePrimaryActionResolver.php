@@ -92,6 +92,14 @@ final class WorkspacePrimaryActionResolver
         Collection $proposedCustomerTasks,
         Collection $openAreas,
     ): array {
+        if (CurrentReviewDecision::for($intake) === ReviewDecision::SiteVisitNeeded) {
+            return [
+                'href' => '#workspace-outcome',
+                'label' => 'Locatiebezoek plannen',
+                'summary' => 'Plan een locatiebezoek; de beoordeling is vastgelegd.',
+            ];
+        }
+
         if ($proposalAlreadyApproved) {
             return [
                 'href' => '#workspace-outcome',
@@ -108,7 +116,14 @@ final class WorkspacePrimaryActionResolver
             ];
         }
 
-        if ($proposedCustomerTasks->isNotEmpty()) {
+        $rounds = $intake->relationLoaded('followUpRounds')
+            ? $intake->followUpRounds
+            : ($intake->exists ? $intake->followUpRounds()->get() : collect());
+        $maxRounds = (int) config('intake.follow_up.max_rounds', 3);
+        $canRequestContribution = $rounds->count() < $maxRounds
+            && (int) $rounds->max('round_number') < $maxRounds;
+
+        if ($canRequestContribution && $proposedCustomerTasks->isNotEmpty()) {
             return [
                 'href' => '#demo-customer-task',
                 'label' => 'Klanttaak controleren',
@@ -180,7 +195,7 @@ final class WorkspacePrimaryActionResolver
             ];
         }
 
-        if ($quoteArea?->next_action === DossierNextAction::RequestContribution) {
+        if ($canRequestContribution && $quoteArea?->next_action === DossierNextAction::RequestContribution) {
             return [
                 'href' => '#demo-customer-task',
                 'label' => 'Klanttaak maken',
@@ -193,6 +208,14 @@ final class WorkspacePrimaryActionResolver
                 'href' => '#workspace-outcome',
                 'label' => 'Locatiebezoek vastleggen',
                 'summary' => $quoteArea->blocker ?? 'Locatiebezoek plannen',
+            ];
+        }
+
+        if (! $canRequestContribution && $quoteArea?->next_action === DossierNextAction::RequestContribution) {
+            return [
+                'href' => '#workspace-complete',
+                'label' => 'Beoordeling vastleggen',
+                'summary' => 'Geen klantrondes meer beschikbaar. Beoordeel de open punten en bepaal of een offerte of locatiebezoek nodig is.',
             ];
         }
 
