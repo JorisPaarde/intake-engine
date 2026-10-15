@@ -821,6 +821,9 @@
                         @if ($aiSummary)
                             <div class="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
                                 <p class="font-semibold">AI-voorstel (niet bindend)</p>
+                                @if (! empty($aiSummary['generated_at']))
+                                    <p class="mt-0.5 text-xs text-sky-800">Opgesteld op {{ \Illuminate\Support\Carbon::parse($aiSummary['generated_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i') }} op basis van de dossierstand van dat moment.</p>
+                                @endif
                                 <p class="mt-1">{{ $aiSummary['summary'] ?? '' }}</p>
                                 @if (! empty($aiSummary['highlights']) && is_array($aiSummary['highlights']))
                                     <ul class="mt-2 list-disc space-y-1 pl-5">

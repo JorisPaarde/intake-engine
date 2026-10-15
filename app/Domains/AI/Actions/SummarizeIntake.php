@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Services\SummaryDossierContext;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
@@ -34,6 +35,7 @@ final class SummarizeIntake
         private readonly IntakeAttentionContextBuilder $contextBuilder,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly DerivedClaimConfidenceGuard $claimGuard,
+        private readonly SummaryDossierContext $dossierContext,
     ) {}
 
     public function handle(Intake $intake): AiRun
@@ -54,7 +56,9 @@ final class SummarizeIntake
         $promptBody = $this->promptVersions->body($promptName);
         $provider = (string) config('ai.provider', 'null');
 
-        $payload = $this->buildPayload($intake);
+        $dossier = $this->dossierContext->build($intake);
+        $dossierHash = $this->dossierContext->hash($intake, $dossier);
+        $payload = $this->buildPayload($intake) + ['dossier' => $dossier];
         $inputHash = hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR));
 
         $run = AiRun::query()->create([
@@ -107,7 +111,7 @@ final class SummarizeIntake
             ]);
 
             try {
-                $this->attachSummaryToReport($intake, $validated, $run->fresh() ?? $run, $trace);
+                $this->attachSummaryToReport($intake, $validated, $run->fresh() ?? $run, $trace, $dossierHash);
                 $trace->flushBuffer();
             } catch (Throwable $transactionException) {
                 $trace->discardBuffer();
@@ -272,9 +276,9 @@ final class SummarizeIntake
     /**
      * @param  array{summary: string, highlights: list<string>}  $summary
      */
-    private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run, AiTraceHandle $trace): void
+    private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run, AiTraceHandle $trace, string $dossierHash): void
     {
-        DB::transaction(function () use ($intake, $summary, $run, $trace): void {
+        DB::transaction(function () use ($intake, $summary, $run, $trace, $dossierHash): void {
             $trace->beginBuffer();
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $report = $intake->report()->lockForUpdate()->first();
@@ -300,19 +304,22 @@ final class SummarizeIntake
                 ->values()
                 ->all();
 
+            $stamped = $summary + ['generated_at' => now()->toIso8601String()];
+
             $html = $this->generateIntakeReportHtml->handle(
                 $intake,
                 $version,
                 $attentionPoints,
-                $summary,
+                $stamped,
             );
 
             $rawMeta = $report->getAttribute('meta');
             $meta = is_array($rawMeta) ? $rawMeta : [];
-            $meta['ai_summary'] = $summary;
+            $meta['ai_summary'] = $stamped;
             $meta['ai_run_id'] = $run->id;
             $meta['ai_provider'] = $run->provider;
             $meta['ai_prompt_version'] = $run->prompt_version;
+            $meta['ai_dossier_hash'] = $dossierHash;
 
             $report->update([
                 'html' => $html,

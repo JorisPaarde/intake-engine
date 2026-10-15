@@ -1,0 +1,95 @@
+{
+  "id": "rc-n69-selected-option-multisplit",
+  "kind": "report_claims",
+  "origin": "N69 — gekozen installatieoptie wijkt af van de oorspronkelijke aanvraag",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Klant vroeg drie slaapkamers en de werkkamer. In de dossierstand is de optie multisplit voor twee slaapkamers gekozen. Het voorstel moet de gekozen optie volgen.",
+  "summary_input": {
+    "answers": {
+      "request_text": "Graag airco in alle drie de slaapkamers en in de werkkamer op zolder."
+    },
+    "external_facts": {},
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [],
+    "dossier": {
+      "rooms": [
+        {
+          "name": "Slaapkamer 1",
+          "existing_installation_remains_confirmed_by_installer": false
+        },
+        {
+          "name": "Slaapkamer 2",
+          "existing_installation_remains_confirmed_by_installer": false
+        }
+      ],
+      "installation_options": [
+        {
+          "label": "Multisplit twee slaapkamers",
+          "status": "selected",
+          "summary": "Twee binnenunits (slaapkamer 1 en 2) op één buitenunit."
+        }
+      ],
+      "installer_review": null,
+      "dossier_records": []
+    }
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Graag airco in alle drie de slaapkamers en in de werkkamer op zolder."
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Graag airco in alle drie de slaapkamers en in de werkkamer op zolder.",
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "selected_option_multisplit",
+        "concept": "selected_option_multisplit",
+        "allowed": "assert",
+        "terms": [
+          "/multi\\W?split/iu"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": []
+  },
+  "fake_summary_output": {
+    "summary": "Gekozen optie: multisplit voor slaapkamer 1 en 2.",
+    "highlights": [
+      "Multisplit twee slaapkamers"
+    ]
+  },
+  "disputed_facts": {}
+}

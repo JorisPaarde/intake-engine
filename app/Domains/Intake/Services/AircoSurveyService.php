@@ -127,6 +127,7 @@ final class AircoSurveyService
         );
         $this->surveyProgress->markStarted($intake);
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $this->refreshStoredIntakeReport->handle($intake->fresh() ?? $intake);
 
         return $room->fresh() ?? $room;
     }
