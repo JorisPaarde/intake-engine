@@ -7,7 +7,7 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\AttentionPointSource;
 
-final class SyncRouteAttentionPoints
+class SyncRouteAttentionPoints
 {
     public function handle(Intake $intake): void
     {

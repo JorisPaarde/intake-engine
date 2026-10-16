@@ -21,7 +21,12 @@ class RefreshStoredIntakeReport
 
     public function handle(Intake $intake): void
     {
-        app(SyncRouteAttentionPoints::class)->handle($intake);
+        try {
+            // N80: the write itself already succeeded; a sync failure must not become a 500.
+            app(SyncRouteAttentionPoints::class)->handle($intake);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         try {
             $this->rebuildIntakeReportHtml->handle($intake);
