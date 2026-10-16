@@ -115,8 +115,9 @@ final class EvalReportWriter
         $lines[] = '- Prompt-hash: `'.($report['prompt_fingerprint']['combined_hash'] ?? '').'`';
         if (is_array($report['eval_cost'] ?? null)) {
             $lines[] = sprintf(
-                '- Kosten (provider, USD): `%s` over %d calls',
+                '- Kosten (provider, USD): `%s` over %d AI-calls (%d met kosten)',
                 number_format((float) ($report['eval_cost']['total_usd'] ?? 0), 4, '.', ''),
+                (int) ($report['eval_cost']['calls'] ?? 0),
                 (int) ($report['eval_cost']['calls_with_cost'] ?? 0),
             );
         }

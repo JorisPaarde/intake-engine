@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\Eval\EvalComparer;
+use App\Domains\AI\Eval\EvalCostMeter;
 use App\Domains\AI\Eval\EvalFixturePrivacyScan;
 use App\Domains\AI\Eval\EvalReportWriter;
 use App\Domains\AI\Eval\EvalRuntimeBootstrap;
 use App\Domains\AI\Eval\InterpretationEvalRunner;
+use App\Domains\AI\Eval\MeteredAiClient;
 use App\Domains\Intake\Models\IntakeTemplate;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Console\Command;
@@ -75,6 +78,14 @@ final class EvalInterpretationCommand extends Command
         }
 
         // Resolve ná runtime-config, anders blijft NullAiClient/FakeAiClient verkeerd hangen.
+        // N90: meter real provider cost of this run at the client boundary.
+        $costMeter = new EvalCostMeter;
+        $this->laravel->instance(EvalCostMeter::class, $costMeter);
+        $this->laravel->extend(
+            AiClientInterface::class,
+            static fn (AiClientInterface $client): AiClientInterface => new MeteredAiClient($client, $costMeter),
+        );
+
         /** @var InterpretationEvalRunner $runner */
         $runner = $this->laravel->make(InterpretationEvalRunner::class);
         /** @var EvalComparer $comparer */
@@ -197,8 +208,9 @@ final class EvalInterpretationCommand extends Command
 
         if (is_array($report['eval_cost'] ?? null)) {
             $this->line(sprintf(
-                'eval_cost: USD %s over %d provider calls',
+                'eval_cost: USD %s over %d AI calls (%d with provider cost)',
                 number_format((float) ($report['eval_cost']['total_usd'] ?? 0), 4, '.', ''),
+                (int) ($report['eval_cost']['calls'] ?? 0),
                 (int) ($report['eval_cost']['calls_with_cost'] ?? 0),
             ));
         }

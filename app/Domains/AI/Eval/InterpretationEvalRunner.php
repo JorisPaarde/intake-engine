@@ -33,6 +33,7 @@ final class InterpretationEvalRunner
         private readonly JudgeCalibrationCaseRunner $judgeCalibrationRunner,
         private readonly EvalReportWriter $reportWriter,
         private readonly EvalRuntimeBootstrap $runtimeBootstrap,
+        private readonly EvalCostMeter $costMeter,
     ) {}
 
     /**
@@ -139,63 +140,13 @@ final class InterpretationEvalRunner
             'not_runnable' => $notRunnable,
             'unfilled_fixtures' => $this->unfilledFixtures($fixtures),
             'normalizer_audit' => $this->normalizerAudit(),
-            'eval_cost' => $this->evalCost($cases),
+            'eval_cost' => $this->costMeter->summary(),
             'cases' => $cases,
         ];
 
         $paths = $this->reportWriter->write($report);
 
         return ['report' => $report, 'paths' => $paths];
-    }
-
-    /**
-     * N90: real provider cost of this run (OpenRouter usage.cost, USD), summed
-     * over every recorded `estimated_cost` in the case outputs (incl. judge calls).
-     *
-     * @param  list<array<string, mixed>>  $cases
-     * @return array{total_usd: float, calls_with_cost: int, by_kind: array<string, float>}
-     */
-    private function evalCost(array $cases): array
-    {
-        $total = 0.0;
-        $calls = 0;
-        $byKind = [];
-        foreach ($cases as $case) {
-            $kind = is_string($case['kind'] ?? null) ? $case['kind'] : 'unknown';
-            $sum = $this->sumCallCosts($case, $calls);
-            $total += $sum;
-            $byKind[$kind] = ($byKind[$kind] ?? 0.0) + $sum;
-        }
-
-        return ['total_usd' => round($total, 6), 'calls_with_cost' => $calls, 'by_kind' => array_map(static fn (float $v): float => round($v, 6), $byKind)];
-    }
-
-    /**
-     * Counts only per-call usage records (arrays carrying both `estimated_cost`
-     * and `input_tokens`); roll-ups such as photo token_usage totals are skipped
-     * so a call is never counted twice.
-     *
-     * @param  array<mixed>  $node
-     */
-    private function sumCallCosts(array $node, int &$calls): float
-    {
-        if (array_key_exists('estimated_cost', $node) && array_key_exists('input_tokens', $node)) {
-            if (is_numeric($node['estimated_cost'])) {
-                $calls++;
-
-                return (float) $node['estimated_cost'];
-            }
-
-            return 0.0;
-        }
-        $sum = 0.0;
-        foreach ($node as $child) {
-            if (is_array($child)) {
-                $sum += $this->sumCallCosts($child, $calls);
-            }
-        }
-
-        return $sum;
     }
 
     private function resolveMode(bool $forceFake): string

@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\DTOs\AiCompletionRequest;
-use App\Domains\AI\Eval\InterpretationEvalRunner;
+use App\Domains\AI\DTOs\AiCompletionResult;
+use App\Domains\AI\Eval\EvalCostMeter;
 use App\Domains\AI\Eval\JudgeCalibrationCaseRunner;
 use App\Domains\AI\Eval\JudgeClaimEvaluator;
+use App\Domains\AI\Eval\MeteredAiClient;
 use App\Domains\AI\Eval\OptionSummaryCaseRunner;
 use Tests\TestCase;
 
@@ -101,20 +104,24 @@ test('N90: synthese zonder optie met verbinding telt als fout en wordt niet beoo
         ->and($result['judge'])->toBe([]);
 });
 
-test('N90: eval-kosten tellen alleen per-call records (geen dubbele foto-rollup)', function () {
-    $runner = app(InterpretationEvalRunner::class);
-    $cases = [
-        ['kind' => 'photo_observation', 'token_usage' => [
-            'vision' => ['input_tokens' => 10, 'estimated_cost' => '0.002'],
-            'total_tokens' => 12,
-            'estimated_cost' => '0.002',
-        ]],
-        ['kind' => 'option_summary', 'token_usage' => ['dossier_synthesis' => ['input_tokens' => 5, 'estimated_cost' => '0.001']],
-            'judge' => [['id' => 'x', 'input_tokens' => 3, 'estimated_cost' => '0.0005']]],
-    ];
+test('N90: eval-kostenmeter telt elke AI-call precies één keer aan de clientgrens', function () {
+    $meter = new EvalCostMeter;
+    $inner = new class implements AiClientInterface
+    {
+        public function complete(AiCompletionRequest $request): AiCompletionResult
+        {
+            return new AiCompletionResult(output: [], provider: 'openai', estimatedCost: $request->promptVersion === 'free' ? null : '0.00125');
+        }
+    };
+    $client = new MeteredAiClient($inner, $meter);
 
-    $cost = (fn () => $this->evalCost($cases))->call($runner);
+    $client->complete(new AiCompletionRequest(prompt: 'p', input: [], promptVersion: 'summary-v9'));
+    $client->complete(new AiCompletionRequest(prompt: 'p', input: [], promptVersion: 'eval-judge-v1'));
+    $client->complete(new AiCompletionRequest(prompt: 'p', input: [], promptVersion: 'free'));
 
-    expect($cost['total_usd'])->toBe(0.0035)
-        ->and($cost['calls_with_cost'])->toBe(3);
+    expect($meter->summary())->toMatchArray([
+        'total_usd' => 0.0025,
+        'calls' => 3,
+        'calls_with_cost' => 2,
+    ]);
 });
