@@ -1,0 +1,187 @@
+{
+  "id": "rc-n90-drain-preference-not-plan",
+  "kind": "report_claims",
+  "origin": "N90 (ronde 0722): afvoer-voorkeur verscheen als plan",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Klant kiest \"regenpijp of putje buiten in de buurt\". Rapport mag de condensafvoer niet als gepland/besloten presenteren. Beoordeeld door eval-judge op betekenis (geen termen).",
+  "summary_input": {
+    "answers": {
+      "request_text": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin. Graag geïnstalleerd voor de zomer.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      },
+      "desired_planning": {
+        "value": "asap",
+        "label": "Zo snel mogelijk"
+      },
+      "drain_location": {
+        "value": "outside_nearby",
+        "label": "Regenpijp of putje buiten in de buurt"
+      }
+    },
+    "external_facts": {},
+    "follow_up": [
+      {
+        "round_number": 1,
+        "items": [
+          {
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "upload_count": 0
+          }
+        ]
+      }
+    ],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ]
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin. Graag geïnstalleerd voor de zomer.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      },
+      "desired_planning": {
+        "value": "asap",
+        "label": "Zo snel mogelijk"
+      },
+      "drain_location": {
+        "value": "outside_nearby",
+        "label": "Regenpijp of putje buiten in de buurt"
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin.",
+        "prefill_source": null
+      },
+      {
+        "reference": "desired_planning@answer:survey",
+        "question_key": "desired_planning",
+        "question_label": "Wanneer zou u de installatie het liefst laten uitvoeren?",
+        "section_key": "planning",
+        "section_label": "Planning",
+        "section_instance_key": null,
+        "answer": {
+          "value": "asap",
+          "label": "Zo snel mogelijk"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [
+      {
+        "round_number": 1,
+        "status": "completed",
+        "items": [
+          {
+            "reference": "round_1@item:item_eval_n73_phase",
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "uploads": []
+          }
+        ]
+      }
+    ],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [],
+    "judge_claims": [
+      {
+        "id": "drain_presented_as_plan",
+        "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+        "forbidden": true
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "verify_free_group",
+        "label": "Controleer of er een vrije groep is (klant meldt 3x25A).",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "request_text@answer:survey"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco in de woonkamer en twee slaapkamers, met de buitenunit achter in de tuin.",
+    "highlights": [
+      "Volgens de klant staat er 3x25A op de hoofdschakelaar.",
+      "Planning: zo snel mogelijk, liefst voor de zomer."
+    ]
+  }
+}

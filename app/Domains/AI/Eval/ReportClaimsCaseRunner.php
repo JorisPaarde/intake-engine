@@ -35,6 +35,7 @@ final class ReportClaimsCaseRunner
         private readonly DerivedClaimConfidenceGuard $claimGuard,
         private readonly ReportClaimsScorer $scorer,
         private readonly SchemaEnumLabelGuard $schemaEnumLabelGuard,
+        private readonly JudgeClaimEvaluator $judgeClaims,
     ) {}
 
     /**
@@ -194,6 +195,19 @@ final class ReportClaimsCaseRunner
             ),
         ];
 
+        $judgeTexts = [];
+        if ($finalSummaryNormalized !== null) {
+            $judgeTexts[] = $finalSummaryNormalized['summary'];
+            foreach ($finalSummaryNormalized['highlights'] as $highlight) {
+                $judgeTexts[] = $highlight;
+            }
+        }
+        foreach ($finalPoints ?? [] as $point) {
+            $judgeTexts[] = $point['label'];
+        }
+        $judged = $this->judgeClaims->evaluate($expected, $judgeTexts, $components);
+        $scores['pipeline_final'] += $judged['scores'];
+
         $pipelineDiffers = json_encode($rawSummaryNormalized) !== json_encode($finalSummaryNormalized)
             || json_encode($rawPoints) !== json_encode($finalPoints);
 
@@ -262,6 +276,7 @@ final class ReportClaimsCaseRunner
                 ],
             ],
             'scores' => $scores,
+            'judge' => $judged['log'],
             'note' => $fixture['note'] ?? null,
         ];
     }

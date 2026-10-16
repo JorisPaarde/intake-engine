@@ -27,7 +27,7 @@ final class EvalInterpretationCommand extends Command
     protected $signature = 'eval:interpretation
         {--repeats=3 : Aantal herhalingen per case (echte model-run); fake=1}
         {--fake : Forceer FakeAiClient (GEEN baseline)}
-        {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims); leeg=alles}
+        {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims,option_summary,judge_calibration); leeg=alles}
         {--live-vision : Stuur photo_observation-fixturefoto\'s door echte vision-prompt (default uit; CI blijft fake)}
         {--prompt-version= : live of v10; held-out proposed-vN indien aanwezig; relevant met --live-vision}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
@@ -195,6 +195,14 @@ final class EvalInterpretationCommand extends Command
             }
         }
 
+        if (is_array($report['eval_cost'] ?? null)) {
+            $this->line(sprintf(
+                'eval_cost: USD %s over %d provider calls',
+                number_format((float) ($report['eval_cost']['total_usd'] ?? 0), 4, '.', ''),
+                (int) ($report['eval_cost']['calls_with_cost'] ?? 0),
+            ));
+        }
+
         if ($liveVision) {
             $this->summarizeLiveVision($report, $promptVersionsByName);
         }
@@ -280,7 +288,7 @@ final class EvalInterpretationCommand extends Command
     {
         $hits = [];
         $root = base_path('tests/Eval/fixtures');
-        foreach (['request_texts', 'customer_answers', 'photo_observations', 'report_claims'] as $dir) {
+        foreach (['request_texts', 'customer_answers', 'photo_observations', 'report_claims', 'option_summaries', 'judge_calibration'] as $dir) {
             foreach (glob($root.'/'.$dir.'/*.json') ?: [] as $file) {
                 $data = json_decode((string) file_get_contents($file), true);
                 if (! is_array($data)) {

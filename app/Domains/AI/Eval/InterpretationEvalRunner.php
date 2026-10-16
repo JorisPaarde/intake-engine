@@ -29,6 +29,8 @@ final class InterpretationEvalRunner
         private readonly CustomerAnswerCaseRunner $customerAnswerRunner,
         private readonly PhotoObservationCaseRunner $photoObservationRunner,
         private readonly ReportClaimsCaseRunner $reportClaimsRunner,
+        private readonly OptionSummaryCaseRunner $optionSummaryRunner,
+        private readonly JudgeCalibrationCaseRunner $judgeCalibrationRunner,
         private readonly EvalReportWriter $reportWriter,
         private readonly EvalRuntimeBootstrap $runtimeBootstrap,
     ) {}
@@ -83,6 +85,8 @@ final class InterpretationEvalRunner
                             $promptVersion,
                         ),
                         'report_claims' => $this->reportClaimsRunner->run($fixture, $i),
+                        'option_summary' => $this->optionSummaryRunner->run($fixture, $i),
+                        'judge_calibration' => $this->judgeCalibrationRunner->run($fixture, $i),
                         default => null,
                     };
                     if ($result === null) {
@@ -135,12 +139,41 @@ final class InterpretationEvalRunner
             'not_runnable' => $notRunnable,
             'unfilled_fixtures' => $this->unfilledFixtures($fixtures),
             'normalizer_audit' => $this->normalizerAudit(),
+            'eval_cost' => $this->evalCost($cases),
             'cases' => $cases,
         ];
 
         $paths = $this->reportWriter->write($report);
 
         return ['report' => $report, 'paths' => $paths];
+    }
+
+    /**
+     * N90: real provider cost of this run (OpenRouter usage.cost, USD), summed
+     * over every recorded `estimated_cost` in the case outputs (incl. judge calls).
+     *
+     * @param  list<array<string, mixed>>  $cases
+     * @return array{total_usd: float, calls_with_cost: int, by_kind: array<string, float>}
+     */
+    private function evalCost(array $cases): array
+    {
+        $total = 0.0;
+        $calls = 0;
+        $byKind = [];
+        foreach ($cases as $case) {
+            $kind = is_string($case['kind'] ?? null) ? $case['kind'] : 'unknown';
+            $sum = 0.0;
+            array_walk_recursive($case, static function (mixed $value, int|string $key) use (&$sum, &$calls): void {
+                if ($key === 'estimated_cost' && is_numeric($value)) {
+                    $sum += (float) $value;
+                    $calls++;
+                }
+            });
+            $total += $sum;
+            $byKind[$kind] = ($byKind[$kind] ?? 0.0) + $sum;
+        }
+
+        return ['total_usd' => round($total, 6), 'calls_with_cost' => $calls, 'by_kind' => array_map(static fn (float $v): float => round($v, 6), $byKind)];
     }
 
     private function resolveMode(bool $forceFake): string
@@ -172,6 +205,8 @@ final class InterpretationEvalRunner
             $root.'/customer_answers',
             $root.'/photo_observations',
             $root.'/report_claims',
+            $root.'/option_summaries',
+            $root.'/judge_calibration',
         ])->sortByName();
 
         $allowed = null;

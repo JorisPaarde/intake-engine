@@ -11,6 +11,10 @@ on:
         description: 'Stuur photo_observation-fixturefotos door echte vision-prompt'
         required: false
         default: 'false'
+      kind:
+        description: 'Alleen dit fixture-kind (bijv. option_summary,judge_calibration); leeg = alles'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -87,6 +91,7 @@ jobs:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           EVAL_REPEATS: ${{ github.event.inputs.repeats || '3' }}
           EVAL_LIVE_VISION: ${{ github.event.inputs.live_vision || 'false' }}
+          EVAL_KIND: ${{ github.event.inputs.kind || '' }}
         run: |
           if ! [[ "${EVAL_REPEATS}" =~ ^[1-9]$|^10$ ]]; then
             echo "::error::EVAL_REPEATS moet een geheel getal 1–10 zijn (nu: '${EVAL_REPEATS}')."
@@ -94,7 +99,15 @@ jobs:
           fi
           LIVE=""
           if [ "${EVAL_LIVE_VISION}" = "true" ]; then LIVE="--live-vision"; fi
-          php artisan eval:interpretation --migrate --repeats="${EVAL_REPEATS}" ${LIVE}
+          KIND=()
+          if [ -n "${EVAL_KIND}" ]; then
+            if ! [[ "${EVAL_KIND}" =~ ^[a-z_,]+$ ]]; then
+              echo "::error::EVAL_KIND mag alleen a-z, _ en , bevatten."
+              exit 1
+            fi
+            KIND=(--kind="${EVAL_KIND}")
+          fi
+          php artisan eval:interpretation --migrate --repeats="${EVAL_REPEATS}" ${LIVE} "${KIND[@]}"
 
       - name: Upload eval artifacts
         if: always()
