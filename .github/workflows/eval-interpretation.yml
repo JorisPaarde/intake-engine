@@ -8,7 +8,7 @@ on:
         required: false
         default: '3'
       live_vision:
-        description: 'Stuur photo_observation-fixturefoto\'s door echte vision-prompt'
+        description: 'Stuur photo_observation-fixturefotos door echte vision-prompt'
         required: false
         default: 'false'
 
