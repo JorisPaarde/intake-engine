@@ -122,6 +122,12 @@ final class EvalInterpretationCommand extends Command
 
         $repeats = max(1, (int) $this->option('repeats'));
         $kinds = $this->parseKindsOption($this->option('kind'));
+        $unknownKinds = array_values(array_diff($kinds ?? [], InterpretationEvalRunner::KINDS));
+        if ($unknownKinds !== []) {
+            $this->error('Onbekend --kind: '.implode(', ', $unknownKinds).' (geldig: '.implode(', ', InterpretationEvalRunner::KINDS).')');
+
+            return self::FAILURE;
+        }
         $liveVision = (bool) $this->option('live-vision');
         $promptVersionOpt = $this->option('prompt-version');
         $promptVersion = is_string($promptVersionOpt) && trim($promptVersionOpt) !== ''
@@ -201,6 +207,12 @@ final class EvalInterpretationCommand extends Command
             if ($tokenCases > 0) {
                 $this->line("report_claims token_usage: {$totalTokens} total_tokens across {$tokenCases} case-runs");
             }
+        }
+
+        if (count(is_array($report['cases'] ?? null) ? $report['cases'] : []) === 0) {
+            $this->error('Geen enkele case uitgevoerd — geen geldige eval-run.');
+
+            return self::FAILURE;
         }
 
         if (is_array($report['eval_cost'] ?? null)) {

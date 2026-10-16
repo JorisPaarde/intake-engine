@@ -23,6 +23,9 @@ final class InterpretationEvalRunner
         'attention_points',
     ];
 
+    /** Fixture kinds this runner executes (also the valid --kind values). */
+    public const KINDS = ['request_text', 'customer_answer', 'photo_observation', 'report_claims', 'option_summary', 'judge_calibration'];
+
     public function __construct(
         private readonly PromptFingerprint $promptFingerprint,
         private readonly RequestTextCaseRunner $requestTextRunner,
@@ -240,6 +243,8 @@ final class InterpretationEvalRunner
         foreach ($cases as $case) {
             $caseId = is_string($case['id'] ?? null) ? $case['id'] : 'unknown';
             $repeat = (int) ($case['repeat'] ?? 1);
+            // Kinds without a product pipeline (option_summary, judge_calibration) report model_raw.
+            $reportLayer = is_array($case['scores']['pipeline_final'] ?? null) ? 'pipeline_final' : 'model_raw';
 
             foreach (['model_raw', 'pipeline_final'] as $layer) {
                 $scores = $case['scores'][$layer] ?? [];
@@ -272,7 +277,7 @@ final class InterpretationEvalRunner
 
                     $factTypes[$factKey][$status] = ($factTypes[$factKey][$status] ?? 0) + 1;
 
-                    if (in_array($status, ['wrong', 'missing'], true) && $layer === 'pipeline_final') {
+                    if (in_array($status, ['wrong', 'missing'], true) && $layer === $reportLayer) {
                         $errors[] = [
                             'case_id' => $caseId,
                             'layer' => $layer,
@@ -291,7 +296,7 @@ final class InterpretationEvalRunner
                     }
                 }
 
-                if ($layer === 'pipeline_final') {
+                if ($layer === $reportLayer) {
                     $perCaseRepeatCorrect[$caseId][$repeat] = $scoredCount === 0
                         ? null
                         : $correctCount / $scoredCount;

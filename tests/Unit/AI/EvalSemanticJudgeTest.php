@@ -47,7 +47,7 @@ test('N90: kalibratierunner scoort verdict van de judge tegen het label', functi
     });
 
     $result = app(JudgeCalibrationCaseRunner::class)->run(n90Fixture('judge_calibration/jc-n85-n90-calibration.json'), 1);
-    $scores = $result['scores']['pipeline_final'];
+    $scores = $result['scores']['model_raw'];
 
     expect($scores['judge_calibration.n90_planned']['status'])->toBe('correct')
         ->and($scores['judge_calibration.n85_full_plain']['status'])->toBe('correct')
@@ -90,8 +90,8 @@ test('N90: optie-samenvatting-runner beoordeelt optie- en verbindingsteksten', f
 
     expect($result['texts'])->toContain('Afvoer bij voorkeur via regenpijp; ter plaatse bevestigen.')
         ->and($result['texts'])->toContain('Route nog niet besloten')
-        ->and($result['scores']['pipeline_final']['judge.drain_presented_as_plan']['status'])->toBe('correct')
-        ->and($result['scores']['pipeline_final']['synthesis_output']['status'])->toBe('correct');
+        ->and($result['scores']['model_raw']['judge.drain_presented_as_plan']['status'])->toBe('correct')
+        ->and($result['scores']['model_raw']['synthesis_output']['status'])->toBe('correct');
 });
 
 test('N90: synthese zonder optie met verbinding telt als fout en wordt niet beoordeeld', function () {
@@ -99,8 +99,8 @@ test('N90: synthese zonder optie met verbinding telt als fout en wordt niet beoo
 
     $result = app(OptionSummaryCaseRunner::class)->run(n90Fixture('option_summaries/os-n90-drain-preference-not-plan.json'), 1);
 
-    expect($result['scores']['pipeline_final']['synthesis_output']['status'])->toBe('wrong')
-        ->and($result['scores']['pipeline_final']['judge.drain_presented_as_plan']['status'])->toBe('missing')
+    expect($result['scores']['model_raw']['synthesis_output']['status'])->toBe('wrong')
+        ->and($result['scores']['model_raw']['judge.drain_presented_as_plan']['status'])->toBe('missing')
         ->and($result['judge'])->toBe([]);
 });
 

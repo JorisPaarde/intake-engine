@@ -45,7 +45,7 @@ final class JudgeCalibrationCaseRunner
             'repeat' => $repeatIndex,
             'components' => $components,
             'judge' => $log,
-            'scores' => ['model_raw' => $scores, 'pipeline_final' => $scores],
+            'scores' => ['model_raw' => $scores],
             'note' => $fixture['note'] ?? null,
         ];
     }

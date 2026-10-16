@@ -82,7 +82,7 @@ final class OptionSummaryCaseRunner
             'texts' => $texts,
             'token_usage' => ['dossier_synthesis' => $usage],
             'judge' => $judged['log'],
-            'scores' => ['model_raw' => $scores + $judged['scores'], 'pipeline_final' => $scores + $judged['scores']],
+            'scores' => ['model_raw' => $scores + $judged['scores']],
             'note' => $fixture['note'] ?? null,
         ];
     }
