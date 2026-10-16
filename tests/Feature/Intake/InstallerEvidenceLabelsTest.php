@@ -308,3 +308,15 @@ test('legacy outdoor photo assessment label is humanized in the installer fact l
         ->assertOk()
         ->assertDontSee('outdoor_location_photos', false);
 });
+
+test('N88: bron aanvraagtekst heet Aanvraagtekst, niet een vraag die de klant niet zag', function () {
+    $user = User::factory()->create();
+    $intake = evidenceLabelIntake($user);
+
+    $citations = app(InstallerEvidencePresenter::class)->presentAttentionEvidence($intake->fresh(), [
+        ['source_type' => 'answer', 'reference' => 'request_text'],
+    ]);
+
+    expect($citations)->toHaveCount(1)
+        ->and($citations[0]['label'])->toBe('Aanvraagtekst');
+});
