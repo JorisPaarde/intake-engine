@@ -11,7 +11,6 @@ use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
 use App\Enums\PhotoAssessmentStatus;
-use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -162,16 +161,10 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
             $correlationId = $this->correlationId
                 ?? (is_string($timings['correlation_id'] ?? null) ? $timings['correlation_id'] : null);
 
-            $verdict = $assessUsability->handle($upload->fresh() ?? $upload, $correlationId);
+            $assessUsability->handle($upload->fresh() ?? $upload, $correlationId);
             $fresh = $upload->fresh() ?? $upload;
 
             if ($lifecycle->isTerminal($fresh)) {
-                return;
-            }
-
-            if ($verdict === PhotoUsabilityVerdict::TooSmall) {
-                $lifecycle->markHeuristicRejected($fresh);
-
                 return;
             }
 

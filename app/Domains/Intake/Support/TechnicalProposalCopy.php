@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Support;
 
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\PhotoUsabilityVerdict;
 
@@ -25,7 +26,10 @@ final class TechnicalProposalCopy
             );
 
             foreach ($fuseboxUploads as $upload) {
-                $verdict = $upload->usability_verdict;
+                if ($upload->contentAssessment()?->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT) {
+                    return 'Niet zeker: de foto toont niet de gevraagde meterkast';
+                }
+                $verdict = $upload->feedbackUsabilityVerdict();
                 if ($verdict === PhotoUsabilityVerdict::TooSmall) {
                     return 'Niet zeker: foto te klein om het aantal vrije groepen te zien';
                 }

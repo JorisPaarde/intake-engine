@@ -724,7 +724,7 @@ class IntakeWizard extends Component
     private function uploadsNeedQualityHint(Collection $uploads): bool
     {
         foreach ($uploads as $upload) {
-            $verdict = $upload->usability_verdict;
+            $verdict = $upload->feedbackUsabilityVerdict();
             if ($verdict instanceof PhotoUsabilityVerdict && $verdict->customerHint() !== null) {
                 return true;
             }
@@ -1565,8 +1565,8 @@ class IntakeWizard extends Component
                 continue;
             }
 
-            $retakeHint = $upload->usability_verdict instanceof PhotoUsabilityVerdict
-                ? $this->photoRetakeHint($upload->usability_verdict, $upload->question_key)
+            $retakeHint = $upload->feedbackUsabilityVerdict() instanceof PhotoUsabilityVerdict
+                ? $this->photoRetakeHint($upload->feedbackUsabilityVerdict(), $upload->question_key)
                 : null;
             if ($retakeHint !== null) {
                 $hints[] = $retakeHint;
@@ -2494,7 +2494,7 @@ class IntakeWizard extends Component
         $hints = [];
 
         foreach ($uploads as $upload) {
-            $verdict = $upload->usability_verdict;
+            $verdict = $upload->feedbackUsabilityVerdict();
 
             if ($verdict instanceof PhotoUsabilityVerdict) {
                 $hint = $this->photoRetakeHint($verdict, $question->key);

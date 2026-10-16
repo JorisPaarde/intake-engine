@@ -184,23 +184,28 @@ test('zelfde bestand op verschillende vragen krijgt elk een terminale assessment
         ->and($upload2->assessment_status?->isTerminal())->toBeTrue();
 });
 
-test('heuristic too_small zet heuristic_rejected zonder AI-queue-wacht', function () {
+test('heuristic too_small wacht op AI en valt bij uitval terug op afwijzing', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
 
     [$intake, $item] = makeTerminalFollowUpIntake();
 
-    // Sync variants already terminal (too_small) → wizard poll-in-upload clears assessing.
+    // N79: ook een kleine foto krijgt eerst een onderwerpcheck.
+    FakeAiClient::alwaysFail();
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('followUpPhotoFiles.'.$item->id, terminalTinyPhoto())
-        ->assertSet('uploadPhase', '');
+        ->assertSet('uploadPhase', 'assessing');
 
     $upload = $item->fresh()->uploads()->firstOrFail();
 
+    expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
+    Queue::assertPushed(AssessUploadedPhotoJob::class);
+    runTerminalAssessJob($upload->id);
+    $upload->refresh();
+
     expect($upload->usability_verdict)->toBe(PhotoUsabilityVerdict::TooSmall)
         ->and($upload->assessment_status)->toBe(PhotoAssessmentStatus::HeuristicRejected)
-        ->and($upload->contentAssessment())->toBeNull();
+        ->and($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_NOT_ASSESSED);
 
-    Queue::assertNotPushed(AssessUploadedPhotoJob::class);
 });
 
 test('AI-fout zet not_assessed en koppelt upload_id op ai_runs', function () {
