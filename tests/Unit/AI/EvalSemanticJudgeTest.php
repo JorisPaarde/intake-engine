@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Clients\FakeAiClient;
-use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\DTOs\AiCompletionRequest;
-use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Eval\EvalCostMeter;
 use App\Domains\AI\Eval\JudgeCalibrationCaseRunner;
 use App\Domains\AI\Eval\JudgeClaimEvaluator;
-use App\Domains\AI\Eval\MeteredAiClient;
 use App\Domains\AI\Eval\OptionSummaryCaseRunner;
+use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 uses(TestCase::class);
@@ -81,7 +81,7 @@ test('N90: optie-samenvatting-runner beoordeelt optie- en verbindingsteksten', f
             'option_proposals' => [[
                 'label' => 'Multi-split drie ruimtes',
                 'summary' => 'Afvoer bij voorkeur via regenpijp; ter plaatse bevestigen.',
-                'connections' => [['label' => 'Condensafvoer', 'segments' => ['Buiten langs gevel'], 'uncertainties' => ['Route nog niet besloten']]],
+                'connections' => [['type' => 'condensate', 'label' => 'Condensafvoer', 'segments' => ['Buiten langs gevel'], 'uncertainties' => ['Route nog niet besloten']]],
             ]],
         ];
     });
@@ -104,24 +104,31 @@ test('N90: synthese zonder optie met verbinding telt als fout en wordt niet beoo
         ->and($result['judge'])->toBe([]);
 });
 
-test('N90: eval-kostenmeter telt elke AI-call precies één keer aan de clientgrens', function () {
-    $meter = new EvalCostMeter;
-    $inner = new class implements AiClientInterface
-    {
-        public function complete(AiCompletionRequest $request): AiCompletionResult
-        {
-            return new AiCompletionResult(output: [], provider: 'openai', estimatedCost: $request->promptVersion === 'free' ? null : '0.00125');
-        }
-    };
-    $client = new MeteredAiClient($inner, $meter);
-
-    $client->complete(new AiCompletionRequest(prompt: 'p', input: [], promptVersion: 'summary-v9'));
-    $client->complete(new AiCompletionRequest(prompt: 'p', input: [], promptVersion: 'eval-judge-v1'));
-    $client->complete(new AiCompletionRequest(prompt: 'p', input: [], promptVersion: 'free'));
-
-    expect($meter->summary())->toMatchArray([
-        'total_usd' => 0.0025,
-        'calls' => 3,
-        'calls_with_cost' => 2,
+test('N90: eval-kostenmeter telt elke chat-completion-response, ook retries', function () {
+    Http::fake([
+        '*/chat/completions' => Http::sequence()
+            ->push(['usage' => ['cost' => 0.00125]])
+            ->push(['usage' => ['cost' => 0.00125]])
+            ->push(['usage' => []]),
+        '*' => Http::response(['usage' => ['cost' => 9]]),
     ]);
+    $meter = new EvalCostMeter;
+    Event::listen(ResponseReceived::class, [$meter, 'onResponse']);
+
+    Http::post('https://openrouter.test/api/v1/chat/completions');
+    Http::post('https://openrouter.test/api/v1/chat/completions');
+    Http::post('https://openrouter.test/api/v1/chat/completions');
+    Http::get('https://elders.test/other');
+
+    expect($meter->summary())->toBe(['total_usd' => 0.0025, 'calls' => 3, 'calls_with_cost' => 2]);
+});
+
+test('N90: judge zonder rapporttekst geeft geen gratis "no"', function () {
+    $result = app(JudgeClaimEvaluator::class)->evaluate(
+        ['judge_claims' => [['id' => 'drain_plan', 'question' => 'Gepland?']]],
+        [],
+        ['C8'],
+    );
+
+    expect($result['scores']['judge.drain_plan']['status'])->toBe('missing');
 });

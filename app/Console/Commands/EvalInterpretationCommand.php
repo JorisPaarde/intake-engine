@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\Eval\EvalComparer;
 use App\Domains\AI\Eval\EvalCostMeter;
 use App\Domains\AI\Eval\EvalFixturePrivacyScan;
 use App\Domains\AI\Eval\EvalReportWriter;
 use App\Domains\AI\Eval\EvalRuntimeBootstrap;
 use App\Domains\AI\Eval\InterpretationEvalRunner;
-use App\Domains\AI\Eval\MeteredAiClient;
 use App\Domains\Intake\Models\IntakeTemplate;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Throwable;
 
 /**
@@ -78,13 +78,10 @@ final class EvalInterpretationCommand extends Command
         }
 
         // Resolve ná runtime-config, anders blijft NullAiClient/FakeAiClient verkeerd hangen.
-        // N90: meter real provider cost of this run at the client boundary.
+        // N90: meter real provider cost of this run at the HTTP layer (incl. retries).
         $costMeter = new EvalCostMeter;
         $this->laravel->instance(EvalCostMeter::class, $costMeter);
-        $this->laravel->extend(
-            AiClientInterface::class,
-            static fn (AiClientInterface $client): AiClientInterface => new MeteredAiClient($client, $costMeter),
-        );
+        Event::listen(ResponseReceived::class, [$costMeter, 'onResponse']);
 
         /** @var InterpretationEvalRunner $runner */
         $runner = $this->laravel->make(InterpretationEvalRunner::class);

@@ -7,6 +7,7 @@ namespace App\Domains\AI\Eval;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\DossierSynthesisJsonSchema;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Enums\AircoConnectionType;
 use Throwable;
 
 /**
@@ -58,7 +59,7 @@ final class OptionSummaryCaseRunner
         }
 
         $texts = $output !== null ? $this->texts($output) : [];
-        $optionTexts = $output !== null && $this->hasOptionWithConnection($output) ? $this->optionTexts($output) : [];
+        $optionTexts = $output !== null && $this->hasOptionWithCondensateConnection($output) ? $this->optionTexts($output) : [];
         $scores = [
             // Option + connection texts must exist; a top-level summary alone does not exercise the case.
             'synthesis_output' => $this->factScorer->score(
@@ -102,14 +103,15 @@ final class OptionSummaryCaseRunner
     /**
      * @param  array<string, mixed>  $output
      */
-    private function hasOptionWithConnection(array $output): bool
+    private function hasOptionWithCondensateConnection(array $output): bool
     {
         foreach ((array) ($output['option_proposals'] ?? []) as $option) {
             if (! is_array($option) || ! is_string($option['summary'] ?? null) || trim($option['summary']) === '') {
                 continue;
             }
             foreach ((array) ($option['connections'] ?? []) as $connection) {
-                if (is_array($connection) && is_string($connection['label'] ?? null) && trim($connection['label']) !== '') {
+                // N90 target: the option must carry a condensate connection.
+                if (is_array($connection) && ($connection['type'] ?? null) === AircoConnectionType::Condensate->value) {
                     return true;
                 }
             }

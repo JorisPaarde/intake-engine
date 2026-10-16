@@ -38,7 +38,8 @@ TXT;
     {
         $texts = array_values(array_filter($texts, static fn (string $t): bool => trim($t) !== ''));
         if ($texts === []) {
-            return ['verdict' => 'no', 'quote' => '', 'error' => null, 'estimated_cost' => null, 'input_tokens' => null, 'total_tokens' => null];
+            // No report text to judge: never a free pass (scored as missing).
+            return ['verdict' => null, 'quote' => '', 'error' => 'no_texts', 'estimated_cost' => null, 'input_tokens' => null, 'total_tokens' => null];
         }
         try {
             $result = $this->aiGateway->complete(
