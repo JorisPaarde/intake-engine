@@ -7,5 +7,5 @@ declare(strict_types=1);
  */
 return [
     'version' => 'summary-v10',
-    'description' => 'v7 + tuin≠gevel-conflict-voorbeeld; stated fase behouden; stated weggewerkte leidingen melden; latere follow-up-antwoorden van de klant vervangen eerdere onwetendheid (N58); geen herhaling tussen summary en highlights (N73); afvoerkeuze van de klant is geen besloten plan, installateursbesluiten blijven vastgesteld (N90).',
+    'description' => 'v7 + tuin≠gevel-conflict-voorbeeld; stated fase behouden; stated weggewerkte leidingen melden; latere follow-up-antwoorden van de klant vervangen eerdere onwetendheid (N58); geen herhaling tussen summary en highlights (N73); afvoerkeuze van de klant is geen besloten plan, rest ongewijzigd (N90).',
 ];
