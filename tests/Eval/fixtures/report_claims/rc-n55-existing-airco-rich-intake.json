@@ -1,0 +1,339 @@
+{
+  "id": "rc-n55-existing-airco-rich-intake",
+  "kind": "report_claims",
+  "origin": "N55 — rijke intake (3 ruimtes, meterkast 3x25A, bestaande buitenunit gevel, planning) waarin alleen de woonkamerfoto een bestaande binnenunit toont; prod rapport1/ronde1 noemden die niet",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Bestaande binnenunit staat alleen in room_photos_derivation::room-1. Tussen veel andere feiten mag hij niet wegvallen.",
+  "summary_input": {
+    "answers": {
+      "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      },
+      "desired_planning": {
+        "value": "asap",
+        "label": "Zo snel mogelijk"
+      },
+      "outdoor_location": {
+        "value": "garden",
+        "label": "Tuin / achtererf"
+      },
+      "heating_cooling": {
+        "value": "both",
+        "label": "Koelen en verwarmen"
+      },
+      "pipe_visibility": {
+        "value": "concealed",
+        "label": "Zoveel mogelijk weggewerkt"
+      }
+    },
+    "external_facts": {
+      "outdoor_photo_assessment": {
+        "value": {
+          "existing_outdoor_unit": "yes",
+          "mount": "wall",
+          "outdoor_location": "facade",
+          "confidence": "medium",
+          "evidence": "Bestaande buitenunit hangt aan de bakstenen gevel.",
+          "detected_subject": "outdoor_unit",
+          "subject_match": "yes"
+        },
+        "source": "ai",
+        "confidence": "medium"
+      },
+      "room_photos_derivation::room-1": {
+        "value": {
+          "room_type": "living_room",
+          "room_size_indication": "large",
+          "glass_amount": "average",
+          "room_outlet_status": "present",
+          "detected_subject": "room",
+          "subject_match": "yes",
+          "confidence": "medium",
+          "evidence": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank.",
+          "profile": "room",
+          "reason": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [
+      {
+        "round_number": 1,
+        "items": [
+          {
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "upload_count": 0
+          }
+        ]
+      }
+    ],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      },
+      {
+        "reference": "outdoor_location_photos@upload:upload_facade_existing",
+        "question_key": "outdoor_location_photos",
+        "question_label": "Foto’s van de mogelijke buitenunitlocatie",
+        "section_label": "Buitenunit",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 950000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "outdoor_location",
+          "detected_subject": "outdoor_unit",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ]
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n58"
+        ]
+      },
+      "desired_planning": {
+        "value": "asap",
+        "label": "Zo snel mogelijk"
+      },
+      "outdoor_location": {
+        "value": "garden",
+        "label": "Tuin / achtererf"
+      },
+      "heating_cooling": {
+        "value": "both",
+        "label": "Koelen en verwarmen"
+      },
+      "pipe_visibility": {
+        "value": "concealed",
+        "label": "Zoveel mogelijk weggewerkt"
+      }
+    },
+    "external_facts": {
+      "outdoor_photo_assessment": {
+        "value": {
+          "existing_outdoor_unit": "yes",
+          "mount": "wall",
+          "outdoor_location": "facade",
+          "confidence": "medium",
+          "evidence": "Bestaande buitenunit hangt aan de bakstenen gevel."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      },
+      "room_photos_derivation::room-1": {
+        "value": {
+          "room_type": "living_room",
+          "room_size_indication": "large",
+          "glass_amount": "average",
+          "room_outlet_status": "present",
+          "detected_subject": "room",
+          "subject_match": "yes",
+          "confidence": "medium",
+          "evidence": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank.",
+          "profile": "room",
+          "reason": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Airco gewenst in de woonkamer en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet. Buitenunit liefst achter in de tuin.",
+        "prefill_source": null
+      },
+      {
+        "reference": "desired_planning@answer:survey",
+        "question_key": "desired_planning",
+        "question_label": "Wanneer zou u de installatie het liefst laten uitvoeren?",
+        "section_key": "planning",
+        "section_label": "Planning",
+        "section_instance_key": null,
+        "answer": {
+          "value": "asap",
+          "label": "Zo snel mogelijk"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [
+      {
+        "reference": "outdoor_photo_assessment@fact:fact_eval_facade_existing",
+        "fact_key": "outdoor_photo_assessment",
+        "label": "Automatische beoordeling buitenunitfoto",
+        "value": {
+          "existing_outdoor_unit": "yes",
+          "mount": "wall",
+          "outdoor_location": "facade",
+          "confidence": "medium",
+          "evidence": "Bestaande buitenunit hangt aan de bakstenen gevel.",
+          "detected_subject": "outdoor_unit",
+          "subject_match": "yes"
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T11:00:00+00:00"
+      },
+      {
+        "reference": "room_photos_derivation::room-1@fact:fact_eval_n55",
+        "fact_key": "room_photos_derivation::room-1",
+        "label": "Fotoanalyse Woonkamer",
+        "value": {
+          "room_type": "living_room",
+          "room_size_indication": "large",
+          "glass_amount": "average",
+          "room_outlet_status": "present",
+          "detected_subject": "room",
+          "subject_match": "yes",
+          "confidence": "medium",
+          "evidence": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank.",
+          "profile": "room",
+          "reason": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-15T08:00:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n58",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      },
+      {
+        "reference": "outdoor_location_photos@upload:upload_facade_existing",
+        "question_key": "outdoor_location_photos",
+        "question_label": "Foto’s van de mogelijke buitenunitlocatie",
+        "section_label": "Buitenunit",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 950000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "outdoor_location",
+          "detected_subject": "outdoor_unit",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [
+      {
+        "round_number": 1,
+        "status": "completed",
+        "items": [
+          {
+            "reference": "round_1@item:item_eval_n73_phase",
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "uploads": []
+          }
+        ]
+      }
+    ],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "existing_unit_mentioned",
+        "concept": "existing_unit_mentioned",
+        "allowed": "assert",
+        "terms": [
+          "/\\b(bestaande|aanwezige)\\s+(airco|airconditioning|binnenunit|wandunit|unit|installatie)/iu",
+          "/\\b(airco|airco-unit|binnenunit|wandunit)\\b[^.]{0,60}\\b(al|reeds)\\b/iu",
+          "/\\b(al|reeds)\\b[^.]{0,60}\\b(airco|airco-unit|binnenunit|wandunit)\\b/iu"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "confirm_existing_unit",
+        "label": "Bestaande airco-unit in de woonkamer: vervangen of bijplaatsen bevestigen",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "external_fact",
+            "reference": "room_photos_derivation::room-1@fact:fact_eval_n55"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco in de woonkamer en de slaapkamer boven. Op de woonkamerfoto hangt al een airco-unit aan de wand.",
+    "highlights": [
+      "Bestaande airco-unit in de woonkamer: vervangen of bijplaatsen bevestigen."
+    ]
+  },
+  "disputed_facts": {}
+}
