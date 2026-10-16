@@ -70,18 +70,15 @@
     "intake_status": "completed"
   },
   "expected": {
-    "claims": [
+    "claims": [],
+    "require_evidence_on_points": true,
+    "judge_claims": [
       {
         "id": "existing_installation_remains",
-        "concept": "existing_installation_remains",
-        "allowed": "assert",
-        "terms": [
-          "/bestaande[^.;]{0,80}(blijft|blijven|behouden|gehandhaafd|ongewijzigd)/iu",
-          "/(blijft|blijven|behouden|gehandhaafd)[^.;]{0,80}bestaande/iu"
-        ]
+        "question": "Staat er als vastgesteld in de tekst dat de installatie die al in de woonkamer aanwezig is, blijft of behouden wordt (dus niet vervangen)? Alleen 'er is een installatie aanwezig' of 'bevestigd' zonder dat die blijft, telt niet.",
+        "forbidden": false
       }
-    ],
-    "require_evidence_on_points": true
+    ]
   },
   "fake_attention_output": {
     "points": []
