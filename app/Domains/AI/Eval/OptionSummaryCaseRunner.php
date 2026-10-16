@@ -71,7 +71,7 @@ final class OptionSummaryCaseRunner
         ];
         $judged = $optionTexts !== []
             ? $this->judgeClaims->evaluate($expected, $texts, $components)
-            : ['scores' => [], 'log' => []];
+            : $this->missingJudgeClaims($expected, $components);
 
         return [
             'id' => $fixture['id'] ?? null,
@@ -98,6 +98,32 @@ final class OptionSummaryCaseRunner
             : [];
 
         return array_merge($texts, $this->optionTexts($output));
+    }
+
+    /**
+     * Case not exercised (no synthesis / no condensate connection): every expected
+     * judge claim counts as missing so the denominator stays the same per repeat.
+     *
+     * @param  array<string, mixed>  $expected
+     * @param  list<string>  $components
+     * @return array{scores: array<string, array<string, mixed>>, log: list<array<string, mixed>>}
+     */
+    private function missingJudgeClaims(array $expected, array $components): array
+    {
+        $scores = [];
+        foreach ((array) ($expected['judge_claims'] ?? []) as $claim) {
+            if (! is_array($claim) || ! is_string($claim['id'] ?? null)) {
+                continue;
+            }
+            $scores['judge.'.$claim['id']] = $this->factScorer->score(
+                expected: ($claim['forbidden'] ?? true) !== false ? 'no' : 'yes',
+                got: null,
+                supported: true,
+                components: $components,
+            ) + ['detail' => 'not_exercised'];
+        }
+
+        return ['scores' => $scores, 'log' => []];
     }
 
     /**

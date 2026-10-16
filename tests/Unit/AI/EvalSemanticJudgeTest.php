@@ -100,7 +100,7 @@ test('N90: synthese zonder optie met verbinding telt als fout en wordt niet beoo
     $result = app(OptionSummaryCaseRunner::class)->run(n90Fixture('option_summaries/os-n90-drain-preference-not-plan.json'), 1);
 
     expect($result['scores']['pipeline_final']['synthesis_output']['status'])->toBe('wrong')
-        ->and($result['scores']['pipeline_final'])->not->toHaveKey('judge.drain_presented_as_plan')
+        ->and($result['scores']['pipeline_final']['judge.drain_presented_as_plan']['status'])->toBe('missing')
         ->and($result['judge'])->toBe([]);
 });
 

@@ -20,7 +20,7 @@ final class EvalSemanticJudge
 Je bent een strenge beoordelaar voor een evaluatie. Je krijgt een `question` en een lijst `texts` (zinnen uit een rapport).
 Beantwoord de vraag letterlijk en op betekenis, niet op losse woorden.
 - "yes": minstens één tekst doet de beschreven uitspraak.
-- "no": geen tekst doet dat. Een ontkenning ("niet", "niet meer", "nog niet besloten", "nog te bepalen") betekent dat de uitspraak NIET wordt gedaan. Een vraag of controlepunt ("controleer of …") doet de uitspraak niet. Of voorzichtige formuleringen of voorkeuren meetellen, staat in de vraag.
+- "no": geen tekst doet dat. Let op wat een ontkenning inhoudelijk zegt: "niet (meer) volledig bezet" of "nog niet besloten" doet de uitspraak NIET, maar "geen vrije plek" bevestigt juist dat iets vol is. Een vraag of controlepunt ("controleer of …") doet de uitspraak niet. Of voorzichtige formuleringen of voorkeuren meetellen, staat in de vraag.
 - "unclear": alleen als de tekst echt dubbelzinnig is.
 Geef `quote`: de letterlijke tekst die je "yes" gaf, anders een lege string.
 Antwoord uitsluitend met één JSON-object in exact deze vorm: {"verdict": "yes" | "no" | "unclear", "quote": "<tekst of lege string>"}.

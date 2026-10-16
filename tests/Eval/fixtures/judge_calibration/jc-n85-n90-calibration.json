@@ -22,6 +22,14 @@
       "expected": "yes"
     },
     {
+      "id": "n85_no_free_slot",
+      "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
+      "texts": [
+        "Er is geen vrije plek in de groepenkast."
+      ],
+      "expected": "yes"
+    },
+    {
       "id": "n85_not_full",
       "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
       "texts": [
