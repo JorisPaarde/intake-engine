@@ -6,7 +6,7 @@
   "components": [
     "dossier_synthesis"
   ],
-  "note": "Synthese-input (tekst-only, geen foto's) van een synthetische intake: drie ruimtes, afvoer 'regenpijp of putje buiten in de buurt' per ruimte, voorkeur buitenunit achtergevel. Samenvatting per installatieoptie mag de condensafvoer niet als besloten plan presenteren.",
+  "note": "Synthese-input (tekst-only, geen foto's) van een synthetische intake: drie ruimtes, afvoer 'regenpijp of putje buiten in de buurt' per ruimte, voorkeur buitenunit achtergevel. Samenvatting per installatieoptie mag de condensafvoer niet als besloten plan presenteren. Bevat synthetische bestaande AI-placements (3 binnen, 1 buiten) zodat een optie zonder foto's geldig kan worden voorgesteld.",
   "synthesis_input": {
     "task": "synthesize_airco_survey_dossier",
     "intake_status": "in_progress",
@@ -216,6 +216,34 @@
         "label": "Technische opname",
         "parent_reference": null,
         "usable_as_proposal_parent": true
+      },
+      {
+        "reference": "subject:11",
+        "type": "airco_placement",
+        "label": "Binnenunit Woonkamer",
+        "parent_reference": "subject:2",
+        "usable_as_proposal_parent": false
+      },
+      {
+        "reference": "subject:12",
+        "type": "airco_placement",
+        "label": "Binnenunit Slaapkamer",
+        "parent_reference": "subject:3",
+        "usable_as_proposal_parent": false
+      },
+      {
+        "reference": "subject:13",
+        "type": "airco_placement",
+        "label": "Binnenunit Werkkamer",
+        "parent_reference": "subject:4",
+        "usable_as_proposal_parent": false
+      },
+      {
+        "reference": "subject:14",
+        "type": "airco_placement",
+        "label": "Buitenunit achtergevel",
+        "parent_reference": "subject:1",
+        "usable_as_proposal_parent": false
       }
     ],
     "dossier_records": [
@@ -442,7 +470,60 @@
         "source_type": "template_bridge"
       }
     ],
-    "placements": [],
+    "placements": [
+      {
+        "reference": "placement:1",
+        "subject_reference": "subject:11",
+        "room_reference": "room:1",
+        "type": "indoor_unit",
+        "label": "Binnenunit Woonkamer buitenmuur",
+        "description": "Binnenunit aan de buitenmuur; exacte plek ter plaatse te bevestigen.",
+        "status": "candidate",
+        "source_type": "ai",
+        "confidence": 0.6,
+        "cost_risks": [],
+        "reuse_hint": "Bestaand AI-voorstel — hergebruik placement:1 in option_proposals; zet subject_reference op de room-/survey-parent, niet op dit placement-subject."
+      },
+      {
+        "reference": "placement:2",
+        "subject_reference": "subject:12",
+        "room_reference": "room:2",
+        "type": "indoor_unit",
+        "label": "Binnenunit Slaapkamer buitenmuur",
+        "description": "Binnenunit aan de buitenmuur; exacte plek ter plaatse te bevestigen.",
+        "status": "candidate",
+        "source_type": "ai",
+        "confidence": 0.6,
+        "cost_risks": [],
+        "reuse_hint": "Bestaand AI-voorstel — hergebruik placement:2 in option_proposals; zet subject_reference op de room-/survey-parent, niet op dit placement-subject."
+      },
+      {
+        "reference": "placement:3",
+        "subject_reference": "subject:13",
+        "room_reference": "room:3",
+        "type": "indoor_unit",
+        "label": "Binnenunit Werkkamer buitenmuur",
+        "description": "Binnenunit aan de buitenmuur; exacte plek ter plaatse te bevestigen.",
+        "status": "candidate",
+        "source_type": "ai",
+        "confidence": 0.6,
+        "cost_risks": [],
+        "reuse_hint": "Bestaand AI-voorstel — hergebruik placement:3 in option_proposals; zet subject_reference op de room-/survey-parent, niet op dit placement-subject."
+      },
+      {
+        "reference": "placement:4",
+        "subject_reference": "subject:14",
+        "room_reference": null,
+        "type": "outdoor_unit",
+        "label": "Buitenunit achtergevel",
+        "description": "Voorkeur van de klant: één buitenunit aan de achtergevel; plek ter plaatse te bevestigen.",
+        "status": "candidate",
+        "source_type": "ai",
+        "confidence": 0.5,
+        "cost_risks": [],
+        "reuse_hint": "Bestaand AI-voorstel — hergebruik placement:4 in option_proposals; zet subject_reference op de room-/survey-parent, niet op dit placement-subject."
+      }
+    ],
     "existing_options": [],
     "image_manifest": [],
     "synthesis_policy": {
@@ -454,7 +535,7 @@
     "judge_claims": [
       {
         "id": "drain_presented_as_plan",
-        "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+        "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
         "forbidden": true
       }
     ]

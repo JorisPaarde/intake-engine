@@ -47,7 +47,7 @@
     },
     {
       "id": "n90_planned",
-      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
       "texts": [
         "De condensafvoer is gepland op een buitenlocatie in de nabijheid."
       ],
@@ -55,7 +55,7 @@
     },
     {
       "id": "n90_connected",
-      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
       "texts": [
         "Condensafvoer wordt aangesloten op de regenpijp naast de achtergevel."
       ],
@@ -63,7 +63,7 @@
     },
     {
       "id": "n90_not_decided",
-      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
       "texts": [
         "Het is nog niet besloten of de condensafvoer wordt aangesloten op de regenpijp."
       ],
@@ -71,7 +71,7 @@
     },
     {
       "id": "n90_customer_mentions",
-      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
       "texts": [
         "De klant geeft aan dat er een regenpijp of putje buiten in de buurt is."
       ],
@@ -79,11 +79,19 @@
     },
     {
       "id": "n90_preference",
-      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
       "texts": [
         "De afvoer dient bij voorkeur via een regenpijp of putje buiten te verlopen; dit moet ter plaatse worden bevestigd."
       ],
       "expected": "no"
+    },
+    {
+      "id": "n90_customer_attributed_decision",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "Klant geeft aan dat de condensafvoer wordt aangesloten op de regenpijp."
+      ],
+      "expected": "yes"
     }
   ]
 }
