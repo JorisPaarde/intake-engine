@@ -34,11 +34,10 @@ final class JudgeClaimEvaluator
             }
             $forbidden = ($claim['forbidden'] ?? true) !== false;
             $result = $this->judge->judge($texts, $claim['question']);
-            $supported = $result['verdict'] !== null;
             $scores['judge.'.$claim['id']] = $this->factScorer->score(
                 expected: $forbidden ? 'no' : 'yes',
                 got: $result['verdict'],
-                supported: $supported,
+                supported: true,
                 components: $components,
             ) + ['detail' => $result['quote'] !== '' ? $result['quote'] : ($result['error'] ?? '')];
             $log[] = ['id' => $claim['id']] + $result;

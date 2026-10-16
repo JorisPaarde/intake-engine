@@ -162,18 +162,40 @@ final class InterpretationEvalRunner
         $byKind = [];
         foreach ($cases as $case) {
             $kind = is_string($case['kind'] ?? null) ? $case['kind'] : 'unknown';
-            $sum = 0.0;
-            array_walk_recursive($case, static function (mixed $value, int|string $key) use (&$sum, &$calls): void {
-                if ($key === 'estimated_cost' && is_numeric($value)) {
-                    $sum += (float) $value;
-                    $calls++;
-                }
-            });
+            $sum = $this->sumCallCosts($case, $calls);
             $total += $sum;
             $byKind[$kind] = ($byKind[$kind] ?? 0.0) + $sum;
         }
 
         return ['total_usd' => round($total, 6), 'calls_with_cost' => $calls, 'by_kind' => array_map(static fn (float $v): float => round($v, 6), $byKind)];
+    }
+
+    /**
+     * Counts only per-call usage records (arrays carrying both `estimated_cost`
+     * and `input_tokens`); roll-ups such as photo token_usage totals are skipped
+     * so a call is never counted twice.
+     *
+     * @param  array<mixed>  $node
+     */
+    private function sumCallCosts(array $node, int &$calls): float
+    {
+        if (array_key_exists('estimated_cost', $node) && array_key_exists('input_tokens', $node)) {
+            if (is_numeric($node['estimated_cost'])) {
+                $calls++;
+
+                return (float) $node['estimated_cost'];
+            }
+
+            return 0.0;
+        }
+        $sum = 0.0;
+        foreach ($node as $child) {
+            if (is_array($child)) {
+                $sum += $this->sumCallCosts($child, $calls);
+            }
+        }
+
+        return $sum;
     }
 
     private function resolveMode(bool $forceFake): string
@@ -251,7 +273,7 @@ final class InterpretationEvalRunner
     private function aggregate(array $cases): array
     {
         $components = [];
-        foreach (['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'] as $comp) {
+        foreach (['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'dossier_synthesis', 'eval_judge'] as $comp) {
             $components[$comp] = [
                 'model_raw' => ['correct' => 0, 'wrong' => 0, 'missing' => 0, 'not_supported' => 0, 'total' => 0],
                 'pipeline_final' => ['correct' => 0, 'wrong' => 0, 'missing' => 0, 'not_supported' => 0, 'total' => 0],

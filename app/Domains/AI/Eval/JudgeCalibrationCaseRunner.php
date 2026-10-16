@@ -33,7 +33,7 @@ final class JudgeCalibrationCaseRunner
             $scores['judge_calibration.'.$item['id']] = $this->factScorer->score(
                 expected: $item['expected'] ?? null,
                 got: $result['verdict'],
-                supported: $result['verdict'] !== null,
+                supported: true,
                 components: $components,
             );
             $log[] = ['id' => $item['id']] + $result;

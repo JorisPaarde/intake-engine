@@ -58,15 +58,17 @@ final class OptionSummaryCaseRunner
         }
 
         $texts = $output !== null ? $this->texts($output) : [];
+        $optionTexts = $output !== null && $this->hasOptionWithConnection($output) ? $this->optionTexts($output) : [];
         $scores = [
+            // Option + connection texts must exist; a top-level summary alone does not exercise the case.
             'synthesis_output' => $this->factScorer->score(
                 expected: true,
-                got: $texts !== [],
+                got: $optionTexts !== [],
                 supported: true,
                 components: $components,
             ),
         ];
-        $judged = $texts !== []
+        $judged = $optionTexts !== []
             ? $this->judgeClaims->evaluate($expected, $texts, $components)
             : ['scores' => [], 'log' => []];
 
@@ -90,10 +92,39 @@ final class OptionSummaryCaseRunner
      */
     private function texts(array $output): array
     {
-        $texts = [];
-        if (is_string($output['summary'] ?? null)) {
-            $texts[] = $output['summary'];
+        $texts = is_string($output['summary'] ?? null) && trim($output['summary']) !== ''
+            ? [$output['summary']]
+            : [];
+
+        return array_merge($texts, $this->optionTexts($output));
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function hasOptionWithConnection(array $output): bool
+    {
+        foreach ((array) ($output['option_proposals'] ?? []) as $option) {
+            if (! is_array($option) || ! is_string($option['summary'] ?? null) || trim($option['summary']) === '') {
+                continue;
+            }
+            foreach ((array) ($option['connections'] ?? []) as $connection) {
+                if (is_array($connection) && is_string($connection['label'] ?? null) && trim($connection['label']) !== '') {
+                    return true;
+                }
+            }
         }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @return list<string>
+     */
+    private function optionTexts(array $output): array
+    {
+        $texts = [];
         foreach ((array) ($output['option_proposals'] ?? []) as $option) {
             if (! is_array($option)) {
                 continue;

@@ -32,13 +32,13 @@ TXT;
 
     /**
      * @param  list<string>  $texts
-     * @return array{verdict: 'yes'|'no'|'unclear'|null, quote: string, error: string|null, estimated_cost: string|null, total_tokens: int|null}
+     * @return array{verdict: 'yes'|'no'|'unclear'|null, quote: string, error: string|null, estimated_cost: string|null, input_tokens: int|null, total_tokens: int|null}
      */
     public function judge(array $texts, string $question): array
     {
         $texts = array_values(array_filter($texts, static fn (string $t): bool => trim($t) !== ''));
         if ($texts === []) {
-            return ['verdict' => 'no', 'quote' => '', 'error' => null, 'estimated_cost' => null, 'total_tokens' => null];
+            return ['verdict' => 'no', 'quote' => '', 'error' => null, 'estimated_cost' => null, 'input_tokens' => null, 'total_tokens' => null];
         }
         try {
             $result = $this->aiGateway->complete(
@@ -62,7 +62,7 @@ TXT;
                 timeoutSeconds: 30,
             );
         } catch (Throwable $e) {
-            return ['verdict' => null, 'quote' => '', 'error' => $e->getMessage(), 'estimated_cost' => null, 'total_tokens' => null];
+            return ['verdict' => null, 'quote' => '', 'error' => $e->getMessage(), 'estimated_cost' => null, 'input_tokens' => null, 'total_tokens' => null];
         }
 
         $verdict = $result->output['verdict'] ?? null;
@@ -75,6 +75,7 @@ TXT;
                 ? null
                 : 'invalid_verdict: keys='.implode(',', array_map('strval', array_keys($result->output))),
             'estimated_cost' => $result->estimatedCost,
+            'input_tokens' => $result->inputTokens,
             'total_tokens' => $result->totalTokens,
         ];
     }

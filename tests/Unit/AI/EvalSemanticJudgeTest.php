@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
+use App\Domains\AI\Eval\InterpretationEvalRunner;
 use App\Domains\AI\Eval\JudgeCalibrationCaseRunner;
 use App\Domains\AI\Eval\JudgeClaimEvaluator;
 use App\Domains\AI\Eval\OptionSummaryCaseRunner;
@@ -50,7 +51,7 @@ test('N90: kalibratierunner scoort verdict van de judge tegen het label', functi
         ->and($scores['judge_calibration.n90_customer_mentions']['status'])->toBe('correct');
 });
 
-test('N90: judge-claim is fout bij "yes" en niet ondersteund zonder geldig verdict', function () {
+test('N90: judge-claim is fout bij "yes" en telt als fout (missing) zonder geldig verdict', function () {
     $expected = ['judge_claims' => [['id' => 'drain_plan', 'question' => 'Gepland?', 'forbidden' => true]]];
 
     FakeAiClient::alwaysReturn(['verdict' => 'yes', 'quote' => 'De condensafvoer is gepland.']);
@@ -63,7 +64,7 @@ test('N90: judge-claim is fout bij "yes" en niet ondersteund zonder geldig verdi
 
     FakeAiClient::alwaysReturn(['something' => 'else']);
     $none = app(JudgeClaimEvaluator::class)->evaluate($expected, ['x'], ['dossier_synthesis']);
-    expect($none['scores']['judge.drain_plan']['status'])->toBe('not_supported');
+    expect($none['scores']['judge.drain_plan']['status'])->toBe('missing');
 });
 
 test('N90: optie-samenvatting-runner beoordeelt optie- en verbindingsteksten', function () {
@@ -88,4 +89,32 @@ test('N90: optie-samenvatting-runner beoordeelt optie- en verbindingsteksten', f
         ->and($result['texts'])->toContain('Route nog niet besloten')
         ->and($result['scores']['pipeline_final']['judge.drain_presented_as_plan']['status'])->toBe('correct')
         ->and($result['scores']['pipeline_final']['synthesis_output']['status'])->toBe('correct');
+});
+
+test('N90: synthese zonder optie met verbinding telt als fout en wordt niet beoordeeld', function () {
+    FakeAiClient::alwaysReturn(['summary' => 'Alleen een samenvatting.', 'option_proposals' => []]);
+
+    $result = app(OptionSummaryCaseRunner::class)->run(n90Fixture('option_summaries/os-n90-drain-preference-not-plan.json'), 1);
+
+    expect($result['scores']['pipeline_final']['synthesis_output']['status'])->toBe('wrong')
+        ->and($result['scores']['pipeline_final'])->not->toHaveKey('judge.drain_presented_as_plan')
+        ->and($result['judge'])->toBe([]);
+});
+
+test('N90: eval-kosten tellen alleen per-call records (geen dubbele foto-rollup)', function () {
+    $runner = app(InterpretationEvalRunner::class);
+    $cases = [
+        ['kind' => 'photo_observation', 'token_usage' => [
+            'vision' => ['input_tokens' => 10, 'estimated_cost' => '0.002'],
+            'total_tokens' => 12,
+            'estimated_cost' => '0.002',
+        ]],
+        ['kind' => 'option_summary', 'token_usage' => ['dossier_synthesis' => ['input_tokens' => 5, 'estimated_cost' => '0.001']],
+            'judge' => [['id' => 'x', 'input_tokens' => 3, 'estimated_cost' => '0.0005']]],
+    ];
+
+    $cost = (fn () => $this->evalCost($cases))->call($runner);
+
+    expect($cost['total_usd'])->toBe(0.0035)
+        ->and($cost['calls_with_cost'])->toBe(3);
 });

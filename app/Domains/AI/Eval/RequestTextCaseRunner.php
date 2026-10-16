@@ -75,6 +75,7 @@ final class RequestTextCaseRunner
             );
 
         $estimatedCost = null;
+        $inputTokens = null;
         try {
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
@@ -87,6 +88,7 @@ final class RequestTextCaseRunner
             );
             $modelRaw = $result->output;
             $estimatedCost = $result->estimatedCost;
+            $inputTokens = $result->inputTokens;
             $provider = $result->provider;
             $model = $result->model;
             $temperature = is_numeric($result->modelParameters['temperature'] ?? null)
@@ -137,7 +139,7 @@ final class RequestTextCaseRunner
         ];
 
         return [
-            'token_usage' => ['estimated_cost' => $estimatedCost],
+            'token_usage' => ['input_tokens' => $inputTokens, 'estimated_cost' => $estimatedCost],
             'id' => $fixture['id'] ?? null,
             'kind' => 'request_text',
             'repeat' => $repeatIndex,
