@@ -23,7 +23,7 @@ Beantwoord de vraag letterlijk en op betekenis, niet op losse woorden.
 - "no": geen tekst doet dat. Een ontkenning ("niet", "niet meer", "nog niet besloten", "nog te bepalen") betekent dat de uitspraak NIET wordt gedaan. Een vraag of controlepunt ("controleer of …") doet de uitspraak niet. Of voorzichtige formuleringen of voorkeuren meetellen, staat in de vraag.
 - "unclear": alleen als de tekst echt dubbelzinnig is.
 Geef `quote`: de letterlijke tekst die je "yes" gaf, anders een lege string.
-Antwoord uitsluitend met JSON.
+Antwoord uitsluitend met één JSON-object in exact deze vorm: {"verdict": "yes" | "no" | "unclear", "quote": "<tekst of lege string>"}.
 TXT;
 
     public function __construct(
@@ -66,11 +66,14 @@ TXT;
         }
 
         $verdict = $result->output['verdict'] ?? null;
+        $verdict = is_string($verdict) ? strtolower(trim($verdict)) : null;
 
         return [
             'verdict' => in_array($verdict, ['yes', 'no', 'unclear'], true) ? $verdict : null,
             'quote' => is_string($result->output['quote'] ?? null) ? $result->output['quote'] : '',
-            'error' => null,
+            'error' => in_array($verdict, ['yes', 'no', 'unclear'], true)
+                ? null
+                : 'invalid_verdict: keys='.implode(',', array_map('strval', array_keys($result->output))),
             'estimated_cost' => $result->estimatedCost,
             'total_tokens' => $result->totalTokens,
         ];
