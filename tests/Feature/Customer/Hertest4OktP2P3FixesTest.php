@@ -94,7 +94,10 @@ test('P2-a: lage-resolutiefoto in follow-up blokkeert Aanvulling versturen tot T
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('followUpPhotoFiles.'.$item->id, hertest4TinyJpeg())
-        ->assertSet('uploadPhase', '');
+        ->assertSet('uploadPhase', 'assessing');
+
+    runAssessUploadedPhotoJob($item->uploads()->firstOrFail()->id);
+    $component->call('pollPendingAssessments')->assertSet('uploadPhase', '');
 
     $item->refresh()->load('uploads');
     $upload = $item->uploads->firstOrFail();
@@ -153,6 +156,9 @@ test('P2-a: PhotoOverridePolicy is gedeelde bron voor wizard en follow-up', func
 });
 
 test('P2-b: meterkast AI-voorstel toont veldlabel + waarde + concrete onzekerheid', function () {
+    // N79: isoleer het hieronder handmatig ingestelde kwaliteitsverdict van de nieuwe AI-job.
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $intake = hertest4Intake();
     $version = $intake->templateVersion()
         ->with(['sections.questions.options', 'sections.questions.rules'])

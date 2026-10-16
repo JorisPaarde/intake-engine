@@ -97,6 +97,14 @@ class IntakeUpload extends Model
         );
     }
 
+    /** Onderwerpmismatch gaat vóór lokale kwaliteitsfeedback. */
+    public function feedbackUsabilityVerdict(): ?PhotoUsabilityVerdict
+    {
+        return $this->contentAssessment()?->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+            ? null
+            : $this->usability_verdict;
+    }
+
     /** Wie de foto aanleverde; volgt de uploader, niet de weergave. */
     public function sourceLabel(): string
     {

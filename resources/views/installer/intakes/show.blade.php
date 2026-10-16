@@ -598,9 +598,9 @@
                                                     ? null
                                                     : $contentAssessment?->installerLabel();
                                                 $usabilityInstallerLabel = (($item['superseded'] ?? false) !== true
-                                                    && $item['upload']->usability_verdict
-                                                    && $item['upload']->usability_verdict->installerLabel())
-                                                    ? $item['upload']->usability_verdict->installerLabel()
+                                                    && $item['upload']->feedbackUsabilityVerdict()
+                                                    && $item['upload']->feedbackUsabilityVerdict()->installerLabel())
+                                                    ? $item['upload']->feedbackUsabilityVerdict()->installerLabel()
                                                     : null;
                                                 $lightboxLabelParts = array_values(array_filter([
                                                     $contentInstallerLabel,

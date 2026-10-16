@@ -28,6 +28,13 @@ final class PhotoAssessmentLifecycle
 
     public function markAssessed(IntakeUpload $upload): void
     {
+        if ($upload->usability_verdict === PhotoUsabilityVerdict::TooSmall
+            && $upload->contentAssessment() === null) {
+            $this->markHeuristicRejected($upload);
+
+            return;
+        }
+
         $upload->forceFill([
             'assessment_status' => PhotoAssessmentStatus::Assessed,
             'assessment_queued_at' => null,
@@ -47,6 +54,13 @@ final class PhotoAssessmentLifecycle
     {
         $fresh = $upload->fresh() ?? $upload;
         $existing = $fresh->contentAssessment();
+
+        if ($fresh->usability_verdict === PhotoUsabilityVerdict::TooSmall
+            && ($existing === null || $existing->needsReassessment())) {
+            $this->markHeuristicRejected($fresh);
+
+            return;
+        }
 
         if ($existing === null || $existing->needsReassessment()) {
             $subject = $expected
@@ -87,9 +101,9 @@ final class PhotoAssessmentLifecycle
 
     public function syncFromUsability(IntakeUpload $upload, PhotoUsabilityVerdict $verdict): bool
     {
-        // Alleen te klein: vision heeft te weinig pixels → terminaal zonder AI-wacht.
-        // Te donker blijft pending: AI kan het onderwerp vaak nog herkennen.
-        if ($verdict === PhotoUsabilityVerdict::TooSmall) {
+        // Kleine en donkere foto’s kunnen nog een herkenbaar (verkeerd) onderwerp tonen.
+        if ($verdict === PhotoUsabilityVerdict::TooSmall
+            && ! (bool) config('ai.photo_inference.enabled', false)) {
             $this->markHeuristicRejected($upload);
 
             return false;
@@ -114,11 +128,6 @@ final class PhotoAssessmentLifecycle
         $fresh = $upload->fresh() ?? $upload;
 
         if ($this->isTerminal($fresh)) {
-            return false;
-        }
-
-        $verdict = $fresh->usability_verdict;
-        if ($verdict === PhotoUsabilityVerdict::TooSmall) {
             return false;
         }
 
@@ -200,11 +209,18 @@ final class PhotoAssessmentLifecycle
     {
         $fresh = $upload->fresh() ?? $upload;
 
+        $assessment = $fresh->contentAssessment();
+        if ($fresh->usability_verdict === PhotoUsabilityVerdict::TooSmall
+            && ($assessment === null || $assessment->needsReassessment())) {
+            $this->markHeuristicRejected($fresh);
+
+            return;
+        }
+
         if ($this->isTerminal($fresh)) {
             return;
         }
 
-        $assessment = $fresh->contentAssessment();
         if ($assessment instanceof PhotoContentAssessment) {
             $fresh->storeContentAssessment($assessment);
 
