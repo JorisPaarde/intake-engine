@@ -30,7 +30,13 @@ test('report_claims fixtures have required schema fields', function () {
             ->and($decoded['expected'])->toBeArray()
             ->and($decoded['expected'])->toHaveKey('claims')
             ->and($decoded['expected']['claims'])->toBeArray()
-            ->and($decoded['expected']['claims'])->not->toBeEmpty();
+            // N90: a fixture may rely only on semantic judge_claims.
+            ->and(array_merge($decoded['expected']['claims'], $decoded['expected']['judge_claims'] ?? []))->not->toBeEmpty();
+
+        foreach ($decoded['expected']['judge_claims'] ?? [] as $judgeClaim) {
+            expect($judgeClaim)->toBeArray()
+                ->and($judgeClaim)->toHaveKeys(['id', 'question']);
+        }
 
         foreach ($decoded['expected']['claims'] as $claim) {
             expect($claim)->toBeArray()
