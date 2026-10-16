@@ -236,6 +236,8 @@ final class AircoSurveyService
         $this->activity($intake, $installer, 'airco_room_updated', ['room_id' => $room->id]);
         $this->surveyProgress->markStarted($intake);
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        // N65: the stored report must follow installer room corrections.
+        $this->refreshStoredReport($intake->fresh() ?? $intake);
 
         return $room->fresh() ?? $room;
     }
