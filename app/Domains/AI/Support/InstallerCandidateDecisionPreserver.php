@@ -61,6 +61,8 @@ final class InstallerCandidateDecisionPreserver
      *         approved_by: int|null,
      *         approved_at: string|null,
      *         segments: list<string>,
+     *         installer_segments: list<string>,
+     *         installer_source_id: int|null,
      *         label: string,
      *         notes: list<array{key: string, method: string, text: string, actor_id: int|null}>,
      *         evidence: list<array{evidence_type: string, evidence_id: int, relationship: string}>,
@@ -182,6 +184,8 @@ final class InstallerCandidateDecisionPreserver
      *     approved_by: int|null,
      *     approved_at: string|null,
      *     segments: list<string>,
+     *     installer_segments: list<string>,
+     *     installer_source_id: int|null,
      *     label: string,
      *     notes: list<array{key: string, method: string, text: string, actor_id: int|null}>,
      *     evidence: list<array{evidence_type: string, evidence_id: int, relationship: string}>,
@@ -274,6 +278,9 @@ final class InstallerCandidateDecisionPreserver
                 ? $connection->approved_at->toIso8601String()
                 : null,
             'segments' => $segments,
+            // N69: a route the installer described himself (definePowerRoute) is an installer decision.
+            'installer_segments' => $connection->source_type === 'installer' ? $segments : [],
+            'installer_source_id' => $connection->source_type === 'installer' ? $connection->source_id : null,
             'supersedes' => is_array($subject->meta['supersedes_connection_ids'] ?? null)
                 ? $subject->meta['supersedes_connection_ids']
                 : [],
@@ -293,7 +300,8 @@ final class InstallerCandidateDecisionPreserver
     {
         // Evidence alone is not an installer decision — status/notes are.
         return is_string($connectionSnap['status'] ?? null)
-            || ($connectionSnap['notes'] ?? []) !== [];
+            || ($connectionSnap['notes'] ?? []) !== []
+            || ($connectionSnap['installer_segments'] ?? []) !== [];
     }
 
     /**
@@ -399,6 +407,20 @@ final class InstallerCandidateDecisionPreserver
                 && is_string($connectionSnap['approved_at'] ?? null)
                 ? $connectionSnap['approved_at']
                 : null;
+        }
+
+        $installerSegments = array_values(array_filter(
+            is_array($connectionSnap['installer_segments'] ?? null) ? $connectionSnap['installer_segments'] : [],
+            static fn (mixed $segment): bool => is_string($segment) && trim($segment) !== '',
+        ));
+        if ($installerSegments !== []) {
+            $updates['segments'] = $installerSegments;
+            $updates['uncertainties'] = [];
+            $updates['source_type'] = 'installer';
+            $updates['source_id'] = is_int($connectionSnap['installer_source_id'] ?? null) ? $connectionSnap['installer_source_id'] : null;
+            if (! isset($updates['status'])) {
+                $updates['status'] = AircoConnectionStatus::Proposed;
+            }
         }
 
         if ($updates !== []) {

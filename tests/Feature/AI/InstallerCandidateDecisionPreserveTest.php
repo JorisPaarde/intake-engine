@@ -428,3 +428,30 @@ test('N29 rebuild without installer decisions still replaces candidates without 
         ->sole();
     expect($refrigerant->status)->toBe(AircoConnectionStatus::Proposed);
 });
+
+test('N69 installer-described power route keeps its description across AI rebuild (defined, then approved)', function (bool $approve) {
+    $this->withoutVite();
+    [$intake, $user] = n29SurveyWithPlacements();
+    FakeAiClient::respondUsing(static fn (AiCompletionRequest $r): array => n29SynthesisOutput($r, 'AI-optie', 'Door buitenmuur'));
+    app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    $power = AircoConnection::query()->where('intake_id', $intake->id)->where('type', 'power')->sole();
+    $route = 'Van meterkast in de gang via kabelgoot langs de achtergevel naar buitenunit in de tuin.';
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.define', [$intake, $power]), ['segments_text' => $route])
+        ->assertRedirect();
+    if ($approve) {
+        app(DecideAircoConnection::class)->handle($intake, $power->fresh(), $user, 'approve');
+    }
+
+    FakeAiClient::respondUsing(static fn (AiCompletionRequest $r): array => n29SynthesisOutput($r, 'AI-optie herbouwd', 'Door buitenmuur'));
+    app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    $fresh = AircoConnection::query()->where('intake_id', $intake->id)->where('type', 'power')
+        ->whereHas('installationOption', fn ($q) => $q->where('status', '!=', AircoOptionStatus::Rejected))->get();
+    expect($fresh)->toHaveCount(1);
+    $fresh = $fresh->sole();
+    expect($fresh->segments)->toBe([$route])
+        ->and($fresh->uncertainties)->toBe([])
+        ->and($fresh->status)->toBe($approve ? AircoConnectionStatus::Approved : AircoConnectionStatus::Proposed);
+})->with(['alleen vastgelegd' => false, 'vastgelegd en goedgekeurd' => true]);
