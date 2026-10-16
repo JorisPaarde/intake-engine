@@ -7,6 +7,10 @@ on:
         description: 'Herhalingen per case (echte model-run)'
         required: false
         default: '3'
+      live_vision:
+        description: 'Stuur photo_observation-fixturefotos door echte vision-prompt'
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -82,12 +86,15 @@ jobs:
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
           EVAL_REPEATS: ${{ github.event.inputs.repeats || '3' }}
+          EVAL_LIVE_VISION: ${{ github.event.inputs.live_vision || 'false' }}
         run: |
           if ! [[ "${EVAL_REPEATS}" =~ ^[1-9]$|^10$ ]]; then
             echo "::error::EVAL_REPEATS moet een geheel getal 1–10 zijn (nu: '${EVAL_REPEATS}')."
             exit 1
           fi
-          php artisan eval:interpretation --migrate --repeats="${EVAL_REPEATS}"
+          LIVE=""
+          if [ "${EVAL_LIVE_VISION}" = "true" ]; then LIVE="--live-vision"; fi
+          php artisan eval:interpretation --migrate --repeats="${EVAL_REPEATS}" ${LIVE}
 
       - name: Upload eval artifacts
         if: always()

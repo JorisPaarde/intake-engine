@@ -1,0 +1,143 @@
+{
+  "id": "rc-n55-existing-airco-from-room-photo",
+  "kind": "report_claims",
+  "origin": "N55 — woonkamerfoto toont bestaande wandunit; fotoanalyse noemt hem, samenvatting/aandachtspunten niet",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Alleen de woonkamerfoto-analyse noemt een bestaande airco-unit. Klant noemt het niet. Verwacht: samenvatting of aandachtspunt noemt de bestaande unit (vervangen of bijplaatsen te bevestigen). Termen vereisen een binnenunit/airco-unit (niet alleen een bestaande buitenunit of installatie).",
+  "summary_input": {
+    "answers": {
+      "request_text": "Wij willen airco in de woonkamer en in de slaapkamer boven."
+    },
+    "external_facts": {
+      "room_photos_derivation::room-1": {
+        "value": {
+          "room_type": "living_room",
+          "room_size_indication": "large",
+          "glass_amount": "average",
+          "room_outlet_status": "present",
+          "detected_subject": "room",
+          "subject_match": "yes",
+          "confidence": "medium",
+          "evidence": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank.",
+          "profile": "room",
+          "reason": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": []
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Wij willen airco in de woonkamer en in de slaapkamer boven."
+    },
+    "external_facts": {
+      "room_photos_derivation::room-1": {
+        "value": {
+          "room_type": "living_room",
+          "room_size_indication": "large",
+          "glass_amount": "average",
+          "room_outlet_status": "present",
+          "detected_subject": "room",
+          "subject_match": "yes",
+          "confidence": "medium",
+          "evidence": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank.",
+          "profile": "room",
+          "reason": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Aanvraag",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Wij willen airco in de woonkamer en in de slaapkamer boven.",
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [
+      {
+        "reference": "room_photos_derivation::room-1@fact:fact_eval_n55",
+        "fact_key": "room_photos_derivation::room-1",
+        "label": "Fotoanalyse Woonkamer",
+        "value": {
+          "room_type": "living_room",
+          "room_size_indication": "large",
+          "glass_amount": "average",
+          "room_outlet_status": "present",
+          "detected_subject": "room",
+          "subject_match": "yes",
+          "confidence": "medium",
+          "evidence": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank.",
+          "profile": "room",
+          "reason": "De ruimte is ingericht als woonkamer met een bank, salontafel en eethoek. Er is een trap aanwezig en een airco-unit is reeds aan de wand gemonteerd. Een stopcontact is zichtbaar bij de wandplank."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-15T08:00:00+00:00"
+      }
+    ],
+    "uploads": [],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "existing_unit_mentioned",
+        "concept": "existing_unit_mentioned",
+        "allowed": "assert",
+        "terms": [
+          "/\\b(bestaande|aanwezige)\\s+(airco-?(binnen)?unit|airco(?![-\\s]?install)|binnenunit|wandunit|split-?unit)\\b/iu",
+          "/\\b(hangt|reeds|al)\\b[^.]{0,40}\\b(airco-?(binnen)?unit|airco(?![-\\s]?install)|binnenunit|wandunit|split-?unit)\\b/iu",
+          "/\\b(airco-?(binnen)?unit|binnenunit|wandunit|split-?unit)\\b[^.]{0,40}\\b(hangt|gemonteerd|reeds)\\b/iu"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "confirm_existing_unit",
+        "label": "Bestaande airco-unit in de woonkamer: vervangen of bijplaatsen bevestigen",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "external_fact",
+            "reference": "room_photos_derivation::room-1@fact:fact_eval_n55"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco in de woonkamer en de slaapkamer boven. Op de woonkamerfoto hangt al een airco-unit aan de wand.",
+    "highlights": [
+      "Bestaande airco-unit in de woonkamer: vervangen of bijplaatsen bevestigen."
+    ]
+  },
+  "disputed_facts": {}
+}
