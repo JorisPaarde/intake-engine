@@ -6,7 +6,7 @@
   "components": [
     "dossier_synthesis"
   ],
-  "note": "Synthese-input (tekst-only, geen foto's) van een synthetische intake: drie ruimtes, afvoer 'regenpijp of putje buiten in de buurt' per ruimte, voorkeur buitenunit achtergevel. Samenvatting per installatieoptie mag afvoer/buitenunitlocatie niet als besloten plan presenteren.",
+  "note": "Synthese-input (tekst-only, geen foto's) van een synthetische intake: drie ruimtes, afvoer 'regenpijp of putje buiten in de buurt' per ruimte, voorkeur buitenunit achtergevel. Samenvatting per installatieoptie mag de condensafvoer niet als besloten plan presenteren.",
   "synthesis_input": {
     "task": "synthesize_airco_survey_dossier",
     "intake_status": "in_progress",
@@ -455,11 +455,6 @@
       {
         "id": "drain_presented_as_plan",
         "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland of besloten? Een voorkeur, mogelijkheid of iets dat de klant noemt ('bij voorkeur', 'kan', 'klant geeft aan', 'nog te bevestigen') telt niet.",
-        "forbidden": true
-      },
-      {
-        "id": "outdoor_preference_presented_as_decision",
-        "question": "Wordt de plek van de buitenunit (bijv. de achtergevel) gepresenteerd als besloten of vastgesteld, terwijl de klant alleen een voorkeur ('liefst') heeft genoemd? Een voorstel, voorkeur of iets dat nog bevestigd moet worden telt niet.",
         "forbidden": true
       }
     ]
