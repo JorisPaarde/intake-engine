@@ -12,9 +12,6 @@ namespace App\Domains\AI\Eval;
  */
 final class JudgeClaimEvaluator
 {
-    /** @var array<string, array{verdict: 'yes'|'no'|'unclear'|null, quote: string, error: string|null, estimated_cost: string|null, input_tokens: int|null, total_tokens: int|null}> */
-    private array $cache = [];
-
     public function __construct(
         private readonly EvalSemanticJudge $judge,
         private readonly FactScorer $factScorer,
@@ -36,13 +33,7 @@ final class JudgeClaimEvaluator
                 continue;
             }
             $forbidden = ($claim['forbidden'] ?? true) !== false;
-            // Identical texts (e.g. model_raw == pipeline_final) reuse one verdict.
-            $cacheKey = hash('sha256', $claim['question']."\n".json_encode($texts));
-            // Only successful verdicts are cached; a failed call is retried next time.
-            $result = $this->cache[$cacheKey] ?? $this->judge->judge($texts, $claim['question']);
-            if ($result['verdict'] !== null) {
-                $this->cache[$cacheKey] = $result;
-            }
+            $result = $this->judge->judge($texts, $claim['question']);
             $scores['judge.'.$claim['id']] = $this->factScorer->score(
                 expected: $forbidden ? 'no' : 'yes',
                 got: $result['verdict'],

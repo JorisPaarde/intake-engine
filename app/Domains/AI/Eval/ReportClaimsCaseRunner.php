@@ -195,17 +195,14 @@ final class ReportClaimsCaseRunner
             ),
         ];
 
-        $judgedRaw = $this->judgeClaims->evaluate(
-            $expected,
-            $this->judgeTexts($rawSummaryNormalized, $rawPoints),
-            $components,
-        );
+        $rawJudgeTexts = $this->judgeTexts($rawSummaryNormalized, $rawPoints);
+        $finalJudgeTexts = $this->judgeTexts($finalSummaryNormalized, $finalPoints);
+        $judgedRaw = $this->judgeClaims->evaluate($expected, $rawJudgeTexts, $components);
         $scores['model_raw'] += $judgedRaw['scores'];
-        $judged = $this->judgeClaims->evaluate(
-            $expected,
-            $this->judgeTexts($finalSummaryNormalized, $finalPoints),
-            $components,
-        );
+        // Same texts in both layers (within this repeat): reuse the verdict.
+        $judged = $finalJudgeTexts === $rawJudgeTexts
+            ? $judgedRaw
+            : $this->judgeClaims->evaluate($expected, $finalJudgeTexts, $components);
         $scores['pipeline_final'] += $judged['scores'];
 
         $pipelineDiffers = json_encode($rawSummaryNormalized) !== json_encode($finalSummaryNormalized)
