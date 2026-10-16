@@ -286,6 +286,11 @@ final class InstallerEvidencePresenter
             ? $answer->section_instance_key
             : $this->sectionInstanceKeyFromAnswerReference($reference);
 
+        // N88: the request text is not a question the customer saw.
+        if ($questionKey === 'request_text') {
+            return $this->citation('Aanvraagtekst', null, false, null, null);
+        }
+
         $placePrefix = $this->placePrefixForCitation($intake, $instanceKey);
         if ($questionLabel !== null && $placePrefix !== null) {
             $label = 'Antwoord: '.$placePrefix.' · '.$questionLabel;
