@@ -525,8 +525,9 @@ final class GenerateIntakeReportHtml
             }
 
             $sectionTitle = $section->title;
-            $instanceLabel = $target['section_instance_key'];
-            $bucketKey = $section->key.'|'.($instanceLabel ?? '');
+            $instanceKey = $target['section_instance_key'];
+            $instanceLabel = $this->readableInstanceLabel($intake, $instanceKey);
+            $bucketKey = $section->key.'|'.($instanceKey ?? '');
 
             if (! isset($reportSections[$bucketKey])) {
                 $reportSections[$bucketKey] = [
@@ -544,6 +545,21 @@ final class GenerateIntakeReportHtml
         }
 
         return array_values($reportSections);
+    }
+
+    /**
+     * N81: never show an internal instance key ("room-1") in the report.
+     */
+    private function readableInstanceLabel(Intake $intake, ?string $instanceKey): ?string
+    {
+        if ($instanceKey === null || $instanceKey === '') {
+            return null;
+        }
+
+        $room = $intake->aircoRooms->firstWhere('key', $instanceKey);
+        $name = $room !== null ? trim((string) $room->name) : '';
+
+        return $name !== '' ? $name : 'Ruimte '.Str::afterLast($instanceKey, '-');
     }
 
     /**
