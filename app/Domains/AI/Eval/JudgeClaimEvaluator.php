@@ -38,7 +38,11 @@ final class JudgeClaimEvaluator
             $forbidden = ($claim['forbidden'] ?? true) !== false;
             // Identical texts (e.g. model_raw == pipeline_final) reuse one verdict.
             $cacheKey = hash('sha256', $claim['question']."\n".json_encode($texts));
-            $result = $this->cache[$cacheKey] ??= $this->judge->judge($texts, $claim['question']);
+            // Only successful verdicts are cached; a failed call is retried next time.
+            $result = $this->cache[$cacheKey] ?? $this->judge->judge($texts, $claim['question']);
+            if ($result['verdict'] !== null) {
+                $this->cache[$cacheKey] = $result;
+            }
             $scores['judge.'.$claim['id']] = $this->factScorer->score(
                 expected: $forbidden ? 'no' : 'yes',
                 got: $result['verdict'],
