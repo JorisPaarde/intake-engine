@@ -1,0 +1,243 @@
+{
+  "id": "rc-n85-fusebox-round2-free-slot-supersedes-full",
+  "kind": "report_claims",
+  "origin": "N85 run-2026-10-16-0722 claude-klant P2-2 (intake 205)",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "After round 2 the combined fusebox assessment says a free module slot looks visible (round-1 large photo had read as none visible). The AI attention point kept saying the fusebox is fully occupied. Expected: no capacity_full claim when the current combined assessment is empty_module_space=visible.",
+  "summary_input": {
+    "answers": {
+      "electrical_phase_known": {
+        "value": "unknown",
+        "label": "Weet ik niet"
+      },
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n14-conflict"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "evidence": "Vrije moduleplek lijkt zichtbaar; 3-fase lijkt zichtbaar. Groepen deels afgedekt.",
+          "retake_instruction": null,
+          "subject_match": "yes",
+          "provider": "openai",
+          "model": "eval-fixture",
+          "upload_ids": [
+            1
+          ]
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [
+      {
+        "round_number": 1,
+        "items": [
+          {
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "upload_count": 0
+          }
+        ]
+      },
+      {
+        "round_number": 2,
+        "items": [
+          {
+            "type": "photo",
+            "prompt": "Maak een scherpe foto van de volledige meterkast, recht van voren.",
+            "response_text": null,
+            "upload_count": 1
+          }
+        ]
+      }
+    ],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n61",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1200000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ]
+  },
+  "attention_input": {
+    "answers": {
+      "electrical_phase_known": {
+        "value": "unknown",
+        "label": "Weet ik niet"
+      },
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-fusebox-n14-conflict"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "evidence": "Vrije moduleplek lijkt zichtbaar; 3-fase lijkt zichtbaar. Groepen deels afgedekt."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [
+      {
+        "reference": "electrical_phase_known@answer:survey",
+        "question_key": "electrical_phase_known",
+        "question_label": "Weet je of er 3-fase (krachtstroom) is?",
+        "section_key": "power",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "answer": {
+          "value": "unknown",
+          "label": "Weet ik niet"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_n61",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "evidence": "Vrije moduleplek lijkt zichtbaar; 3-fase lijkt zichtbaar. Groepen deels afgedekt."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T10:10:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n61",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1200000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [
+      {
+        "round_number": 1,
+        "status": "completed",
+        "items": [
+          {
+            "reference": "round_1@item:item_eval_n61_phase",
+            "type": "text",
+            "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
+            "response_text": "Er staat 3x25A op de hoofdschakelaar",
+            "uploads": []
+          }
+        ]
+      },
+      {
+        "round_number": 2,
+        "status": "completed",
+        "items": [
+          {
+            "reference": "round_2@item:item_eval_n85_fusebox",
+            "type": "photo",
+            "prompt": "Maak een scherpe foto van de volledige meterkast, recht van voren.",
+            "response_text": null,
+            "uploads": []
+          }
+        ]
+      }
+    ],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "capacity_full_after_round2",
+        "concept": "capacity_full",
+        "allowed": "forbidden",
+        "terms": [
+          "volledig bezet",
+          "vol bezet",
+          "/uitbreiding (is )?(nodig|vereist)/iu",
+          "uitbreiding vereist",
+          "/groepenkast (is )?vol\\b/iu"
+        ]
+      }
+    ],
+    "attention_confidence_ceiling": "medium",
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "verify_phase",
+        "label": "3-fase lijkt zichtbaar op de meterkastfoto.",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "external_fact",
+            "reference": "fusebox_photo_assessment@fact:fact_eval_n61"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "Volgens de klant staat er 3x25A op de hoofdschakelaar. Op de meterkastfoto lijkt een 3-fase aansluiting zichtbaar.",
+    "highlights": [
+      "Klantopgave: 3x25A",
+      "Meterkastfoto: 3-fase lijkt zichtbaar"
+    ]
+  },
+  "disputed_facts": {}
+}
