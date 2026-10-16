@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "Bestaande binnenunit staat alleen in room_photos_derivation::room-1. Tussen veel andere feiten mag hij niet wegvallen.",
+  "note": "Bestaande binnenunit staat alleen in room_photos_derivation::room-1. Tussen veel andere feiten mag hij niet wegvallen. Termen vereisen een binnenunit/airco-unit (niet alleen een bestaande buitenunit of installatie).",
   "summary_input": {
     "answers": {
       "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
@@ -306,9 +306,9 @@
         "concept": "existing_unit_mentioned",
         "allowed": "assert",
         "terms": [
-          "/\\b(bestaande|aanwezige)\\s+(airco|airconditioning|binnenunit|wandunit|unit|installatie)/iu",
-          "/\\b(airco|airco-unit|binnenunit|wandunit)\\b[^.]{0,60}\\b(al|reeds)\\b/iu",
-          "/\\b(al|reeds)\\b[^.]{0,60}\\b(airco|airco-unit|binnenunit|wandunit)\\b/iu"
+          "/\\b(bestaande|aanwezige)\\s+(airco-?(binnen)?unit|airco(?![-\\s]?install)|binnenunit|wandunit|split-?unit)\\b/iu",
+          "/\\b(hangt|reeds|al)\\b[^.]{0,40}\\b(airco-?(binnen)?unit|airco(?![-\\s]?install)|binnenunit|wandunit|split-?unit)\\b/iu",
+          "/\\b(airco-?(binnen)?unit|binnenunit|wandunit|split-?unit)\\b[^.]{0,40}\\b(hangt|gemonteerd|reeds)\\b/iu"
         ]
       }
     ],

@@ -24,9 +24,9 @@
         "concept": "existing_indoor_unit",
         "allowed": "forbidden",
         "terms": [
-          "/\\b(bestaande|aanwezige)\\s+(airco|airconditioning|binnenunit|wandunit|split)/iu",
-          "/\\b(airco|airconditioner|airconditioning|binnenunit|wandunit|split-?unit)\\b[^.]{0,60}\\b(aanwezig|zichtbaar|hangt|gemonteerd|bevestigd)/iu",
-          "/\\b(zichtbaar|hangt|aanwezig)\\b[^.]{0,60}\\b(airco|airconditioner|binnenunit|wandunit)\\b/iu"
+          "/\\b(bestaande|aanwezige)\\s+(airco-?(binnen)?unit|airco(?![-\\s]?install)|binnenunit|wandunit|split-?unit)\\b/iu",
+          "/\\b(hangt|reeds|al)\\b[^.]{0,40}\\b(airco-?(binnen)?unit|airco(?![-\\s]?install)|binnenunit|wandunit|split-?unit)\\b/iu",
+          "/\\b(airco-?(binnen)?unit|binnenunit|wandunit|split-?unit)\\b[^.]{0,40}\\b(hangt|gemonteerd|reeds)\\b/iu"
         ]
       }
     ]
