@@ -23,14 +23,20 @@ final class InterpretationEvalRunner
         'attention_points',
     ];
 
+    /** Fixture kinds this runner executes (also the valid --kind values). */
+    public const KINDS = ['request_text', 'customer_answer', 'photo_observation', 'report_claims', 'option_summary', 'judge_calibration'];
+
     public function __construct(
         private readonly PromptFingerprint $promptFingerprint,
         private readonly RequestTextCaseRunner $requestTextRunner,
         private readonly CustomerAnswerCaseRunner $customerAnswerRunner,
         private readonly PhotoObservationCaseRunner $photoObservationRunner,
         private readonly ReportClaimsCaseRunner $reportClaimsRunner,
+        private readonly OptionSummaryCaseRunner $optionSummaryRunner,
+        private readonly JudgeCalibrationCaseRunner $judgeCalibrationRunner,
         private readonly EvalReportWriter $reportWriter,
         private readonly EvalRuntimeBootstrap $runtimeBootstrap,
+        private readonly EvalCostMeter $costMeter,
     ) {}
 
     /**
@@ -83,6 +89,8 @@ final class InterpretationEvalRunner
                             $promptVersion,
                         ),
                         'report_claims' => $this->reportClaimsRunner->run($fixture, $i),
+                        'option_summary' => $this->optionSummaryRunner->run($fixture, $i),
+                        'judge_calibration' => $this->judgeCalibrationRunner->run($fixture, $i),
                         default => null,
                     };
                     if ($result === null) {
@@ -135,6 +143,8 @@ final class InterpretationEvalRunner
             'not_runnable' => $notRunnable,
             'unfilled_fixtures' => $this->unfilledFixtures($fixtures),
             'normalizer_audit' => $this->normalizerAudit(),
+            'eval_judge' => ['model' => EvalSemanticJudge::model(), 'prompt_version' => EvalSemanticJudge::PROMPT_VERSION],
+            'eval_cost' => $this->costMeter->summary(),
             'cases' => $cases,
         ];
 
@@ -172,6 +182,8 @@ final class InterpretationEvalRunner
             $root.'/customer_answers',
             $root.'/photo_observations',
             $root.'/report_claims',
+            $root.'/option_summaries',
+            $root.'/judge_calibration',
         ])->sortByName();
 
         $allowed = null;
@@ -216,7 +228,7 @@ final class InterpretationEvalRunner
     private function aggregate(array $cases): array
     {
         $components = [];
-        foreach (['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'] as $comp) {
+        foreach (['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'dossier_synthesis', 'eval_judge'] as $comp) {
             $components[$comp] = [
                 'model_raw' => ['correct' => 0, 'wrong' => 0, 'missing' => 0, 'not_supported' => 0, 'total' => 0],
                 'pipeline_final' => ['correct' => 0, 'wrong' => 0, 'missing' => 0, 'not_supported' => 0, 'total' => 0],
@@ -231,6 +243,8 @@ final class InterpretationEvalRunner
         foreach ($cases as $case) {
             $caseId = is_string($case['id'] ?? null) ? $case['id'] : 'unknown';
             $repeat = (int) ($case['repeat'] ?? 1);
+            // Kinds without a product pipeline (option_summary, judge_calibration) report model_raw.
+            $reportLayer = is_array($case['scores']['pipeline_final'] ?? null) ? 'pipeline_final' : 'model_raw';
 
             foreach (['model_raw', 'pipeline_final'] as $layer) {
                 $scores = $case['scores'][$layer] ?? [];
@@ -263,7 +277,7 @@ final class InterpretationEvalRunner
 
                     $factTypes[$factKey][$status] = ($factTypes[$factKey][$status] ?? 0) + 1;
 
-                    if (in_array($status, ['wrong', 'missing'], true) && $layer === 'pipeline_final') {
+                    if (in_array($status, ['wrong', 'missing'], true) && $layer === $reportLayer) {
                         $errors[] = [
                             'case_id' => $caseId,
                             'layer' => $layer,
@@ -282,7 +296,7 @@ final class InterpretationEvalRunner
                     }
                 }
 
-                if ($layer === 'pipeline_final') {
+                if ($layer === $reportLayer) {
                     $perCaseRepeatCorrect[$caseId][$repeat] = $scoredCount === 0
                         ? null
                         : $correctCount / $scoredCount;

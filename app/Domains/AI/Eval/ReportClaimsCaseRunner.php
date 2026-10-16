@@ -35,6 +35,7 @@ final class ReportClaimsCaseRunner
         private readonly DerivedClaimConfidenceGuard $claimGuard,
         private readonly ReportClaimsScorer $scorer,
         private readonly SchemaEnumLabelGuard $schemaEnumLabelGuard,
+        private readonly JudgeClaimEvaluator $judgeClaims,
     ) {}
 
     /**
@@ -194,6 +195,16 @@ final class ReportClaimsCaseRunner
             ),
         ];
 
+        $rawJudgeTexts = $this->judgeTexts($rawSummaryNormalized, $rawPoints);
+        $finalJudgeTexts = $this->judgeTexts($finalSummaryNormalized, $finalPoints);
+        $judgedRaw = $this->judgeClaims->evaluate($expected, $rawJudgeTexts, $components);
+        $scores['model_raw'] += $judgedRaw['scores'];
+        // Same texts in both layers (within this repeat): reuse the verdict.
+        $judged = $finalJudgeTexts === $rawJudgeTexts
+            ? $judgedRaw
+            : $this->judgeClaims->evaluate($expected, $finalJudgeTexts, $components);
+        $scores['pipeline_final'] += $judged['scores'];
+
         $pipelineDiffers = json_encode($rawSummaryNormalized) !== json_encode($finalSummaryNormalized)
             || json_encode($rawPoints) !== json_encode($finalPoints);
 
@@ -262,8 +273,32 @@ final class ReportClaimsCaseRunner
                 ],
             ],
             'scores' => $scores,
+            'judge' => ['model_raw' => $judgedRaw['log'], 'pipeline_final' => $judged['log']],
             'note' => $fixture['note'] ?? null,
         ];
+    }
+
+    /**
+     * @param  array{summary: string, highlights: list<string>}|null  $summary
+     * @param  list<array<string, mixed>>|null  $points
+     * @return list<string>
+     */
+    private function judgeTexts(?array $summary, ?array $points): array
+    {
+        $texts = [];
+        if ($summary !== null) {
+            $texts[] = $summary['summary'];
+            foreach ($summary['highlights'] as $highlight) {
+                $texts[] = $highlight;
+            }
+        }
+        foreach ($points ?? [] as $point) {
+            if (is_string($point['label'] ?? null)) {
+                $texts[] = $point['label'];
+            }
+        }
+
+        return $texts;
     }
 
     /**

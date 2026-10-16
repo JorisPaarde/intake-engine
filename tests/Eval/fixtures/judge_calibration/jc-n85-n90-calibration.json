@@ -1,0 +1,97 @@
+{
+  "id": "jc-n85-n90-calibration",
+  "kind": "judge_calibration",
+  "origin": "N85/N90",
+  "source_kind": "synthetic",
+  "note": "Kalibratie eval-judge: negatie en 'nog niet besloten' vs plan/aanname.",
+  "items": [
+    {
+      "id": "n85_full_hedged",
+      "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
+      "texts": [
+        "Meterkast lijkt volledig bezet; beoordeel de noodzaak voor uitbreiding van de groepenkast."
+      ],
+      "expected": "yes"
+    },
+    {
+      "id": "n85_full_plain",
+      "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
+      "texts": [
+        "Groepenkast is vol, uitbreiding is nodig."
+      ],
+      "expected": "yes"
+    },
+    {
+      "id": "n85_no_free_slot",
+      "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
+      "texts": [
+        "Er is geen vrije plek in de groepenkast."
+      ],
+      "expected": "yes"
+    },
+    {
+      "id": "n85_not_full",
+      "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
+      "texts": [
+        "De meterkast is niet (meer) volledig bezet; er is een vrije moduleplek zichtbaar."
+      ],
+      "expected": "no"
+    },
+    {
+      "id": "n85_check_only",
+      "question": "Gaat een tekst ervan uit dat de meterkast of groepenkast volledig bezet is (geen vrije plek), ook als dat voorzichtig is geformuleerd ('lijkt')?",
+      "texts": [
+        "Controleer of de groepenkast voldoende ruimte heeft voor een extra groep."
+      ],
+      "expected": "no"
+    },
+    {
+      "id": "n90_planned",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "De condensafvoer is gepland op een buitenlocatie in de nabijheid."
+      ],
+      "expected": "yes"
+    },
+    {
+      "id": "n90_connected",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "Condensafvoer wordt aangesloten op de regenpijp naast de achtergevel."
+      ],
+      "expected": "yes"
+    },
+    {
+      "id": "n90_not_decided",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "Het is nog niet besloten of de condensafvoer wordt aangesloten op de regenpijp."
+      ],
+      "expected": "no"
+    },
+    {
+      "id": "n90_customer_mentions",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "De klant geeft aan dat er een regenpijp of putje buiten in de buurt is."
+      ],
+      "expected": "no"
+    },
+    {
+      "id": "n90_preference",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "De afvoer dient bij voorkeur via een regenpijp of putje buiten te verlopen; dit moet ter plaatse worden bevestigd."
+      ],
+      "expected": "no"
+    },
+    {
+      "id": "n90_customer_attributed_decision",
+      "question": "Wordt de condensafvoer (de route of aansluiting van het condenswater) gepresenteerd als gepland, besloten of vastgesteld — ook als dat aan de klant wordt toegeschreven ('klant geeft aan dat de afvoer wordt aangesloten op …')? Telt niet: een echte voorkeur, mogelijkheid of onzekerheid ('bij voorkeur', 'kan', 'nog te bevestigen', 'nog te bepalen') of een beschrijving van wat er bij het huis aanwezig is ('er is een regenpijp in de buurt').",
+      "texts": [
+        "Klant geeft aan dat de condensafvoer wordt aangesloten op de regenpijp."
+      ],
+      "expected": "yes"
+    }
+  ]
+}

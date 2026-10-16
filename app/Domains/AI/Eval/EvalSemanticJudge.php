@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domains\AI\Eval;
+
+use App\Domains\AI\Services\AiGateway;
+use Throwable;
+
+/**
+ * Eval-only judge on meaning (N90): asks a cheap model whether a text makes a
+ * given statement as a fact/decision. Never used in product code; replaces
+ * keyword lists for claims where negation or "nog niet besloten" matters.
+ */
+final class EvalSemanticJudge
+{
+    public const PROMPT_VERSION = 'eval-judge-v1';
+
+    private const PROMPT = <<<'TXT'
+Je bent een strenge beoordelaar voor een evaluatie. Je krijgt een `question` en een lijst `texts` (zinnen uit een rapport).
+Beantwoord de vraag letterlijk en op betekenis, niet op losse woorden.
+- "yes": minstens één tekst doet de beschreven uitspraak.
+- "no": geen tekst doet dat. Let op wat een ontkenning inhoudelijk zegt: "niet (meer) volledig bezet" of "nog niet besloten" doet de uitspraak NIET, maar "geen vrije plek" bevestigt juist dat iets vol is. Een vraag of controlepunt ("controleer of …") doet de uitspraak niet. Of voorzichtige formuleringen of voorkeuren meetellen, staat in de vraag.
+- "unclear": alleen als de tekst echt dubbelzinnig is.
+Geef `quote`: de letterlijke tekst die je "yes" gaf, anders een lege string.
+Antwoord uitsluitend met één JSON-object in exact deze vorm: {"verdict": "yes" | "no" | "unclear", "quote": "<tekst of lege string>"}.
+TXT;
+
+    public static function model(): string
+    {
+        return (string) (config('ai.eval_judge_model') ?: config('ai.model'));
+    }
+
+    public function __construct(
+        private readonly AiGateway $aiGateway,
+    ) {}
+
+    /**
+     * @param  list<string>  $texts
+     * @return array{verdict: 'yes'|'no'|'unclear'|null, quote: string, error: string|null, estimated_cost: string|null, input_tokens: int|null, total_tokens: int|null}
+     */
+    public function judge(array $texts, string $question): array
+    {
+        $texts = array_values(array_filter($texts, static fn (string $t): bool => trim($t) !== ''));
+        if ($texts === []) {
+            // No report text to judge: never a free pass (scored as missing).
+            return ['verdict' => null, 'quote' => '', 'error' => 'no_texts', 'estimated_cost' => null, 'input_tokens' => null, 'total_tokens' => null];
+        }
+        try {
+            $result = $this->aiGateway->complete(
+                prompt: self::PROMPT,
+                input: ['question' => $question, 'texts' => $texts],
+                promptVersion: self::PROMPT_VERSION,
+                model: self::model(),
+                temperature: 0.0,
+                responseSchema: [
+                    'name' => 'eval_judge',
+                    'schema' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['verdict', 'quote'],
+                        'properties' => [
+                            'verdict' => ['type' => 'string', 'enum' => ['yes', 'no', 'unclear']],
+                            'quote' => ['type' => 'string'],
+                        ],
+                    ],
+                ],
+                timeoutSeconds: 30,
+            );
+        } catch (Throwable $e) {
+            return ['verdict' => null, 'quote' => '', 'error' => $e->getMessage(), 'estimated_cost' => null, 'input_tokens' => null, 'total_tokens' => null];
+        }
+
+        $verdict = $result->output['verdict'] ?? null;
+        $verdict = is_string($verdict) ? strtolower(trim($verdict)) : null;
+
+        return [
+            'verdict' => in_array($verdict, ['yes', 'no', 'unclear'], true) ? $verdict : null,
+            'quote' => is_string($result->output['quote'] ?? null) ? $result->output['quote'] : '',
+            'error' => in_array($verdict, ['yes', 'no', 'unclear'], true)
+                ? null
+                : 'invalid_verdict: keys='.implode(',', array_map('strval', array_keys($result->output))),
+            'estimated_cost' => $result->estimatedCost,
+            'input_tokens' => $result->inputTokens,
+            'total_tokens' => $result->totalTokens,
+        ];
+    }
+}

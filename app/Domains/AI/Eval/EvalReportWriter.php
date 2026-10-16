@@ -113,6 +113,17 @@ final class EvalReportWriter
         $lines[] = '- Temperatuur: `'.($report['temperature'] ?? '').'`';
         $lines[] = '- Repeats: `'.($report['repeats'] ?? '').'`';
         $lines[] = '- Prompt-hash: `'.($report['prompt_fingerprint']['combined_hash'] ?? '').'`';
+        if (is_array($report['eval_judge'] ?? null)) {
+            $lines[] = '- Eval-judge: `'.($report['eval_judge']['model'] ?? '').'` prompt `'.($report['eval_judge']['prompt_version'] ?? '').'`';
+        }
+        if (is_array($report['eval_cost'] ?? null)) {
+            $lines[] = sprintf(
+                '- Kosten (provider, USD): `%s` over %d AI-calls (%d met kosten)',
+                number_format((float) ($report['eval_cost']['total_usd'] ?? 0), 4, '.', ''),
+                (int) ($report['eval_cost']['calls'] ?? 0),
+                (int) ($report['eval_cost']['calls_with_cost'] ?? 0),
+            );
+        }
         $lines[] = '';
 
         $lines[] = '## Promptversies';

@@ -44,6 +44,9 @@ return [
     // Default model for text-only calls (samenvatting, prefill, aandachtspunten, …).
     'model' => env('AI_MODEL', 'gpt-4o-mini'),
 
+    // Eval-only semantic judge (N90); empty = same as ai.model.
+    'eval_judge_model' => env('AI_EVAL_JUDGE_MODEL'),
+
     // Optional override when the request includes images and no per-call model is set.
     // Empty = fall back to AI_MODEL (same multimodal model for text and vision).
     'vision_model' => env('AI_VISION_MODEL'),

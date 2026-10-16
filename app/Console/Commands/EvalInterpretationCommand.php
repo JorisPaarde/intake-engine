@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Domains\AI\Eval\EvalComparer;
+use App\Domains\AI\Eval\EvalCostMeter;
 use App\Domains\AI\Eval\EvalFixturePrivacyScan;
 use App\Domains\AI\Eval\EvalReportWriter;
 use App\Domains\AI\Eval\EvalRuntimeBootstrap;
@@ -12,7 +13,9 @@ use App\Domains\AI\Eval\InterpretationEvalRunner;
 use App\Domains\Intake\Models\IntakeTemplate;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\Events\ResponseReceived;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Throwable;
 
 /**
@@ -27,7 +30,7 @@ final class EvalInterpretationCommand extends Command
     protected $signature = 'eval:interpretation
         {--repeats=3 : Aantal herhalingen per case (echte model-run); fake=1}
         {--fake : Forceer FakeAiClient (GEEN baseline)}
-        {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims); leeg=alles}
+        {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims,option_summary,judge_calibration); leeg=alles}
         {--live-vision : Stuur photo_observation-fixturefoto\'s door echte vision-prompt (default uit; CI blijft fake)}
         {--prompt-version= : live of v10; held-out proposed-vN indien aanwezig; relevant met --live-vision}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
@@ -75,6 +78,11 @@ final class EvalInterpretationCommand extends Command
         }
 
         // Resolve ná runtime-config, anders blijft NullAiClient/FakeAiClient verkeerd hangen.
+        // N90: meter real provider cost of this run at the HTTP layer (incl. retries).
+        $costMeter = new EvalCostMeter;
+        $this->laravel->instance(EvalCostMeter::class, $costMeter);
+        Event::listen(ResponseReceived::class, [$costMeter, 'onResponse']);
+
         /** @var InterpretationEvalRunner $runner */
         $runner = $this->laravel->make(InterpretationEvalRunner::class);
         /** @var EvalComparer $comparer */
@@ -114,6 +122,12 @@ final class EvalInterpretationCommand extends Command
 
         $repeats = max(1, (int) $this->option('repeats'));
         $kinds = $this->parseKindsOption($this->option('kind'));
+        $unknownKinds = array_values(array_diff($kinds ?? [], InterpretationEvalRunner::KINDS));
+        if ($unknownKinds !== []) {
+            $this->error('Onbekend --kind: '.implode(', ', $unknownKinds).' (geldig: '.implode(', ', InterpretationEvalRunner::KINDS).')');
+
+            return self::FAILURE;
+        }
         $liveVision = (bool) $this->option('live-vision');
         $promptVersionOpt = $this->option('prompt-version');
         $promptVersion = is_string($promptVersionOpt) && trim($promptVersionOpt) !== ''
@@ -193,6 +207,21 @@ final class EvalInterpretationCommand extends Command
             if ($tokenCases > 0) {
                 $this->line("report_claims token_usage: {$totalTokens} total_tokens across {$tokenCases} case-runs");
             }
+        }
+
+        if (count(is_array($report['cases'] ?? null) ? $report['cases'] : []) === 0) {
+            $this->error('Geen enkele case uitgevoerd — geen geldige eval-run.');
+
+            return self::FAILURE;
+        }
+
+        if (is_array($report['eval_cost'] ?? null)) {
+            $this->line(sprintf(
+                'eval_cost: USD %s over %d AI calls (%d with provider cost)',
+                number_format((float) ($report['eval_cost']['total_usd'] ?? 0), 4, '.', ''),
+                (int) ($report['eval_cost']['calls'] ?? 0),
+                (int) ($report['eval_cost']['calls_with_cost'] ?? 0),
+            ));
         }
 
         if ($liveVision) {
@@ -280,7 +309,7 @@ final class EvalInterpretationCommand extends Command
     {
         $hits = [];
         $root = base_path('tests/Eval/fixtures');
-        foreach (['request_texts', 'customer_answers', 'photo_observations', 'report_claims'] as $dir) {
+        foreach (['request_texts', 'customer_answers', 'photo_observations', 'report_claims', 'option_summaries', 'judge_calibration'] as $dir) {
             foreach (glob($root.'/'.$dir.'/*.json') ?: [] as $file) {
                 $data = json_decode((string) file_get_contents($file), true);
                 if (! is_array($data)) {
