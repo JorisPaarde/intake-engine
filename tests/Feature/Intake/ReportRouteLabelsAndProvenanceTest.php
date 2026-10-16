@@ -273,7 +273,8 @@ test('N36: AI-prefill zonder klantvraag wordt gelabeld of weggelaten; klant-unkn
 
     // room-1 AI unknown sun: question still visible only if customer answered — omitted here.
     $room1Chunk = '';
-    if (preg_match('/\(room-1\)[\s\S]*?(?=<h2>|$)/u', $html, $matches) === 1) {
+    $room1Name = $intake->fresh()->aircoRooms->firstWhere('key', 'room-1')?->name ?: 'Ruimte 1';
+    if (preg_match('/\('.preg_quote(e($room1Name), '/').'\)[\s\S]*?(?=<h2>|$)/u', $html, $matches) === 1) {
         $room1Chunk = $matches[0];
     }
     expect($room1Chunk)->not->toBe('')
