@@ -666,14 +666,16 @@
 
         <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-[#dde2da] bg-[#eef1ec] px-4 py-4 sm:-mx-6 sm:px-6">
             <div class="flex gap-3">
+                {{-- N86: geen Vorige op de eerste stap (had geen doel) --}}
+                @if (! ($stepIndex === 0))
                 <button
                     type="button"
                     wire:click="previous"
-                    @disabled($stepIndex === 0)
                     class="min-h-12 flex-1 rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-40"
                 >
                     Vorige
                 </button>
+                @endif
 
                 @if ($isLastStep)
                     <button

@@ -339,15 +339,17 @@
         @enderror
 
         <div class="mt-5 flex items-center justify-between gap-3">
+            {{-- N86: geen Vorige op de eerste stap (had geen doel) --}}
+            @if (! ($followUpStepIndex === 0))
             <button
                 type="button"
                 wire:key="follow-up-previous-{{ $item->id }}"
                 wire:click="previousFollowUp"
-                @disabled($followUpStepIndex === 0)
                 class="min-h-11 rounded-md border border-brand-fog bg-white px-4 py-2 text-sm font-semibold text-brand-ink shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
             >
                 Vorige
             </button>
+            @endif
 
             @if ($isLastStep)
                 <button
