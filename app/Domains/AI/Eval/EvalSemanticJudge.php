@@ -26,6 +26,11 @@ Geef `quote`: de letterlijke tekst die je "yes" gaf, anders een lege string.
 Antwoord uitsluitend met één JSON-object in exact deze vorm: {"verdict": "yes" | "no" | "unclear", "quote": "<tekst of lege string>"}.
 TXT;
 
+    public static function model(): string
+    {
+        return (string) (config('ai.eval_judge_model') ?: config('ai.model'));
+    }
+
     public function __construct(
         private readonly AiGateway $aiGateway,
     ) {}
@@ -46,7 +51,7 @@ TXT;
                 prompt: self::PROMPT,
                 input: ['question' => $question, 'texts' => $texts],
                 promptVersion: self::PROMPT_VERSION,
-                model: (string) (config('ai.eval_judge_model') ?: config('ai.model')),
+                model: self::model(),
                 temperature: 0.0,
                 responseSchema: [
                     'name' => 'eval_judge',

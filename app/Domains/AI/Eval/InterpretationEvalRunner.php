@@ -140,6 +140,7 @@ final class InterpretationEvalRunner
             'not_runnable' => $notRunnable,
             'unfilled_fixtures' => $this->unfilledFixtures($fixtures),
             'normalizer_audit' => $this->normalizerAudit(),
+            'eval_judge' => ['model' => EvalSemanticJudge::model(), 'prompt_version' => EvalSemanticJudge::PROMPT_VERSION],
             'eval_cost' => $this->costMeter->summary(),
             'cases' => $cases,
         ];

@@ -22,7 +22,12 @@ final class EvalComparer
         $previous = $this->loadReport($previousPath);
 
         $componentDiff = [];
-        foreach (['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'] as $comp) {
+        $componentKeys = array_values(array_unique(array_merge(
+            ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8'],
+            array_map('strval', array_keys(is_array($current['scores_by_component'] ?? null) ? $current['scores_by_component'] : [])),
+            array_map('strval', array_keys(is_array($previous['scores_by_component'] ?? null) ? $previous['scores_by_component'] : [])),
+        )));
+        foreach ($componentKeys as $comp) {
             foreach (['model_raw', 'pipeline_final'] as $layer) {
                 $cur = $current['scores_by_component'][$comp][$layer] ?? ['correct' => 0, 'total' => 0];
                 $prev = $previous['scores_by_component'][$comp][$layer] ?? ['correct' => 0, 'total' => 0];
