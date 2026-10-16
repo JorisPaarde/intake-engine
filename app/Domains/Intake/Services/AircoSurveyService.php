@@ -376,8 +376,12 @@ final class AircoSurveyService
             || ($oldLength !== null && $oldWidth !== null
                 && abs($oldLength * $oldWidth - (float) $existing['area_m2']) <= 0.01);
 
-        if (! $areaWasDerived) {
-            return $submitted; // declared/measured m² is not overridden by L×B
+        // N87: an untouched AI/aanvraagtekst m² voorzet must not sit next to new installer L×B.
+        // A customer-declared m² stays (N70).
+        $areaWasPrefill = in_array($existing['area_source'] ?? null, ['ai', 'ai_suggestion', 'request_text'], true);
+
+        if (! $areaWasDerived && ! $areaWasPrefill) {
+            return $submitted; // installer-declared m² is not overridden by L×B
         }
 
         $lengthWidthChanged = false;
