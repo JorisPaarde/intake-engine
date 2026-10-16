@@ -124,6 +124,24 @@
         "De bestaande unit in de woonkamer wordt vervangen door een nieuwe binnenunit."
       ],
       "expected": "no"
+    },
+    {
+      "id": "n69_mixed_hedged",
+      "question": "Wordt ergens getwijfeld of het nog onzeker is of de installatie die al in de woonkamer aanwezig is blijft ('mogelijk blijft', 'lijkt te blijven', 'nog te bevestigen of … blijft')?",
+      "texts": [
+        "De bestaande installatie in de woonkamer blijft behouden.",
+        "Mogelijk blijft de bestaande installatie in de woonkamer behouden."
+      ],
+      "expected": "yes"
+    },
+    {
+      "id": "n69_firm_only",
+      "question": "Wordt ergens getwijfeld of het nog onzeker is of de installatie die al in de woonkamer aanwezig is blijft ('mogelijk blijft', 'lijkt te blijven', 'nog te bevestigen of … blijft')?",
+      "texts": [
+        "De bestaande installatie in de woonkamer blijft behouden.",
+        "Voor de slaapkamer is een single-split systeem geselecteerd."
+      ],
+      "expected": "no"
     }
   ]
 }
