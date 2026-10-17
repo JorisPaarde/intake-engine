@@ -182,6 +182,7 @@ final class AircoSurveyService
         $updates = [];
 
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        $dimensions = $this->keepCustomerArea($existingDimensions, $dimensions);
         $dimensions = $this->dropStaleAreaWhenLengthWidthChanged($existingDimensions, $dimensions);
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
@@ -353,6 +354,38 @@ final class AircoSurveyService
                 ]);
             }
         }
+    }
+
+    /**
+     * N87: the form shows a customer m² as a hint, not as input. An empty field keeps the
+     * customer value; an unchanged echo keeps its customer origin (N70 unchanged).
+     *
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, float|string>  $submitted
+     * @return array<string, float|string>
+     */
+    private function keepCustomerArea(array $existing, array $submitted): array
+    {
+        if (($existing['area_source'] ?? null) !== 'customer'
+            || ! isset($existing['area_m2']) || ! is_numeric($existing['area_m2'])) {
+            return $submitted;
+        }
+
+        $existingArea = (float) $existing['area_m2'];
+        if (isset($submitted['area_m2']) && abs((float) $submitted['area_m2'] - $existingArea) > 0.0001) {
+            return $submitted; // installer typed an own value
+        }
+
+        $submitted['area_m2'] = $existingArea;
+        foreach (['area_source', 'area_confidence', 'area_evidence'] as $key) {
+            if (is_string($existing[$key] ?? null) && $existing[$key] !== '') {
+                $submitted[$key] = $existing[$key];
+            } else {
+                unset($submitted[$key]);
+            }
+        }
+
+        return $submitted;
     }
 
     /**
