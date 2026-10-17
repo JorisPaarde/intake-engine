@@ -42,4 +42,6 @@ test('N56: hoogte blijft gevraagd op zolder of bij onbekende verdieping', functi
     'zolder als type' => [['room_type' => 'attic', 'floor_level' => 'attic']],
     'slaapkamer op zolder' => [['room_type' => 'bedroom', 'floor_level' => 'attic']],
     'verdieping onbekend' => [['room_type' => 'bedroom']],
+    'ruimtetype weet ik niet' => [['room_type' => 'unknown', 'floor_level' => 'ground']],
+    'verdieping weet ik niet' => [['room_type' => 'bedroom', 'floor_level' => 'unknown']],
 ]);

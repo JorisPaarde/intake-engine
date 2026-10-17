@@ -1019,7 +1019,9 @@ final class IntakeStepBuilder
         $floor = $answers[VisibilityResolver::compositeKey('floor_level', $sectionInstanceKey)] ?? null;
         $floorValue = is_array($floor) ? ($floor['value'] ?? null) : null;
 
-        return ! is_string($type) || $type === '' || ! is_string($floorValue) || $floorValue === '';
+        // Alleen expliciet bekende niet-zolderwaarden; 'unknown' of iets anders → vraag blijft.
+        return ! in_array($type, ['living_room', 'bedroom', 'office', 'other'], true)
+            || ! in_array($floorValue, ['basement', 'ground', '1', '2', '3_plus'], true);
     }
 
     /**
