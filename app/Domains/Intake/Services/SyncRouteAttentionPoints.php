@@ -21,6 +21,9 @@ class SyncRouteAttentionPoints
             'drillings_open' => 'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
         ];
 
+        /** @var array<string, true> $resolvedCodes */
+        $resolvedCodes = [];
+
         foreach ($labels as $code => $label) {
             $current = $checker->routeDecisionAttention($intake, $code, $label);
             if ($current === null) {
@@ -42,7 +45,7 @@ class SyncRouteAttentionPoints
                     ]);
                 }
 
-                $this->resolveAcceptedAiRestatements($intake, $code);
+                $resolvedCodes[$code] = true;
 
                 continue;
             }
@@ -59,21 +62,27 @@ class SyncRouteAttentionPoints
             );
         }
 
+        if ($resolvedCodes !== []) {
+            $this->resolveAcceptedAiRestatements($intake, $resolvedCodes);
+        }
+
         $intake->unsetRelation('attentionPoints');
     }
 
     /**
-     * N77: an accepted AI point that only restates this system route point (by code or
-     * system-only evidence, never by text) follows the system point when the route is done.
+     * N77: an accepted AI point that only restates resolved system route points (by code or
+     * system-only evidence, never by text) follows those points when the routes are done.
+     *
+     * @param  array<string, true>  $resolvedCodes
      */
-    private function resolveAcceptedAiRestatements(Intake $intake, string $code): void
+    private function resolveAcceptedAiRestatements(Intake $intake, array $resolvedCodes): void
     {
         $intake->attentionPoints()
             ->where('source', AttentionPointSource::Ai)
             ->where('status', AttentionPointStatus::Accepted)
             ->where('is_resolved', false)
             ->get()
-            ->filter(static fn (IntakeAttentionPoint $point): bool => AttentionProposalVisibility::isRedundantProposal($point, [$code => true]))
+            ->filter(static fn (IntakeAttentionPoint $point): bool => AttentionProposalVisibility::isRedundantProposal($point, $resolvedCodes))
             ->each(static fn (IntakeAttentionPoint $point) => $point->update([
                 'is_resolved' => true,
                 'resolved_at' => now(),
