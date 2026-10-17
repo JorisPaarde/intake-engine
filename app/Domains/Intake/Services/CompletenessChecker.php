@@ -362,7 +362,7 @@ final class CompletenessChecker
         foreach ($connections as $connection) {
             if ($connection->status !== AircoConnectionStatus::Approved
                 || ($connection->routeSession !== null && $connection->routeSession->status !== PipeRouteStatus::Approved)) {
-                $open[] = "{$connection->label} (route #{$connection->id})";
+                $open[] = $connection->label; // N92: geen interne route-id in rapport/aandachtspunt
             }
         }
         foreach ($option->newInstallationPlacements()->where('type', AircoPlacementType::IndoorUnit) as $indoor) {

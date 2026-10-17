@@ -57,7 +57,8 @@ test('N77 route approvals resolve only corresponding points and restarting reope
     $decide = app(DecideAircoConnection::class);
     $decide->handle($this->intake, $this->cooling, $this->user, 'approve');
     expect($this->intake->attentionPoints()->where('code', 'pipe_route_open')->first()->is_resolved)->toBeTrue()
-        ->and($this->intake->attentionPoints()->where('code', 'drillings_open')->first()->label)->toContain('Afvoer slaapkamer', 'route #'.$this->drain->id);
+        ->and($this->intake->attentionPoints()->where('code', 'drillings_open')->first()->label)->toContain('Afvoer slaapkamer')
+        ->and($this->intake->attentionPoints()->where('code', 'drillings_open')->first()->label)->not->toContain('route #');
     $session = app(StartPipeRouteSession::class)->handle($this->intake, $this->drain);
     $session->refresh()->update(['status' => PipeRouteStatus::Proposed]);
     app(ApprovePipeRoute::class)->handle($session, $this->user);
@@ -89,7 +90,7 @@ test('N77 session state prevents stale approval and synchronization preserves re
     $session = app(StartPipeRouteSession::class)->handle($this->intake, $this->cooling);
     $this->cooling->update(['status' => AircoConnectionStatus::Approved]);
     $checker = app(CompletenessChecker::class);
-    expect($checker->routeDecisionAttention($this->intake, 'pipe_route_open', 'Open')[0]['label'])->toContain('route #'.$this->cooling->id);
+    expect($checker->routeDecisionAttention($this->intake, 'pipe_route_open', 'Open')[0]['label'])->toContain($this->cooling->label)->not->toContain('route #');
     $session->refresh()->update(['status' => PipeRouteStatus::Proposed]);
     app(ApprovePipeRoute::class)->handle($session, $this->user, false);
     expect($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'pipe_route_open')->first()->is_resolved)->toBeFalse();
