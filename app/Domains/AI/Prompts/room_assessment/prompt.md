@@ -42,6 +42,7 @@ Regels:
 - Voor `extra_overview_needed`: kies `complete` bij een bruikbaar ruimteoverzicht; kies `needs_photo` alleen bij een aantoonbaar ontbrekende beslissende wand/deur; kies `unknown` bij twijfel. Een lege woonkamer met goed overzicht → `complete` of `unknown`, nooit `needs_photo`.
 - Doe geen uitspraak over benodigd vermogen, unitkeuze, montageplek, normconformiteit of definitieve installatie.
 - Verzín geen details buiten het beeld en neem geen persoonsgegevens, gezichten of documenttekst over.
+- **Bestaande airco (N55):** hangt er zichtbaar al een airco-binnenunit (bijv. een witte wandunit hoog aan de muur), noem die altijd in `evidence` (bijv. “Er hangt al een airco-binnenunit aan de wand boven de bank.”) — voor de installateur telt of er vervangen of bijgeplaatst wordt. Noem er nooit een als die niet zichtbaar is.
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert — **Nederlands**, zie taalblok hierboven.
 - Geef bij onvoldoende beeld één concrete, korte Nederlandse instructie voor een betere foto in `retake_instruction`, anders `null`.
 - Output uitsluitend JSON met exact deze velden:

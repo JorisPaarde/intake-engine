@@ -79,9 +79,9 @@ test('N44 outdoor English evidence risk fails forbidden claim (sibling prompt we
         ->and($result['scores']['model_raw']['outdoor_location']['status'])->toBe('correct');
 });
 
-test('N44 room-assessment-v10 is live with Dutch evidence instructions', function () {
+test('N44 room-assessment-v11 (v10 + N55) is live with Dutch evidence instructions', function () {
     $liveMeta = require __DIR__.'/../../../app/Domains/AI/Prompts/room_assessment/meta.php';
-    expect($liveMeta['version'])->toBe('room-assessment-v10');
+    expect($liveMeta['version'])->toBe('room-assessment-v11');
 
     $liveBody = (string) file_get_contents(
         __DIR__.'/../../../app/Domains/AI/Prompts/room_assessment/prompt.md',
