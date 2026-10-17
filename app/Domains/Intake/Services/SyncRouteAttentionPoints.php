@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
+use App\Domains\Intake\Support\AttentionProposalVisibility;
 use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 
 class SyncRouteAttentionPoints
 {
@@ -39,6 +42,8 @@ class SyncRouteAttentionPoints
                     ]);
                 }
 
+                $this->resolveAcceptedAiRestatements($intake, $code);
+
                 continue;
             }
 
@@ -55,5 +60,24 @@ class SyncRouteAttentionPoints
         }
 
         $intake->unsetRelation('attentionPoints');
+    }
+
+    /**
+     * N77: an accepted AI point that only restates this system route point (by code or
+     * system-only evidence, never by text) follows the system point when the route is done.
+     */
+    private function resolveAcceptedAiRestatements(Intake $intake, string $code): void
+    {
+        $intake->attentionPoints()
+            ->where('source', AttentionPointSource::Ai)
+            ->where('status', AttentionPointStatus::Accepted)
+            ->where('is_resolved', false)
+            ->get()
+            ->filter(static fn (IntakeAttentionPoint $point): bool => AttentionProposalVisibility::isRedundantProposal($point, [$code => true]))
+            ->each(static fn (IntakeAttentionPoint $point) => $point->update([
+                'is_resolved' => true,
+                'resolved_at' => now(),
+                'resolved_by' => null,
+            ]));
     }
 }
