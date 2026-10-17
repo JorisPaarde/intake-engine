@@ -721,18 +721,23 @@ final class IntakeStepBuilder
         $aroundHouseReused = ! $forceShow
             && $question->key === OutdoorPhotoReuse::TARGET_KEY
             && ($context['hasUsableOutdoorContext'] ?? false) === true;
+        $ceilingHeightNotNeeded = ! $forceShow
+            && ! $answered
+            && $question->key === 'ceiling_height_m'
+            && ! $this->roomNeedsCeilingHeight($context['answers'], $sectionInstanceKey);
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
         $wizardVisible = $ruleVisible
             && ! $prefilledSkipped
             && ! $roomNameHidden
             && ! $aroundHouseReused
+            && ! $ceilingHeightNotNeeded
             && ! $internal;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused,
+            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded,
             internal: $internal,
         );
 
@@ -995,6 +1000,26 @@ final class IntakeStepBuilder
         }
 
         return $labels === [] ? null : implode(', ', $labels);
+    }
+
+    /**
+     * N56: hoogte is alleen nodig waar die het besluit verandert (RoomHeightRequirement: zolder).
+     * Alleen overslaan als ruimtetype én verdieping bekend zijn en geen van beide zolder is.
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function roomNeedsCeilingHeight(array $answers, ?string $sectionInstanceKey): bool
+    {
+        if ($sectionInstanceKey === null
+            || isset(RoomLabelResolver::atticInstances($answers)[$sectionInstanceKey])) {
+            return true;
+        }
+
+        $type = RoomLabelResolver::typesByInstance($answers)[$sectionInstanceKey] ?? null;
+        $floor = $answers[VisibilityResolver::compositeKey('floor_level', $sectionInstanceKey)] ?? null;
+        $floorValue = is_array($floor) ? ($floor['value'] ?? null) : null;
+
+        return ! is_string($type) || $type === '' || ! is_string($floorValue) || $floorValue === '';
     }
 
     /**
