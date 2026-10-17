@@ -274,3 +274,20 @@ test('goedgekeurde foto toont geen oranje waarschuwingsbox', function () {
         ->assertSee(PhotoCustomerStatus::GOOD)
         ->assertDontSee('Status:');
 });
+
+test('N56: alleen "Vraag Y van N" als teller, geen tweede "X van N vragen" die daarvan afwijkt', function () {
+    $intake = uxReviewIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    $target = min(3, max(1, count($steps) - 2));
+    $component->set('stepIndex', $target)->set('activeStepKey', $steps[$target]['key']);
+
+    $html = $component->html();
+    $total = count($component->viewData('steps'));
+
+    expect($html)->not->toContain('data-testid="progress-step-count"')
+        ->and($html)->not->toMatch('/\d+ van '.$total.' vragen/')
+        ->and($html)->toContain('Vraag '.($target + 1).' van '.$total);
+});
