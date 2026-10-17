@@ -835,6 +835,20 @@ final class IntakeStepBuilder
             }
         }
 
+        // N37/N56: with a known m² or L×B the size class is only derived; one size row per room.
+        $roomsWithMeasuredArea = [];
+        foreach ($intake->answers as $answer) {
+            if (in_array($answer->question_key, ['room_area_m2', 'room_length_m', 'room_width_m'], true)
+                && is_string($answer->section_instance_key)
+                && is_numeric(is_array($answer->value) ? ($answer->value['number'] ?? null) : null)) {
+                $roomsWithMeasuredArea[$answer->section_instance_key][$answer->question_key] = true;
+            }
+        }
+        $roomsWithMeasuredArea = array_filter(
+            $roomsWithMeasuredArea,
+            static fn (array $keys): bool => isset($keys['room_area_m2']) || (isset($keys['room_length_m']) && isset($keys['room_width_m'])),
+        );
+
         foreach ($intake->answers as $answer) {
             $source = $answer->prefill_source;
             $question = $allQuestions->get($answer->question_key);
@@ -843,6 +857,12 @@ final class IntakeStepBuilder
             }
 
             if (! KnownSummaryCatalog::allowsAnswer($answer, $question)) {
+                continue;
+            }
+
+            if ($answer->question_key === 'room_size_indication'
+                && is_string($answer->section_instance_key)
+                && isset($roomsWithMeasuredArea[$answer->section_instance_key])) {
                 continue;
             }
 
