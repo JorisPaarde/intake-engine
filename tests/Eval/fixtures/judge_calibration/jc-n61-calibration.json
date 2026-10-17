@@ -1,0 +1,73 @@
+{
+    "id": "jc-n61-calibration",
+    "kind": "judge_calibration",
+    "origin": "N61",
+    "source_kind": "synthetic",
+    "note": "Kalibratie eval-judge N61: fase als vaststaand feit vs voorzichtige lezing. Plus: foto bevestigt fase vs opdracht om te bevestigen.",
+    "items": [
+        {
+            "id": "n61_fact_photo",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De meterkastfoto toont een driefasige aansluiting."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n61_fact_plain",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De meterkast is driefasig uitgevoerd."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n61_hedged",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "Op de meterkastfoto lijkt een driefasige aansluiting zichtbaar; te controleren."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n61_duidt",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De drie zekeringen duiden mogelijk op een 3-fase aansluiting; nog te bevestigen."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n61_unknown",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De klant weet niet of de aansluiting 1-fase of 3-fase is."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n61_confirmed_by_photo",
+            "question": "Wordt gezegd dat de meterkastfoto of de fotoanalyse de fase (of 3x25A) bevestigt of bevestigd heeft — bijv. 'bevestigd door de fotoanalyse', 'de foto bevestigt 3-fase'? Telt niet: een opdracht om iets nog te bevestigen ('bevestigen tijdens de opname', 'te bevestigen') of een voorzichtige lezing ('op de foto lijkt 3-fase zichtbaar').",
+            "texts": [
+                "Driefasige aansluiting (3x25A) bevestigd door klant en ondersteund door meterkastfoto; fase bevestigd door de fotoanalyse."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n61_photo_confirms",
+            "question": "Wordt gezegd dat de meterkastfoto of de fotoanalyse de fase (of 3x25A) bevestigt of bevestigd heeft — bijv. 'bevestigd door de fotoanalyse', 'de foto bevestigt 3-fase'? Telt niet: een opdracht om iets nog te bevestigen ('bevestigen tijdens de opname', 'te bevestigen') of een voorzichtige lezing ('op de foto lijkt 3-fase zichtbaar').",
+            "texts": [
+                "De meterkastfoto bevestigt de 3-fase aansluiting."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n61_confirm_task",
+            "question": "Wordt gezegd dat de meterkastfoto of de fotoanalyse de fase (of 3x25A) bevestigt of bevestigd heeft — bijv. 'bevestigd door de fotoanalyse', 'de foto bevestigt 3-fase'? Telt niet: een opdracht om iets nog te bevestigen ('bevestigen tijdens de opname', 'te bevestigen') of een voorzichtige lezing ('op de foto lijkt 3-fase zichtbaar').",
+            "texts": [
+                "Klant geeft 3x25A op; op de meterkastfoto lijkt 3-fase zichtbaar — bevestigen tijdens de opname"
+            ],
+            "expected": "no"
+        }
+    ]
+}
