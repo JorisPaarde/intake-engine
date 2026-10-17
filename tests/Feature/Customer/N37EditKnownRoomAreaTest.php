@@ -128,3 +128,17 @@ test('N37: indexForCursor vindt room_area_m2 in question_group', function () {
         ->and($steps[$index]['group_key'] ?? null)->toBe('room_dimensions')
         ->and($steps[$index]['group_question_keys'] ?? [])->toContain('room_area_m2');
 });
+
+test('N37: bij bekende m² staat geen afgeleide grootteklasse als aparte Wijzigen-rij in het overzicht', function () {
+    $intake = n37AreaIntake();
+    seedN37KnownArea($intake);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_size_indication', 'room-1', ['value' => 'large'], PrefillSources::AI_TEXT);
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    $steps = app(IntakeStepBuilder::class)->build($intake->fresh(), $version);
+    $summary = collect($steps)->firstWhere('kind', 'known_summary');
+    $keys = array_column($summary['known_items'] ?? [], 'question_key');
+
+    expect($keys)->toContain('room_area_m2')
+        ->and($keys)->not->toContain('room_size_indication');
+});
