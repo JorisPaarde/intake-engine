@@ -54,11 +54,15 @@ test('thank-you toont geen aandachtspunten, keys of PDF-demo-tekst', function ()
     ]);
 
     // Bedanktscherm verschijnt in dezelfde Livewire-sessie na afronden (heropenen = 410).
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('completed', true)
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('completed', true);
+
+    // N73: de afrondzin staat precies één keer (in het bedankblok), niet ook in de kop.
+    expect(substr_count($component->html(), 'Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.'))->toBe(1);
+
+    $component
         ->assertSeeHtml('data-testid="customer-thank-you"')
-        ->assertSeeHtml('data-testid="customer-complete-note"')
-        ->assertSee('Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.')
+        ->assertDontSeeHtml('data-testid="customer-complete-note"')
         ->assertDontSee('Voorgestelde aandachtspunten')
         ->assertDontSee('outdoor_mount_type (wall)')
         ->assertDontSee('room_type (room-2)')

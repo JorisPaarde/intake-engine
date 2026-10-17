@@ -40,11 +40,7 @@
                     {{ $progressExtraNote }}
                 </p>
             @endif
-            @if ($completed)
-                <p class="mt-2 text-xs text-[#5e6862]" data-testid="customer-complete-note">
-                    Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.
-                </p>
-            @endif
+            {{-- N73: "Jouw deel is compleet…" staat alleen in het bedankblok, niet ook in de kop. --}}
         </div>
 
         @if ($saveMessage !== '')
