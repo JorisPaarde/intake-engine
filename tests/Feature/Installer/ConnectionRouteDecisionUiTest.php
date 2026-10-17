@@ -540,12 +540,15 @@ test('N71 stroomroute met klantbewijs kan op bestaande verbinding worden vastgel
 
     expect($power->fresh()->segments)->toBe(['Meterkast naar achtergevel', 'Achtergevel naar buitenunit'])
         ->and($power->fresh()->status)->toBe(AircoConnectionStatus::Proposed)
+        ->and($power->fresh()->uncertainties)->toBe([])
         ->and($power->fresh()->source_id)->toBe($user->id)
         ->and($intake->aircoConnections()->count())->toBe($count);
     expect(app(ConnectionRouteDecisionPresenter::class)->present($power->fresh())['can_approve'])->toBeTrue();
     $this->post(route('intakes.workspace.connections.decide', [$intake, $power]), ['decision' => 'approve'])
         ->assertRedirect();
-    expect($power->fresh()->status)->toBe(AircoConnectionStatus::Approved);
+    expect($power->fresh()->status)->toBe(AircoConnectionStatus::Approved)
+        ->and($power->fresh()->uncertainties)->toBe([]);
+    $this->get(route('intakes.workspace', $intake))->assertOk()->assertDontSee('Stroomroute nog te bepalen');
 });
 
 test('N71 stroomroute vastleggen bewaakt opname, inhoud en bestaande routestatus', function () {
