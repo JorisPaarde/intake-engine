@@ -182,6 +182,7 @@ final class AircoSurveyService
         $updates = [];
 
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        $dimensions = $this->keepCustomerArea($existingDimensions, $dimensions);
         $dimensions = $this->dropStaleAreaWhenLengthWidthChanged($existingDimensions, $dimensions);
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
@@ -275,6 +276,10 @@ final class AircoSurveyService
             if (! isset($dimensions[$dimensionKey]) || ! is_numeric($dimensions[$dimensionKey])) {
                 continue;
             }
+            // N87: a kept customer m² is no installer correction; its dossier origin stays customer.
+            if ($dimensionKey === 'area_m2' && ($dimensions['area_source'] ?? 'installer') !== 'installer') {
+                continue;
+            }
 
             $value = (float) $dimensions[$dimensionKey];
             $answerKeySuffix = $questionKey;
@@ -356,6 +361,38 @@ final class AircoSurveyService
     }
 
     /**
+     * N87: the form shows a customer m² as a hint, not as input. An empty field keeps the
+     * customer value; an unchanged echo keeps its customer origin (N70 unchanged).
+     *
+     * @param  array<string, mixed>  $existing
+     * @param  array<string, float|string>  $submitted
+     * @return array<string, float|string>
+     */
+    private function keepCustomerArea(array $existing, array $submitted): array
+    {
+        if (($existing['area_source'] ?? null) !== 'customer'
+            || ! isset($existing['area_m2']) || ! is_numeric($existing['area_m2'])) {
+            return $submitted;
+        }
+
+        $existingArea = (float) $existing['area_m2'];
+        if (isset($submitted['area_m2']) && abs((float) $submitted['area_m2'] - $existingArea) > 0.0001) {
+            return $submitted; // installer typed an own value
+        }
+
+        $submitted['area_m2'] = $existingArea;
+        foreach (['area_source', 'area_confidence', 'area_evidence'] as $key) {
+            if (is_string($existing[$key] ?? null) && $existing[$key] !== '') {
+                $submitted[$key] = $existing[$key];
+            } else {
+                unset($submitted[$key]);
+            }
+        }
+
+        return $submitted;
+    }
+
+    /**
      * L×B changed while the (unchanged) derived m² field was just echoed back by the form:
      * that m² is stale, so L×B wins and the area is derived again.
      *
@@ -372,8 +409,10 @@ final class AircoSurveyService
 
         $oldLength = isset($existing['length_m']) && is_numeric($existing['length_m']) ? (float) $existing['length_m'] : null;
         $oldWidth = isset($existing['width_m']) && is_numeric($existing['width_m']) ? (float) $existing['width_m'] : null;
+        // N87: an explicitly customer-sourced m² is never treated as derived, even if it equals old L×B.
         $areaWasDerived = ($existing['area_source'] ?? null) === 'derived_lxw'
-            || ($oldLength !== null && $oldWidth !== null
+            || (($existing['area_source'] ?? null) !== 'customer'
+                && $oldLength !== null && $oldWidth !== null
                 && abs($oldLength * $oldWidth - (float) $existing['area_m2']) <= 0.01);
 
         // N87: an untouched AI/aanvraagtekst m² voorzet must not sit next to new installer L×B.

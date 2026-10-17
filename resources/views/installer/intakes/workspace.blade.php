@@ -523,8 +523,15 @@
                                                 <x-text-input id="room-{{ $room->id }}-width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomMeasures->widthM() ?? '' }}" />
                                             </div>
                                             <div>
+                                                @php
+                                                    // N87: klant-m² is een hint, geen invoerwaarde; leeg laten bewaart de klantwaarde.
+                                                    $customerAreaHint = $roomMeasures->areaSource() === 'customer' ? $roomMeasures->declaredAreaM2() : null;
+                                                @endphp
                                                 <x-input-label for="room-{{ $room->id }}-area" value="Oppervlak (m²)" />
-                                                <x-text-input id="room-{{ $room->id }}-area" name="area_m2" type="number" step="0.1" min="1" class="mt-1 block w-full" value="{{ $roomMeasures->declaredAreaM2() ?? '' }}" />
+                                                <x-text-input id="room-{{ $room->id }}-area" name="area_m2" type="number" step="0.1" min="1" class="mt-1 block w-full" value="{{ $customerAreaHint !== null ? '' : ($roomMeasures->declaredAreaM2() ?? '') }}" />
+                                                @if ($customerAreaHint !== null)
+                                                    <p class="mt-1 text-xs text-gray-500" data-testid="room-{{ $room->id }}-customer-area-hint">Klant gaf {{ \Illuminate\Support\Number::format($customerAreaHint, maxPrecision: 1, locale: 'nl') }} m² op. Laat leeg om die waarde te houden.</p>
+                                                @endif
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-height" :value="$heightNeeded ? 'Hoogte (m, nodig)' : 'Hoogte (m)'" />
