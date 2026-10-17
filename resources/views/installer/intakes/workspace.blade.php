@@ -184,8 +184,15 @@
                     }
                 }
                 $topErrors = [];
+                $repeatConfirmNeeded = false;
                 foreach ($errors->getMessages() as $key => $messages) {
                     if (in_array($key, $inlineErrorKeys, true)) {
+                        continue;
+                    }
+                    // N91: een herhaalvraag-bevestiging is geen opslagfout; die staat inline bij de opdracht.
+                    if (str_starts_with($key, 'contribution_items.') && str_ends_with($key, '.repeat_confirmed')) {
+                        $repeatConfirmNeeded = true;
+
                         continue;
                     }
                     foreach ($messages as $message) {
@@ -193,6 +200,12 @@
                     }
                 }
             @endphp
+            @if ($repeatConfirmNeeded)
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status" data-testid="workspace-repeat-confirm">
+                    <p class="font-semibold">Nog één bevestiging nodig.</p>
+                    <p class="mt-1">Je vraagt iets opnieuw waarop de klant al heeft geantwoord. Controleer het eerdere antwoord en vink bij de opdracht aan dat je dit opnieuw wilt vragen.</p>
+                </div>
+            @endif
             @if ($topErrors !== [])
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert" data-testid="workspace-top-errors">
                     <p class="font-semibold">Dit onderdeel kon nog niet worden opgeslagen.</p>

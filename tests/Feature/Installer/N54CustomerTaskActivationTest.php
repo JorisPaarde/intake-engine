@@ -94,6 +94,14 @@ test('N54 answered usable evidence requires explicit repeat confirmation and dis
     if ($usable && ! $removed) {
         $response->assertSessionHasErrors('contribution_items.0.repeat_confirmed');
         expect($this->intake->followUpRounds()->count())->toBe(2);
+        // N91: de herhaalvraag-bevestiging is geen opslagfout.
+        $this->from(route('intakes.workspace', $this->intake))->followingRedirects()
+            ->post(route('intakes.workspace.tasks.store', $this->intake), ['contribution_items' => [$changedText]])
+            ->assertOk()
+            ->assertSee('Nog één bevestiging nodig.')
+            ->assertDontSee('kon nog niet worden opgeslagen')
+            ->assertDontSeeHtml('data-testid="workspace-top-errors"');
+        expect($this->intake->followUpRounds()->count())->toBe(2);
         ContributionTask::query()->create([
             'intake_id' => $this->intake->id, 'company_id' => $this->intake->company_id,
             'audience' => ContributionAudience::Customer, 'type' => FollowUpItemType::Photo,
