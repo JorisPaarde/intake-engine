@@ -1,0 +1,205 @@
+{
+    "id": "rc-n61-medium-photo-customer-unsure-no-followup",
+    "kind": "report_claims",
+    "origin": "N61 rest (ronde 0718): klant weet fase niet, meterkastfoto medium (\"3-fase lijkt zichtbaar\"); AI-voorstel schreef \"De meterkastfoto toont een driefasige aansluiting.\"",
+    "source_kind": "reconstructed",
+    "components": [
+        "C5",
+        "C7",
+        "C8"
+    ],
+    "note": "Geen vervolgronde. Medium foto-oordeel mag in samenvatting/aandachtspunten niet als vaststaand feit verschijnen. Beoordeeld door eval-judge op betekenis.",
+    "summary_input": {
+        "answers": {
+            "electrical_phase_known": {
+                "value": "unknown",
+                "label": "Weet ik niet"
+            },
+            "fusebox_photo": {
+                "upload_ids": [
+                    "eval-upload-fusebox-n14-conflict"
+                ]
+            },
+            "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin."
+        },
+        "external_facts": {
+            "fusebox_photo_assessment": {
+                "value": {
+                    "phase": "three_phase",
+                    "empty_module_space": "none_visible",
+                    "confidence": "medium",
+                    "evidence": "De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar en de drie zekeringen in de hoofdaansluiting duiden op een 3-fase aansluiting.",
+                    "retake_instruction": null,
+                    "subject_match": "yes",
+                    "provider": "openai",
+                    "model": "eval-fixture",
+                    "upload_ids": [
+                        1
+                    ]
+                },
+                "source": "ai",
+                "confidence": "medium"
+            }
+        },
+        "follow_up": [],
+        "attention_point_codes": [],
+        "template_key": "airco",
+        "template_version": 26,
+        "uploads": [
+            {
+                "reference": "fusebox_photo@upload:upload_n61",
+                "question_key": "fusebox_photo",
+                "question_label": "Foto van de meterkast",
+                "section_label": "Stroom",
+                "section_instance_key": null,
+                "context": "intake",
+                "mime_type": "image/jpeg",
+                "size_bytes": 1200000,
+                "usability_verdict": "usable",
+                "content_assessment": {
+                    "status": "ok",
+                    "expected_subject": "fusebox",
+                    "detected_subject": "fusebox",
+                    "customer_message": null
+                },
+                "order": 1
+            }
+        ]
+    },
+    "attention_input": {
+        "answers": {
+            "electrical_phase_known": {
+                "value": "unknown",
+                "label": "Weet ik niet"
+            },
+            "fusebox_photo": {
+                "upload_ids": [
+                    "eval-upload-fusebox-n14-conflict"
+                ]
+            },
+            "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin."
+        },
+        "external_facts": {
+            "fusebox_photo_assessment": {
+                "value": {
+                    "phase": "three_phase",
+                    "empty_module_space": "none_visible",
+                    "confidence": "medium",
+                    "evidence": "De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar en de drie zekeringen in de hoofdaansluiting duiden op een 3-fase aansluiting.",
+                    "retake_instruction": null,
+                    "subject_match": "yes",
+                    "provider": "openai",
+                    "model": "eval-fixture",
+                    "upload_ids": [
+                        1
+                    ]
+                },
+                "source": "ai",
+                "confidence": "medium"
+            }
+        },
+        "answer_context": [
+            {
+                "reference": "request_text@answer:survey",
+                "question_key": "request_text",
+                "question_label": "Wat is de reden van je aanvraag?",
+                "section_key": "request",
+                "section_label": "Aanvraag",
+                "section_instance_key": null,
+                "answer": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers. Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin.",
+                "prefill_source": null
+            },
+            {
+                "reference": "electrical_phase_known@answer:survey",
+                "question_key": "electrical_phase_known",
+                "question_label": "Weet je of er 3-fase (krachtstroom) is?",
+                "section_key": "power",
+                "section_label": "Stroom",
+                "section_instance_key": null,
+                "answer": {
+                    "value": "unknown",
+                    "label": "Weet ik niet"
+                },
+                "prefill_source": null
+            }
+        ],
+        "external_fact_context": [
+            {
+                "reference": "fusebox_photo_assessment@fact:fact_eval_n61",
+                "fact_key": "fusebox_photo_assessment",
+                "label": "Automatische beoordeling meterkastfoto",
+                "value": {
+                    "phase": "three_phase",
+                    "empty_module_space": "none_visible",
+                    "confidence": "medium",
+                    "evidence": "De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar en de drie zekeringen in de hoofdaansluiting duiden op een 3-fase aansluiting."
+                },
+                "source": "ai",
+                "confidence": "medium",
+                "captured_at": "2026-10-11T10:10:00+00:00"
+            }
+        ],
+        "uploads": [
+            {
+                "reference": "fusebox_photo@upload:upload_n61",
+                "question_key": "fusebox_photo",
+                "question_label": "Foto van de meterkast",
+                "section_label": "Stroom",
+                "section_instance_key": null,
+                "context": "intake",
+                "mime_type": "image/jpeg",
+                "size_bytes": 1200000,
+                "usability_verdict": "usable",
+                "content_assessment": {
+                    "status": "ok",
+                    "expected_subject": "fusebox",
+                    "detected_subject": "fusebox",
+                    "customer_message": null
+                },
+                "order": 1
+            }
+        ],
+        "follow_up": [],
+        "system_attention_points": [],
+        "completeness": {},
+        "installer_review": null,
+        "pipe_routes": [],
+        "template_key": "airco",
+        "template_version": 26,
+        "intake_status": "submitted"
+    },
+    "expected": {
+        "claims": [],
+        "judge_claims": [
+            {
+                "id": "phase_presented_as_fact",
+                "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+                "forbidden": true
+            }
+        ],
+        "attention_confidence_ceiling": "medium",
+        "require_evidence_on_points": true
+    },
+    "fake_attention_output": {
+        "points": [
+            {
+                "code": "verify_phase",
+                "label": "3-fase lijkt zichtbaar op de meterkastfoto.",
+                "confidence": "medium",
+                "evidence": [
+                    {
+                        "source_type": "external_fact",
+                        "reference": "fusebox_photo_assessment@fact:fact_eval_n61"
+                    }
+                ]
+            }
+        ]
+    },
+    "fake_summary_output": {
+        "summary": "De klant wil airco in de woonkamer en twee slaapkamers.",
+        "highlights": [
+            "Op de meterkastfoto lijkt een driefasige aansluiting zichtbaar; de klant weet de fase niet zeker. Te controleren."
+        ]
+    },
+    "disputed_facts": {}
+}

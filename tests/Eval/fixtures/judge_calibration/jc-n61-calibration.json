@@ -1,0 +1,49 @@
+{
+    "id": "jc-n61-calibration",
+    "kind": "judge_calibration",
+    "origin": "N61",
+    "source_kind": "synthetic",
+    "note": "Kalibratie eval-judge N61: fase als vaststaand feit vs voorzichtige lezing.",
+    "items": [
+        {
+            "id": "n61_fact_photo",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De meterkastfoto toont een driefasige aansluiting."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n61_fact_plain",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De meterkast is driefasig uitgevoerd."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n61_hedged",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "Op de meterkastfoto lijkt een driefasige aansluiting zichtbaar; te controleren."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n61_duidt",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De drie zekeringen duiden mogelijk op een 3-fase aansluiting; nog te bevestigen."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n61_unknown",
+            "question": "Wordt de elektrische aansluiting als vaststaand driefasig (3-fase) gepresenteerd, zonder voorbehoud — bijv. 'de meterkastfoto toont een driefasige aansluiting', 'de meterkast is driefasig', 'driefasige aansluiting aanwezig'? Telt niet: een voorzichtige lezing ('lijkt', 'mogelijk', 'duidt op', 'te controleren', 'nog te bevestigen') of de opmerking dat de klant de fase niet weet.",
+            "texts": [
+                "De klant weet niet of de aansluiting 1-fase of 3-fase is."
+            ],
+            "expected": "no"
+        }
+    ]
+}
