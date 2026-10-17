@@ -276,6 +276,10 @@ final class AircoSurveyService
             if (! isset($dimensions[$dimensionKey]) || ! is_numeric($dimensions[$dimensionKey])) {
                 continue;
             }
+            // N87: a kept customer m² is no installer correction; its dossier origin stays customer.
+            if ($dimensionKey === 'area_m2' && ($dimensions['area_source'] ?? 'installer') !== 'installer') {
+                continue;
+            }
 
             $value = (float) $dimensions[$dimensionKey];
             $answerKeySuffix = $questionKey;
@@ -405,8 +409,10 @@ final class AircoSurveyService
 
         $oldLength = isset($existing['length_m']) && is_numeric($existing['length_m']) ? (float) $existing['length_m'] : null;
         $oldWidth = isset($existing['width_m']) && is_numeric($existing['width_m']) ? (float) $existing['width_m'] : null;
+        // N87: an explicitly customer-sourced m² is never treated as derived, even if it equals old L×B.
         $areaWasDerived = ($existing['area_source'] ?? null) === 'derived_lxw'
-            || ($oldLength !== null && $oldWidth !== null
+            || (($existing['area_source'] ?? null) !== 'customer'
+                && $oldLength !== null && $oldWidth !== null
                 && abs($oldLength * $oldWidth - (float) $existing['area_m2']) <= 0.01);
 
         // N87: an untouched AI/aanvraagtekst m² voorzet must not sit next to new installer L×B.

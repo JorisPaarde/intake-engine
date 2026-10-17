@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\DossierManager;
@@ -72,4 +73,29 @@ test('N87: een eigen installateurswaarde vervangt de klant-m²', function () {
     $dimensions = RoomDimensions::from($room->fresh()->dimensions);
     expect($dimensions->declaredAreaM2())->toBe(28.0)
         ->and($dimensions->areaSource())->toBe('installer');
+});
+
+test('N87: klant-m² gelijk aan oude L×B blijft staan bij nieuwe L×B en leeg veld (conflict zichtbaar)', function () {
+    [$user, $intake, $room] = n87CustomerAreaRoom();
+    $room->update(['dimensions' => [...$room->dimensions, 'length_m' => 6.0, 'width_m' => 5.0]]);
+
+    $this->actingAs($user)->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+        'name' => $room->name, 'use_type' => 'living_room', 'length_m' => 5, 'width_m' => 4, 'area_m2' => '',
+    ])->assertRedirect();
+
+    $dimensions = RoomDimensions::from($room->fresh()->dimensions);
+    expect($dimensions->declaredAreaM2())->toBe(30.0)
+        ->and($dimensions->areaSource())->toBe('customer')
+        ->and($dimensions->hasFloorAreaConflict())->toBeTrue();
+});
+
+test('N87: bewaarde klant-m² maakt geen installateurscorrectie in het dossier', function () {
+    [$user, $intake, $room] = n87CustomerAreaRoom();
+
+    $this->actingAs($user)->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+        'name' => $room->name, 'use_type' => 'living_room', 'length_m' => 6.5, 'width_m' => 4.5, 'area_m2' => '',
+    ])->assertRedirect();
+
+    expect(DossierRecord::query()
+        ->where('intake_id', $intake->id)->where('key', 'dimensions.area_m2')->exists())->toBeFalse();
 });
