@@ -26,7 +26,9 @@ final class AttentionProposalVisibility
                 $statusOk = $point->status === null
                     || $point->status === AttentionPointStatus::Accepted;
 
-                return $statusOk && ! $point->is_resolved;
+                // N77: een opgelost systeempunt blijft gezaghebbend; een AI-herhaling ervan
+                // mag na het oplossen niet alsnog als los voorstel opduiken.
+                return $statusOk && (! $point->is_resolved || $point->source !== AttentionPointSource::Ai);
             })
             ->pluck('code')
             ->filter(static fn (mixed $code): bool => is_string($code) && $code !== '')

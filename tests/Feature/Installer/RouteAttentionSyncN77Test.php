@@ -10,10 +10,12 @@ use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Support\AttentionProposalVisibility;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
 use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\ContributionMode;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
@@ -207,4 +209,44 @@ test('N77 bulk approval via CompleteInstallerSurvey resolves the three route att
 
     expect($intake->attentionPoints()->where('source', AttentionPointSource::System)->whereIn('code', ['condensate_pump_open', 'pipe_route_open', 'drillings_open'])->where('is_resolved', false)->count())->toBe(0)
         ->and($intake->fresh()->status->value)->toBe('completed');
+});
+
+test('N77 AI restatements of a route point follow the system point once the route is approved', function () {
+    $systemOnly = [['source_type' => 'system_attention_point', 'reference' => 'pipe_route_open']];
+    $ai = fn (string $code, AttentionPointStatus $status, array $evidence) => $this->intake->attentionPoints()->create([
+        'source' => AttentionPointSource::Ai, 'code' => $code, 'label' => 'Open technisch punt: leidingroute nog te beoordelen',
+        'status' => $status, 'is_resolved' => false, 'evidence' => $evidence,
+    ]);
+    $proposed = $ai('ai_route_copy', AttentionPointStatus::Proposed, $systemOnly);
+    $accepted = $ai('ai_route_accepted', AttentionPointStatus::Accepted, $systemOnly);
+    $ownEvidence = $ai('ai_route_own', AttentionPointStatus::Accepted, [...$systemOnly, ['source_type' => 'answer', 'reference' => 'answer:1']]);
+
+    expect(AttentionProposalVisibility::visibleProposed($this->intake->fresh()->attentionPoints)->pluck('id')->all())->not->toContain($proposed->id);
+
+    app(DecideAircoConnection::class)->handle($this->intake, $this->cooling, $this->user, 'approve');
+
+    expect($this->intake->attentionPoints()->where('source', AttentionPointSource::System)->where('code', 'pipe_route_open')->first()->is_resolved)->toBeTrue()
+        ->and($accepted->fresh()->is_resolved)->toBeTrue()
+        ->and($ownEvidence->fresh()->is_resolved)->toBeFalse()
+        ->and($proposed->fresh()->is_resolved)->toBeFalse()
+        ->and(AttentionProposalVisibility::visibleProposed($this->intake->fresh()->attentionPoints)->pluck('id')->all())->not->toContain($proposed->id);
+});
+
+test('N77 an accepted AI point restating two route points resolves only when both routes are done', function () {
+    $both = $this->intake->attentionPoints()->create([
+        'source' => AttentionPointSource::Ai, 'code' => 'ai_route_and_drillings', 'label' => 'Route en doorboringen',
+        'status' => AttentionPointStatus::Accepted, 'is_resolved' => false,
+        'evidence' => [
+            ['source_type' => 'system_attention_point', 'reference' => 'pipe_route_open'],
+            ['source_type' => 'system_attention_point', 'reference' => 'drillings_open'],
+        ],
+    ]);
+
+    app(DecideAircoConnection::class)->handle($this->intake, $this->cooling, $this->user, 'approve');
+    expect($both->fresh()->is_resolved)->toBeFalse();
+
+    $session = app(StartPipeRouteSession::class)->handle($this->intake, $this->drain);
+    $session->refresh()->update(['status' => PipeRouteStatus::Proposed]);
+    app(ApprovePipeRoute::class)->handle($session, $this->user);
+    expect($both->fresh()->is_resolved)->toBeTrue();
 });

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
+use App\Domains\Intake\Support\AttentionProposalVisibility;
 use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 
 class SyncRouteAttentionPoints
 {
@@ -17,6 +20,9 @@ class SyncRouteAttentionPoints
             'pipe_route_open' => 'Open technisch punt: leidingroute nog te beoordelen',
             'drillings_open' => 'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
         ];
+
+        /** @var array<string, true> $resolvedCodes */
+        $resolvedCodes = [];
 
         foreach ($labels as $code => $label) {
             $current = $checker->routeDecisionAttention($intake, $code, $label);
@@ -39,6 +45,8 @@ class SyncRouteAttentionPoints
                     ]);
                 }
 
+                $resolvedCodes[$code] = true;
+
                 continue;
             }
 
@@ -54,6 +62,31 @@ class SyncRouteAttentionPoints
             );
         }
 
+        if ($resolvedCodes !== []) {
+            $this->resolveAcceptedAiRestatements($intake, $resolvedCodes);
+        }
+
         $intake->unsetRelation('attentionPoints');
+    }
+
+    /**
+     * N77: an accepted AI point that only restates resolved system route points (by code or
+     * system-only evidence, never by text) follows those points when the routes are done.
+     *
+     * @param  array<string, true>  $resolvedCodes
+     */
+    private function resolveAcceptedAiRestatements(Intake $intake, array $resolvedCodes): void
+    {
+        $intake->attentionPoints()
+            ->where('source', AttentionPointSource::Ai)
+            ->where('status', AttentionPointStatus::Accepted)
+            ->where('is_resolved', false)
+            ->get()
+            ->filter(static fn (IntakeAttentionPoint $point): bool => AttentionProposalVisibility::isRedundantProposal($point, $resolvedCodes))
+            ->each(static fn (IntakeAttentionPoint $point) => $point->update([
+                'is_resolved' => true,
+                'resolved_at' => now(),
+                'resolved_by' => null,
+            ]));
     }
 }
