@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "Klant geeft via vervolgvraag 3x25A op; meterkastfoto three_phase met medium confidence (\"3-fase lijkt zichtbaar\"). Verwacht: klantopgave letterlijk als opgave van de klant; fotoclaim gehedged; nooit \"bevestigd door de foto(analyse)\".",
+  "note": "Klant geeft via vervolgvraag 3x25A op; meterkastfoto three_phase met medium confidence (\"3-fase lijkt zichtbaar\"). Verwacht: klantopgave letterlijk als opgave van de klant; fotoclaim gehedged; nooit \"bevestigd door de foto(analyse)\". photo_confirms_phase via eval-judge (regex matchte \"…meterkastfoto … — bevestigen tijdens de opname\").",
   "summary_input": {
     "answers": {
       "electrical_phase_known": {
@@ -186,19 +186,17 @@
           " 3 x 25",
           "3×25"
         ]
-      },
-      {
-        "id": "photo_confirms_phase",
-        "concept": "photo_confirms_phase",
-        "allowed": "forbidden",
-        "terms": [
-          "/bevestigd\\s+(door|op basis van|via|met)[^.]{0,60}(foto|fotoanalyse|meterkastfoto)/iu",
-          "/(foto|fotoanalyse|meterkastfoto)[^.]{0,40}\\bbevestig/iu"
-        ]
       }
     ],
     "attention_confidence_ceiling": "medium",
-    "require_evidence_on_points": true
+    "require_evidence_on_points": true,
+    "judge_claims": [
+      {
+        "id": "photo_confirms_phase",
+        "question": "Wordt gezegd dat de meterkastfoto of de fotoanalyse de fase (of 3x25A) bevestigt of bevestigd heeft — bijv. 'bevestigd door de fotoanalyse', 'de foto bevestigt 3-fase'? Telt niet: een opdracht om iets nog te bevestigen ('bevestigen tijdens de opname', 'te bevestigen') of een voorzichtige lezing ('op de foto lijkt 3-fase zichtbaar').",
+        "forbidden": true
+      }
+    ]
   },
   "fake_attention_output": {
     "points": [
