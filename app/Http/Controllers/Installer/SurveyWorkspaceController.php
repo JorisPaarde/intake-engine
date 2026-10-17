@@ -947,6 +947,8 @@ final class SurveyWorkspaceController extends Controller
 
             $locked->update([
                 'segments' => $segments,
+                // N71: de onzekerheden hoorden bij het ontbrekende voorstel; de installateursroute vervangt dat.
+                'uncertainties' => [],
                 'status' => AircoConnectionStatus::Proposed,
                 'source_type' => 'installer',
                 'source_id' => $userId,
