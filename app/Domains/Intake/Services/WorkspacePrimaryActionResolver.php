@@ -19,6 +19,7 @@ use App\Enums\AircoPlacementType;
 use App\Enums\AiRunType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\ReviewDecision;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -108,6 +109,21 @@ final class WorkspacePrimaryActionResolver
             ];
         }
 
+        $rounds = $intake->relationLoaded('followUpRounds')
+            ? $intake->followUpRounds
+            : ($intake->exists ? $intake->followUpRounds()->get() : collect());
+
+        // N95: na 'Nog meer info nodig' met een openstaande klantronde is wachten op de klant de stap,
+        // niet goedkeuren of een offerte voorbereiden.
+        if (CurrentReviewDecision::for($intake) === ReviewDecision::NeedMoreInfo
+            && $rounds->contains(static fn ($round): bool => $round->status === FollowUpRoundStatus::Open)) {
+            return [
+                'href' => '#demo-customer-task',
+                'label' => 'Klanttaak bekijken',
+                'summary' => 'Wacht op de aanvulling van de klant. Deel zo nodig de bestaande klantlink.',
+            ];
+        }
+
         if ($canApproveProposal) {
             return [
                 'href' => '#workspace-complete',
@@ -116,9 +132,6 @@ final class WorkspacePrimaryActionResolver
             ];
         }
 
-        $rounds = $intake->relationLoaded('followUpRounds')
-            ? $intake->followUpRounds
-            : ($intake->exists ? $intake->followUpRounds()->get() : collect());
         $maxRounds = (int) config('intake.follow_up.max_rounds', 3);
         $canRequestContribution = $rounds->count() < $maxRounds
             && (int) $rounds->max('round_number') < $maxRounds;

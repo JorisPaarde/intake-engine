@@ -16,6 +16,7 @@ use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\ReviewDecision;
 use Illuminate\Support\Collection;
 use Tests\TestCase;
@@ -402,3 +403,25 @@ test('N75: available rounds retain the executable customer task action and ignor
     expect($action['href'])->toBe('#demo-customer-task')
         ->and($action['label'])->toBe('Klanttaak controleren');
 });
+
+test('N95: need-more-info with an open customer round waits for the customer instead of approving', function (FollowUpRoundStatus $roundStatus, string $label) {
+    $intake = bareIntake();
+    $intake->forceFill(['reviewed_at' => now()]);
+    $intake->setRelation('review', new IntakeReview(['decision' => ReviewDecision::NeedMoreInfo]));
+    $intake->setRelation('followUpRounds', collect([new IntakeFollowUpRound(['round_number' => 1, 'status' => $roundStatus])]));
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake, fakeOpenArea('quote'), true, false, collect(), collect([fakeOpenArea('condensate')]), 5, 8,
+    );
+
+    expect($action['label'])->toBe($label)
+        ->and($action['summary'])->toStartWith('Je koos ‘Nog meer info nodig’.');
+    if ($roundStatus === FollowUpRoundStatus::Open) {
+        expect($action['href'])->toBe('#demo-customer-task')
+            ->and($action['summary'])->toContain('Wacht op de aanvulling van de klant')
+            ->and($action['summary'])->not->toContain('Offerte voorbereiden');
+    }
+})->with([
+    [FollowUpRoundStatus::Open, 'Klanttaak bekijken'],
+    [FollowUpRoundStatus::Completed, 'Voorstel goedkeuren'],
+]);
