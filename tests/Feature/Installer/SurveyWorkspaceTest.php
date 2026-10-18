@@ -494,7 +494,7 @@ test('workspace derives a route photo connection from its contextual subject', f
             'airco_connection_id' => 999999,
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Foto opgeslagen als routesegment.');
+        ->assertSessionHas('status', 'Foto toegevoegd aan de leidingroute.');
 
     $session = $intake->pipeRouteSessions()
         ->where('airco_connection_id', $connection->id)

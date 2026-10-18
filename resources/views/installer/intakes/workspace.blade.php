@@ -1201,7 +1201,7 @@
                                                     @if ($connection->routeSession)
                                                         <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
                                                             @php $segmentCount = $connection->routeSession->segments->count(); @endphp
-                                                            <p class="text-xs font-semibold text-gray-700">{{ $segmentCount }} {{ $segmentCount === 1 ? 'routesegment' : 'routesegmenten' }}</p>
+                                                            <p class="text-xs font-semibold text-gray-700">{{ $segmentCount }} {{ $segmentCount === 1 ? 'routefoto' : 'routefoto\'s' }}</p>
                                                             <p class="text-xs text-gray-500">{{ $connection->routeSession->status->label() }}</p>
                                                         </div>
                                                         @if ($connection->routeSession->next_photo_instruction)
