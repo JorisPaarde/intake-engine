@@ -709,8 +709,8 @@ final class SurveyWorkspaceController extends Controller
 
         if ($connection instanceof AircoConnection) {
             $message = $stored === 1
-                ? 'Foto opgeslagen als routesegment.'
-                : $stored.' foto\'s opgeslagen als routesegment.';
+                ? 'Foto toegevoegd aan de leidingroute.'
+                : $stored.' foto\'s toegevoegd aan de leidingroute.';
         } elseif ($hasSuggestion) {
             $message = $stored === 1
                 ? 'Foto opgeslagen. Controleer wat de AI voorstelt.'
