@@ -16,6 +16,7 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\InstallerDisplayLabels;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
@@ -390,13 +391,12 @@ final class GenerateIntakeReportHtml
                 }
             }
 
-            $fromPlacement = $connection->fromPlacement;
             $toPlacement = $connection->toPlacement;
 
             $routes[] = [
                 'type_label' => $connection->type->label(),
                 'label' => $connection->label,
-                'from' => $fromPlacement !== null ? $fromPlacement->label : 'Beginpunt open',
+                'from' => InstallerDisplayLabels::connectionStart($connection),
                 'to' => $toPlacement !== null ? $toPlacement->label : 'Eindpunt open',
                 'segments' => $segments,
                 'status_label' => $connection->status->label(),
