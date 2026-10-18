@@ -19,6 +19,7 @@ use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DossierRecordStatus;
@@ -503,6 +504,13 @@ final class GenerateIntakeReportHtml
             $section = $sectionsByQuestionKey[$question->key] ?? null;
 
             if ($section === null) {
+                continue;
+            }
+
+            // N99: with a known m² the size class is redundant and can contradict it
+            // (photo 'Klein' vs 12 m²) — the exact area is the one measure shown.
+            if ($question->key === 'room_size_indication'
+                && RoomAreaAcceptance::hasKnownArea($answers, $target['section_instance_key'])) {
                 continue;
             }
 
