@@ -15,6 +15,7 @@ use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
@@ -530,15 +531,7 @@ final class IntakeStepBuilder
      */
     private function roomAreaPresent(array $context, ?string $sectionInstanceKey): bool
     {
-        $composite = VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey);
-        $value = $context['answers'][$composite] ?? null;
-        if (! is_array($value)) {
-            return false;
-        }
-
-        $number = $value['number'] ?? null;
-
-        return is_numeric($number) && (float) $number > 0;
+        return RoomAreaAcceptance::hasKnownArea($context['answers'], $sectionInstanceKey);
     }
 
     /**
