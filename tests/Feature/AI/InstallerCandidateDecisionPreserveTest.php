@@ -455,3 +455,36 @@ test('N69 installer-described power route keeps its description across AI rebuil
         ->and($fresh->uncertainties)->toBe([])
         ->and($fresh->status)->toBe($approve ? AircoConnectionStatus::Approved : AircoConnectionStatus::Proposed);
 })->with(['alleen vastgelegd' => false, 'vastgelegd en goedgekeurd' => true]);
+
+test('N77 approved route survives a rebuild that leaves its start point open', function () {
+    [$intake, $user] = n29SurveyWithPlacements();
+
+    FakeAiClient::respondUsing(
+        static fn (AiCompletionRequest $request): array => n29SynthesisOutput($request, 'AI-optie eerste', 'Door buitenmuur naar plat dak'),
+    );
+    expect(app(SynthesizeSurveyDossier::class)->handle($intake->fresh()))->not->toBeNull();
+
+    $option = AircoInstallationOption::query()->where('intake_id', $intake->id)->where('status', AircoOptionStatus::Candidate)->sole();
+    $refrigerant = AircoConnection::query()->where('airco_installation_option_id', $option->id)->where('type', 'refrigerant')->sole();
+    $indoorId = $refrigerant->from_placement_id;
+    expect($indoorId)->not->toBeNull();
+    app(DecideAircoConnection::class)->handle($intake, $refrigerant, $user, 'approve');
+
+    // Rebuild: same option, but the refrigerant route lost its indoor start point.
+    FakeAiClient::respondUsing(static function (AiCompletionRequest $request): array {
+        $output = n29SynthesisOutput($request, 'AI-optie herbouwd', 'Via de achtergevel naar het plat dak');
+        $output['option_proposals'][0]['connections'][0]['from_placement_reference'] = null;
+
+        return $output;
+    });
+    expect(app(SynthesizeSurveyDossier::class)->handle($intake->fresh()))->not->toBeNull();
+
+    $options = AircoInstallationOption::query()->where('intake_id', $intake->id)->where('status', AircoOptionStatus::Candidate)->get();
+    expect($options)->toHaveCount(1);
+
+    $fresh = AircoConnection::query()->where('airco_installation_option_id', $options->sole()->id)->where('type', 'refrigerant')->sole();
+    expect($fresh->status)->toBe(AircoConnectionStatus::Approved)
+        ->and($fresh->approved_by)->toBe($user->id)
+        ->and($fresh->from_placement_id)->toBe($indoorId)
+        ->and($fresh->label)->toBe('Koelleiding slaapkamer');
+});
