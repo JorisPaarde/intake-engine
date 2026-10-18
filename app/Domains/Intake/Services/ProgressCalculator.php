@@ -94,6 +94,12 @@ final class ProgressCalculator
                 continue;
             }
 
+            // N63: bekend vloeroppervlak → grootteklasse geen open klanttaak (gelijk aan steplijst).
+            if ($question->key === 'room_size_indication'
+                && $this->roomAreaKnown($answers, $target['section_instance_key'])) {
+                continue;
+            }
+
             $compositeKey = VisibilityResolver::compositeKey(
                 $target['question_key'],
                 $target['section_instance_key'],
@@ -425,5 +431,16 @@ final class ProgressCalculator
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $answers
+     */
+    private function roomAreaKnown(array $answers, ?string $sectionInstanceKey): bool
+    {
+        $value = $answers[VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey)] ?? null;
+        $number = is_array($value) ? ($value['number'] ?? null) : null;
+
+        return is_numeric($number) && (float) $number > 0;
     }
 }

@@ -725,6 +725,11 @@ final class IntakeStepBuilder
             && ! $answered
             && $question->key === 'ceiling_height_m'
             && ! $this->roomNeedsCeilingHeight($context['answers'], $sectionInstanceKey);
+        // N63: grootteklasse is overbodig zodra het vloeroppervlak al bekend is
+        // (ook als de size-prefill nog niet geschreven is, bijv. door timing).
+        $sizeClassNotNeeded = ! $forceShow
+            && $question->key === 'room_size_indication'
+            && $this->roomAreaPresent($context, $sectionInstanceKey);
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
         $wizardVisible = $ruleVisible
@@ -732,12 +737,13 @@ final class IntakeStepBuilder
             && ! $roomNameHidden
             && ! $aroundHouseReused
             && ! $ceilingHeightNotNeeded
+            && ! $sizeClassNotNeeded
             && ! $internal;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded,
+            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded || $sizeClassNotNeeded,
             internal: $internal,
         );
 
