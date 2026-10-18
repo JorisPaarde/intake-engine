@@ -1114,6 +1114,16 @@ final class DossierSynthesisPartialAcceptor
         }
 
         foreach ([AircoConnectionType::Refrigerant, AircoConnectionType::Condensate] as $requiredType) {
+            $uncoveredCount = $indoorRefs->reject(
+                static fn (string $indoorRef): bool => collect($connections)->contains(
+                    static fn (array $connection): bool => (is_string($connection['type'] ?? null) ? $connection['type'] : (string) ($connection['type'] ?? '')) === $requiredType->value
+                        && in_array($indoorRef, [
+                            $connection['from_placement_reference'] ?? null,
+                            $connection['to_placement_reference'] ?? null,
+                        ], true),
+                ),
+            )->count();
+
             foreach ($indoorRefs as $indoorRef) {
                 $covered = collect($connections)->contains(
                     static function (array $connection) use ($requiredType, $indoorRef): bool {
@@ -1137,6 +1147,22 @@ final class DossierSynthesisPartialAcceptor
                 $to = $requiredType === AircoConnectionType::Refrigerant
                     ? (is_string($outdoorRef) ? $outdoorRef : null)
                     : (is_string($drainRef) ? $drainRef : (is_string($outdoorRef) ? $outdoorRef : null));
+
+                // N77: the AI proposed this route but left its indoor end open ('Beginpunt open').
+                // Complete that route with the uncovered indoor unit instead of adding a second
+                // fallback route of the same type next to it (structural, never label text).
+                // Only when exactly one indoor unit lacks this route type (no guessing which room).
+                $openIndex = $uncoveredCount === 1
+                    ? $this->openEndedConnectionIndex($connections, $requiredType, $indoorRefs->all(), $to)
+                    : null;
+                if ($openIndex !== null) {
+                    $endpoint = ($connections[$openIndex]['from_placement_reference'] ?? null) === null
+                        ? 'from_placement_reference'
+                        : 'to_placement_reference';
+                    $connections[$openIndex][$endpoint] = $indoorRef;
+
+                    continue;
+                }
 
                 if ($to === null || $fallbackEvidence === []) {
                     continue;
@@ -1164,6 +1190,43 @@ final class DossierSynthesisPartialAcceptor
         }
 
         return $connections;
+    }
+
+    /**
+     * Index of the one connection of this type with exactly one open endpoint whose known end
+     * is not an indoor unit (and matches the expected far end when one is known).
+     *
+     * @param  list<array<string, mixed>>  $connections
+     * @param  list<string>  $indoorRefs
+     */
+    private function openEndedConnectionIndex(
+        array $connections,
+        AircoConnectionType $type,
+        array $indoorRefs,
+        ?string $expectedFarEnd,
+    ): ?int {
+        $matches = [];
+        foreach ($connections as $index => $connection) {
+            $connectionType = is_string($connection['type'] ?? null) ? $connection['type'] : (string) ($connection['type'] ?? '');
+            if ($connectionType !== $type->value) {
+                continue;
+            }
+            $from = $connection['from_placement_reference'] ?? null;
+            $to = $connection['to_placement_reference'] ?? null;
+            if (($from === null) === ($to === null)) {
+                continue;
+            }
+            $known = $from ?? $to;
+            if (in_array($known, $indoorRefs, true)) {
+                continue;
+            }
+            if ($expectedFarEnd !== null && $known !== $expectedFarEnd) {
+                continue;
+            }
+            $matches[] = $index;
+        }
+
+        return count($matches) === 1 ? $matches[0] : null;
     }
 
     /** @param list<string> $references */
