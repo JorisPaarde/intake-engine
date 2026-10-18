@@ -23,15 +23,33 @@
     @endphp
     <body class="min-h-[100svh] bg-[#eef1ec] font-sans text-[#18201d] antialiased" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
         {{ $slot }}
+        <div id="customer-session-notice" data-testid="customer-session-notice" role="alert" hidden
+            class="fixed inset-x-0 bottom-0 z-50 border-t border-[#d7c48a] bg-[#fff8e1] px-4 py-4 shadow-lg sm:inset-x-auto sm:bottom-6 sm:left-1/2 sm:w-[min(36rem,calc(100%-2rem))] sm:-translate-x-1/2 sm:rounded-2xl sm:border">
+            <p data-session-notice-text class="text-sm font-medium text-[#3d3420]"></p>
+            <button type="button" onclick="window.location.reload()"
+                class="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[#18201d] px-4 text-sm font-semibold text-white">
+                Pagina vernieuwen
+            </button>
+        </div>
         @livewireScripts
         <script>
             (function () {
+                const LINK_GONE_MESSAGE = 'Deze opname is niet meer beschikbaar. Deed je een demo? Dan is de demosessie verlopen of beëindigd. Vernieuw de pagina voor uitleg.';
                 const messageForStatus = function (status) {
+                    if (status === 404 || status === 410) return LINK_GONE_MESSAGE;
                     if (status === 419) return 'Je sessie is verlopen. Vernieuw de pagina en probeer opnieuw.';
                     if (status === 503 || status === 502 || status === 504) return 'De server is even druk. Probeer het zo opnieuw.';
                     if (status >= 500) return 'De server is even druk. Probeer het zo opnieuw.';
                     if (status === 0) return 'Geen verbinding. Controleer je netwerk en probeer opnieuw.';
                     return 'De aanvraag lukte niet. Probeer het opnieuw.';
+                };
+
+                const showSessionNotice = function (message) {
+                    const notice = document.getElementById('customer-session-notice');
+                    if (! notice) return;
+                    const text = notice.querySelector('[data-session-notice-text]');
+                    if (text) text.textContent = message;
+                    notice.hidden = false;
                 };
 
                 const bind = function () {
@@ -46,10 +64,14 @@
                                 return;
                             }
                             if (typeof preventDefault === 'function') preventDefault();
+                            const message = messageForStatus(code);
+                            // N96: a dead link/session (demo verlopen, link ingetrokken, 419) must
+                            // never be a silent no-op on Volgende — show a page-level notice.
+                            if (code === 404 || code === 410 || code === 419) showSessionNotice(message);
                             document.dispatchEvent(new CustomEvent('intake:livewire-request-failed', {
                                 detail: {
                                     status: code,
-                                    message: messageForStatus(code),
+                                    message: message,
                                 },
                             }));
                         });
