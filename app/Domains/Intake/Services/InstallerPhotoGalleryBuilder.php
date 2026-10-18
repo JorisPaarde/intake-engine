@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use Illuminate\Support\Collection;
@@ -81,6 +82,7 @@ final class InstallerPhotoGalleryBuilder
         $groups = [];
         /** @var Collection<int, DossierSubject> $dossierSubjects */
         $dossierSubjects = $intake->dossierSubjects->keyBy('id');
+        $routeLabels = $this->routeSegmentLabels($uploads);
 
         foreach ($uploads as $upload) {
             if ($upload->question_key === 'installer_evidence') {
@@ -99,7 +101,9 @@ final class InstallerPhotoGalleryBuilder
 
                 $groups[$bucketKey]['uploads'][] = [
                     'upload' => $upload,
-                    'caption' => $subject?->type === 'survey' ? 'Woninggegevens' : 'Dossierfoto',
+                    // N99: the installer's own route-photo description is the caption.
+                    'caption' => $routeLabels[$upload->id]
+                        ?? ($subject?->type === 'survey' ? 'Woninggegevens' : 'Dossierfoto'),
                     'question_sort' => $upload->sort_order,
                 ];
 
@@ -478,5 +482,30 @@ final class InstallerPhotoGalleryBuilder
                 ];
             })->all(),
         ]];
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     * @return array<int, string>
+     */
+    private function routeSegmentLabels(Collection $uploads): array
+    {
+        $ids = $uploads
+            ->filter(static fn (IntakeUpload $upload): bool => $upload->question_key === 'installer_evidence')
+            ->pluck('id')
+            ->all();
+        if ($ids === []) {
+            return [];
+        }
+
+        $labels = [];
+        foreach (PipeRouteSegment::query()->whereIn('intake_upload_id', $ids)->get(['intake_upload_id', 'label']) as $segment) {
+            $label = trim((string) $segment->label);
+            if ($label !== '') {
+                $labels[(int) $segment->intake_upload_id] = $label;
+            }
+        }
+
+        return $labels;
     }
 }

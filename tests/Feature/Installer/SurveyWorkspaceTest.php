@@ -20,6 +20,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DecisionReadinessService;
+use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
@@ -504,6 +505,12 @@ test('workspace derives a route photo connection from its contextual subject', f
     expect($segment->label)->toBe('Andere kant van de wand')
         ->and($segment->upload?->section_instance_key)->toBe('subject-'.$connection->dossier_subject_id)
         ->and($intake->pipeRouteSessions()->count())->toBe(1);
+
+    // N99: the description the installer typed is the photo caption in gallery and report.
+    $captions = collect(app(InstallerPhotoGalleryBuilder::class)->handle($intake->fresh()))
+        ->flatMap(static fn (array $group): array => array_column($group['uploads'], 'caption'))
+        ->all();
+    expect($captions)->toContain('Andere kant van de wand');
 });
 
 test('installer-only survey can temporarily expose exactly one targeted customer task and return to installer work', function () {
