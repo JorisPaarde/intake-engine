@@ -312,9 +312,15 @@ final class PhotoOverridePolicy
             return self::panelExplanation($count);
         }
 
-        return $count === 1
-            ? 'Je andere foto is goed ontvangen. Vervang deze foto of ga toch door; je installateur krijgt hem dan wel en kijkt er zelf naar.'
-            : 'Je andere foto’s zijn goed ontvangen. Vervang deze foto’s of ga toch door; je installateur krijgt ze dan wel en kijkt er zelf naar.';
+        $fine = $uploads->count() - $count;
+        $received = $fine === 1
+            ? 'Je andere foto is goed ontvangen.'
+            : 'Je andere foto’s zijn goed ontvangen.';
+        $choice = $count === 1
+            ? 'Vervang deze foto of ga toch door; je installateur krijgt hem dan wel en kijkt er zelf naar.'
+            : 'Vervang deze foto’s of ga toch door; je installateur krijgt ze dan wel en kijkt er zelf naar.';
+
+        return $received.' '.$choice;
     }
 
     /**
