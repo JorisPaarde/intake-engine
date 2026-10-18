@@ -209,13 +209,13 @@
                 @if ($followUpMismatchAssessment || $followUpUnresolvedCount > 0)
                     <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch" data-photo-mismatch-panel="1">
                         <p class="text-sm font-semibold text-brand-ink" data-testid="photo-mismatch-heading">
-                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeading($followUpUnresolvedCount) }}
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeadingFor($item->uploads) }}
                         </p>
                         @foreach ($followUpPanelAdvice as $advice)
                             <p class="text-sm text-brand-ink" data-testid="photo-mismatch-advice">{{ $advice }}</p>
                         @endforeach
                         <p class="text-sm text-brand-ink" data-testid="photo-mismatch-explain">
-                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanation($followUpUnresolvedCount) }}
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanationFor($item->uploads) }}
                         </p>
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <button
