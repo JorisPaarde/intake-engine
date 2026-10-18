@@ -519,6 +519,43 @@ final class IntakeStepBuilder
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>
+     * }  $context
+     * @param  array{provenance: ?string, confidence: ?int, fact_source: ?string}|null  $answerFact
+     */
+    private function roomCountMatchesStatedRooms(
+        array $context,
+        ?string $answerSource,
+        ?array $answerFact,
+        mixed $answerValue,
+    ): bool {
+        // Only an AI/request prefill; a customer or installer answer is never overruled.
+        if (! in_array($answerSource, [PrefillSources::AI_TEXT, PrefillSources::REQUEST_TEXT], true)) {
+            return false;
+        }
+
+        $number = is_array($answerValue) ? ($answerValue['number'] ?? null) : null;
+        if (! is_numeric($number) || (int) $number < 1) {
+            return false;
+        }
+
+        $statedRooms = 0;
+        foreach ($context['answerFacts'] as $composite => $fact) {
+            if (! str_ends_with((string) $composite, '__room_type')) {
+                continue;
+            }
+            if (FactProvenance::tryFromMixed($fact['provenance'] ?? null) === FactProvenance::Stated) {
+                $statedRooms++;
+            }
+        }
+
+        return $statedRooms === (int) $number;
+    }
+
+    /**
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
@@ -723,6 +760,14 @@ final class IntakeStepBuilder
         $sizeClassNotNeeded = ! $forceShow
             && $question->key === 'room_size_indication'
             && $this->roomAreaPresent($context, $sectionInstanceKey);
+        // N56: an AI-inferred room count that equals the number of rooms the request
+        // literally names (stated room_type per instance) is already shown in the known
+        // summary — do not ask it again. Structural: counts stated facts, never text.
+        $roomCountCoveredByRooms = ! $forceShow
+            && $answered
+            && $question->key === 'indoor_unit_count'
+            && $sectionInstanceKey === null
+            && $this->roomCountMatchesStatedRooms($context, $answerSource, $answerFact, $answerValue);
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
         $wizardVisible = $ruleVisible
@@ -731,12 +776,13 @@ final class IntakeStepBuilder
             && ! $aroundHouseReused
             && ! $ceilingHeightNotNeeded
             && ! $sizeClassNotNeeded
+            && ! $roomCountCoveredByRooms
             && ! $internal;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded || $sizeClassNotNeeded,
+            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded || $sizeClassNotNeeded || $roomCountCoveredByRooms,
             internal: $internal,
         );
 
