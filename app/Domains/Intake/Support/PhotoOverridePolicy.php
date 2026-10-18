@@ -274,6 +274,76 @@ final class PhotoOverridePolicy
         return array_values($hints);
     }
 
+    /**
+     * N49: when a step also holds photos that are fine (e.g. a sharper extra
+     * meterkastfoto), name which photo(s) the panel is about — by list position,
+     * the same order the customer sees — so it does not read as a verdict on
+     * the new, accepted photo.
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    public static function panelHeadingFor(Collection $uploads): string
+    {
+        $positions = self::unresolvedPositions($uploads);
+        $total = $uploads->count();
+        $count = count($positions);
+
+        if ($count === 0 || $count === $total) {
+            return self::panelHeading($count);
+        }
+
+        if ($count === 1) {
+            return 'Foto '.$positions[0].' van '.$total.' is nog niet goed.';
+        }
+
+        $last = array_pop($positions);
+
+        return 'Foto '.implode(', ', $positions).' en '.$last.' van '.$total.' zijn nog niet goed.';
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    public static function panelExplanationFor(Collection $uploads): string
+    {
+        $count = count(self::unresolvedPositions($uploads));
+
+        if ($count === 0 || $count === $uploads->count()) {
+            return self::panelExplanation($count);
+        }
+
+        $fine = $uploads->count() - $count;
+        $received = $fine === 1
+            ? 'Je andere foto is goed ontvangen.'
+            : 'Je andere foto’s zijn goed ontvangen.';
+        $choice = $count === 1
+            ? 'Vervang deze foto of ga toch door; je installateur krijgt hem dan wel en kijkt er zelf naar.'
+            : 'Vervang deze foto’s of ga toch door; je installateur krijgt ze dan wel en kijkt er zelf naar.';
+
+        return $received.' '.$choice;
+    }
+
+    /**
+     * 1-based positions (list order) of uploads that still need a choice.
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     * @return list<int>
+     */
+    private static function unresolvedPositions(Collection $uploads): array
+    {
+        $positions = [];
+        $position = 0;
+
+        foreach ($uploads as $upload) {
+            $position++;
+            if (self::needsOverride($upload)) {
+                $positions[] = $position;
+            }
+        }
+
+        return $positions;
+    }
+
     public static function panelHeading(int $unresolvedCount): string
     {
         if ($unresolvedCount <= 1) {

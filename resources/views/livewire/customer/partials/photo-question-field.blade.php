@@ -143,13 +143,13 @@
                 wire:key="mismatch-{{ $composite }}"
             >
                 <p class="text-sm font-semibold text-[#18201d]" data-testid="photo-mismatch-heading">
-                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeading($unresolvedOverrideCount) }}
+                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeadingFor($existingUploads) }}
                 </p>
                 @foreach ($panelAdvice as $advice)
                     <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-advice">{{ $advice }}</p>
                 @endforeach
                 <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-explain">
-                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanation($unresolvedOverrideCount) }}
+                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanationFor($existingUploads) }}
                 </p>
                 @if ($showMissing)
                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">

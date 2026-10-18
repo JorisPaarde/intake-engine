@@ -181,3 +181,38 @@ it('groups feedback by structured status key not by text', function () {
         ->and(PhotoOverridePolicy::panelExplanation(1))->toContain('Je installateur krijgt de foto dan wel')
         ->and(PhotoOverridePolicy::panelExplanation(3))->toContain('foto’s');
 });
+
+it('names which photo the panel is about when another photo on the step is fine (N49)', function () {
+    $blurry = statusUpload([
+        'id' => 11,
+        'content_assessment' => PhotoContentAssessment::needsClearer(
+            PhotoSubject::Fusebox,
+            'Maak een scherpere foto van de hoofdschakelaar.',
+        )->toArray(),
+    ]);
+    $good = statusUpload(['id' => 12]);
+    $wrong = statusUpload([
+        'id' => 13,
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Fusebox,
+            PhotoSubject::Room,
+        )->toArray(),
+    ]);
+
+    expect(PhotoOverridePolicy::panelHeadingFor(collect([$blurry])))
+        ->toBe(PhotoOverridePolicy::PANEL_HEADING_ONE)
+        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry])))
+        ->toBe(PhotoOverridePolicy::PANEL_EXPLAIN_ONE)
+        ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $good])))
+        ->toBe('Foto 1 van 2 is nog niet goed.')
+        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good])))
+        ->toStartWith('Je andere foto is goed ontvangen.')
+        ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $good, $wrong])))
+        ->toBe('Foto 1 en 3 van 3 zijn nog niet goed.')
+        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good, $wrong])))
+        ->toBe('Je andere foto is goed ontvangen. Vervang deze foto’s of ga toch door; je installateur krijgt ze dan wel en kijkt er zelf naar.')
+        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good, statusUpload(['id' => 14])])))
+        ->toBe('Je andere foto’s zijn goed ontvangen. Vervang deze foto of ga toch door; je installateur krijgt hem dan wel en kijkt er zelf naar.')
+        ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $wrong])))
+        ->toBe('2 foto’s zijn nog niet goed.');
+});
