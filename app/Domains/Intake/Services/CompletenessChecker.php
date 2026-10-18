@@ -375,9 +375,12 @@ final class CompletenessChecker
             }
         }
 
+        // N99: name the option only when there is a choice between options.
+        $prefix = $options->count() > 1 ? $option->label.': ' : '';
+
         return $open === [] ? [] : [[
             'code' => $code,
-            'label' => $label.' · '.$option->label.': '.implode('; ', $open),
+            'label' => $label.' · '.$prefix.implode('; ', $open),
         ]];
     }
 

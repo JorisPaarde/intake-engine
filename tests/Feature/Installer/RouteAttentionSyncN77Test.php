@@ -268,3 +268,17 @@ test('N99: approved route no longer shows the next-photo tip', function () {
         ->assertOk()
         ->assertDontSee('Maak een foto van de binnenzijde van de doorvoer.');
 });
+
+test('N99: route attention names the option only when there are several options', function () {
+    $checker = app(CompletenessChecker::class);
+    $single = $checker->routeDecisionAttention($this->intake, 'pipe_route_open', 'Open')[0]['label'];
+    expect($single)->toBe('Open · '.$this->cooling->label)
+        ->and($single)->not->toContain('Voorstel');
+
+    $this->survey->createInstallationOption($this->intake, $this->user, [
+        'label' => 'Alternatief', 'configuration_type' => 'single_split',
+        'placement_ids' => [$this->cooling->from_placement_id, $this->cooling->to_placement_id],
+    ]);
+    expect($checker->routeDecisionAttention($this->intake, 'pipe_route_open', 'Open')[0]['label'])
+        ->toContain('Voorstel: ');
+});
