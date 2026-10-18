@@ -1149,7 +1149,7 @@
                                                         <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">{{ $connection->type->label() }}</p>
                                                         <h5 class="mt-1 font-semibold text-gray-950">{{ $connection->label }}</h5>
                                                         <p class="mt-1 text-xs text-gray-500">
-                                                            {{ $connection->fromPlacement?->label ?? 'Beginpunt open' }}
+                                                            {{ \App\Domains\Intake\Support\InstallerDisplayLabels::connectionStart($connection) }}
                                                             →
                                                             {{ $connection->toPlacement?->label ?? 'Eindpunt open' }}
                                                             @if ($connection->length_class)
@@ -1204,7 +1204,7 @@
                                                             <p class="text-xs font-semibold text-gray-700">{{ $segmentCount }} {{ $segmentCount === 1 ? 'routefoto' : 'routefoto\'s' }}</p>
                                                             <p class="text-xs text-gray-500">{{ $connection->routeSession->status->label() }}</p>
                                                         </div>
-                                                        @if ($connection->routeSession->next_photo_instruction)
+                                                        @if ($connection->routeSession->next_photo_instruction && $connection->status !== \App\Enums\AircoConnectionStatus::Approved)
                                                             <p class="mt-2 text-xs font-medium text-gray-800">{{ $connection->routeSession->next_photo_instruction }}</p>
                                                         @endif
                                                     @endif

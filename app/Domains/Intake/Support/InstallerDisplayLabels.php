@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Support;
 
+use App\Domains\Intake\Models\AircoConnection;
+use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoConnectionType;
+use App\Enums\AircoPlacementType;
+
 /**
  * Centrale Nederlandse labels voor interne enum-/bronwaarden in de installateurswerkplek.
  * Ruwe keys (short, derived_lxw, high, …) horen niet in de UI.
@@ -63,6 +68,22 @@ final class InstallerDisplayLabels
             'confidence' => self::CONFIDENCE,
             'source' => self::SOURCE,
         ];
+    }
+
+    /**
+     * N99: an approved power route whose start was never stored as a placement
+     * still starts at the power supply — say so instead of "Beginpunt open".
+     */
+    public static function connectionStart(AircoConnection $connection): string
+    {
+        if ($connection->fromPlacement !== null) {
+            return $connection->fromPlacement->label;
+        }
+
+        return $connection->status === AircoConnectionStatus::Approved
+            && $connection->type === AircoConnectionType::Power
+            ? AircoPlacementType::PowerSource->label()
+            : 'Beginpunt open';
     }
 
     public static function lengthClass(?string $value): ?string

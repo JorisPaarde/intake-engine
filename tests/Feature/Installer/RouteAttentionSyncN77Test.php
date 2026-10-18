@@ -250,3 +250,21 @@ test('N77 an accepted AI point restating two route points resolves only when bot
     app(ApprovePipeRoute::class)->handle($session, $this->user);
     expect($both->fresh()->is_resolved)->toBeTrue();
 });
+
+test('N99: approved route no longer shows the next-photo tip', function () {
+    $session = app(StartPipeRouteSession::class)->handle($this->intake, $this->drain);
+    $session->refresh()->update([
+        'status' => PipeRouteStatus::Proposed,
+        'next_photo_instruction' => 'Maak een foto van de binnenzijde van de doorvoer.',
+    ]);
+
+    $this->actingAs($this->user)->get(route('intakes.workspace', $this->intake))
+        ->assertOk()
+        ->assertSee('Maak een foto van de binnenzijde van de doorvoer.');
+
+    app(ApprovePipeRoute::class)->handle($session, $this->user);
+
+    $this->actingAs($this->user)->get(route('intakes.workspace', $this->intake))
+        ->assertOk()
+        ->assertDontSee('Maak een foto van de binnenzijde van de doorvoer.');
+});
