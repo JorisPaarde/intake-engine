@@ -233,6 +233,13 @@ final class DossierManager
 
         $roomSubjects = $this->syncRooms($intake, $root);
         $questionIndex = $this->questionIndex($intake);
+        /** @var array<string, mixed> $knownAreaAnswers */
+        $knownAreaAnswers = [];
+        foreach ($intake->answers as $areaAnswer) {
+            if ($areaAnswer->question_key === 'room_area_m2') {
+                $knownAreaAnswers[VisibilityResolver::compositeKey('room_area_m2', $areaAnswer->section_instance_key)] = $areaAnswer->value;
+            }
+        }
 
         foreach ($intake->answers as $answer) {
             $subject = $this->subjectForInstance($answer->section_instance_key, $roomSubjects) ?? $root;
@@ -260,6 +267,17 @@ final class DossierManager
                 ->where('source_type', 'intake_answer')
                 ->where('source_id', $answer->id)
                 ->first();
+
+            // N99: a known m² makes an AI size-class proposal redundant — do not ask the
+            // installer to confirm it. Structural: the stored area answer, never text.
+            if ($this->isRedundantSizeProposal($answer, $isAssumption, $knownAreaAnswers)) {
+                if ($existingAnswerRecord !== null
+                    && $existingAnswerRecord->status !== DossierRecordStatus::Superseded) {
+                    $existingAnswerRecord->update(['status' => DossierRecordStatus::Superseded]);
+                }
+
+                continue;
+            }
 
             // Do not revive records that a later correction already superseded
             // (legacy bridge used to reset superseded_by_id to null every sync).
@@ -1080,6 +1098,25 @@ final class DossierManager
                 'superseded_by_id' => $replacement?->id,
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $knownAreaAnswers
+     */
+    private function isRedundantSizeProposal(IntakeAnswer $answer, bool $isAssumption, array $knownAreaAnswers): bool
+    {
+        if ($answer->question_key !== 'room_size_indication'
+            || ! is_string($answer->section_instance_key)
+            || $answer->section_instance_key === ''
+            || $answer->prefill_source === null) {
+            return false;
+        }
+
+        if (! $isAssumption && ! PrefillSources::isProposedAi($answer->prefill_source)) {
+            return false;
+        }
+
+        return RoomAreaAcceptance::hasKnownArea($knownAreaAnswers, $answer->section_instance_key);
     }
 
     private function answerRecordMethod(IntakeAnswer $answer, bool $isAssumption): string
