@@ -286,8 +286,9 @@ final class InstallerEvidencePresenter
             ? $answer->section_instance_key
             : $this->sectionInstanceKeyFromAnswerReference($reference);
 
-        // N88: the request text is not a question the customer saw.
-        if ($questionKey === 'request_text') {
+        // N88: the request text is not a question the customer saw. The installer's
+        // request is stored as answer `request_reason`; `request_text` is the AI alias.
+        if (in_array($questionKey, ['request_text', 'request_reason'], true)) {
             return $this->citation('Aanvraagtekst', null, false, null, null);
         }
 

@@ -6,14 +6,17 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\ExternalFactPresenter;
+use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\InstallerEvidencePresenter;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
@@ -319,4 +322,38 @@ test('N88: bron aanvraagtekst heet Aanvraagtekst, niet een vraag die de klant ni
 
     expect($citations)->toHaveCount(1)
         ->and($citations[0]['label'])->toBe('Aanvraagtekst');
+});
+
+test('N88: opgeslagen aanvraag (request_reason) heet ook Aanvraagtekst als bron', function () {
+    $user = User::factory()->create();
+    $intake = evidenceLabelIntake($user);
+
+    $citations = app(InstallerEvidencePresenter::class)->presentAttentionEvidence($intake->fresh(), [
+        ['source_type' => 'answer', 'reference' => 'request_reason'],
+    ]);
+
+    expect($citations)->toHaveCount(1)
+        ->and($citations[0]['label'])->toBe('Aanvraagtekst')
+        ->and($citations[0]['label'])->not->toContain('Wat is de reden van je aanvraag');
+});
+
+test('N88: rapport toont de installateursaanvraag als Aanvraagtekst, niet als klantvraag', function () {
+    $user = User::factory()->create();
+    $intake = evidenceLabelIntake($user);
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'request_reason',
+        null,
+        ['text' => 'Airco in de woonkamer, koelen en verwarmen.'],
+        PrefillSources::REQUEST_TEXT,
+    );
+
+    $html = app(GenerateIntakeReportHtml::class)->handle(
+        $intake->fresh(),
+        $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail(),
+    );
+
+    expect($html)->toContain('Aanvraagtekst')
+        ->and($html)->toContain('Airco in de woonkamer, koelen en verwarmen.')
+        ->and($html)->not->toContain('Wat is de reden van je aanvraag?');
 });

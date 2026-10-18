@@ -537,8 +537,16 @@ final class GenerateIntakeReportHtml
                 ];
             }
 
+            // N88: de door de installateur ingevoerde aanvraag is geen vraag die de klant zag.
+            $label = $question->key === 'request_reason'
+                && $answerModel instanceof IntakeAnswer
+                && is_string($answerModel->prefill_source)
+                && $answerModel->prefill_source !== ''
+                ? 'Aanvraagtekst'
+                : $question->label;
+
             $reportSections[$bucketKey]['questions'][] = [
-                'label' => $question->label,
+                'label' => $label,
                 'display' => $display,
                 'is_photo' => $question->type === QuestionType::Photo,
             ];
