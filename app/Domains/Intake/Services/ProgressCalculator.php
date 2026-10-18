@@ -14,6 +14,7 @@ use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\QuestionType;
@@ -91,6 +92,12 @@ final class ProgressCalculator
             if ($question->key === 'room_size_indication'
                 && is_string($target['section_instance_key'])
                 && isset($atticRooms[$target['section_instance_key']])) {
+                continue;
+            }
+
+            // N63: bekend vloeroppervlak → grootteklasse geen open klanttaak (gelijk aan steplijst).
+            if ($question->key === 'room_size_indication'
+                && RoomAreaAcceptance::hasKnownArea($answers, $target['section_instance_key'])) {
                 continue;
             }
 

@@ -15,6 +15,7 @@ use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
@@ -530,15 +531,7 @@ final class IntakeStepBuilder
      */
     private function roomAreaPresent(array $context, ?string $sectionInstanceKey): bool
     {
-        $composite = VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey);
-        $value = $context['answers'][$composite] ?? null;
-        if (! is_array($value)) {
-            return false;
-        }
-
-        $number = $value['number'] ?? null;
-
-        return is_numeric($number) && (float) $number > 0;
+        return RoomAreaAcceptance::hasKnownArea($context['answers'], $sectionInstanceKey);
     }
 
     /**
@@ -725,6 +718,11 @@ final class IntakeStepBuilder
             && ! $answered
             && $question->key === 'ceiling_height_m'
             && ! $this->roomNeedsCeilingHeight($context['answers'], $sectionInstanceKey);
+        // N63: grootteklasse is overbodig zodra het vloeroppervlak al bekend is
+        // (ook als de size-prefill nog niet geschreven is, bijv. door timing).
+        $sizeClassNotNeeded = ! $forceShow
+            && $question->key === 'room_size_indication'
+            && $this->roomAreaPresent($context, $sectionInstanceKey);
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
         $wizardVisible = $ruleVisible
@@ -732,12 +730,13 @@ final class IntakeStepBuilder
             && ! $roomNameHidden
             && ! $aroundHouseReused
             && ! $ceilingHeightNotNeeded
+            && ! $sizeClassNotNeeded
             && ! $internal;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded,
+            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded || $sizeClassNotNeeded,
             internal: $internal,
         );
 

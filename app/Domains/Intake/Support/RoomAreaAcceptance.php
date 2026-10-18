@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Support;
 
+use App\Domains\Intake\Services\VisibilityResolver;
+
 /**
  * Object-specific acceptance for exact room floor area in m² (BL-101).
  *
@@ -71,6 +73,20 @@ final class RoomAreaAcceptance
         }
 
         return true;
+    }
+
+    /**
+     * Vloeroppervlak (m²) is bekend voor deze ruimte-instantie in een composite-answer-map.
+     * Gedeeld door steplijst en voortgang (N63).
+     *
+     * @param  array<string, mixed>  $answers
+     */
+    public static function hasKnownArea(array $answers, ?string $sectionInstanceKey): bool
+    {
+        $value = $answers[VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey)] ?? null;
+        $number = is_array($value) ? ($value['number'] ?? null) : null;
+
+        return is_numeric($number) && (float) $number > 0;
     }
 
     public static function isPlausibleArea(float $areaM2): bool
