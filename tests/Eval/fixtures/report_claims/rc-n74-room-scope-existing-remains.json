@@ -1,0 +1,253 @@
+{
+  "id": "rc-n74-room-scope-existing-remains",
+  "kind": "report_claims",
+  "origin": "N74 — run-2026-10-19-0713 codex-installateur P2-3 (reconstructed): zolder op \"Bestaande installatie blijft\", AI-punt bleef \"drie binnenunits (inclusief zolder)\"",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Installateur bevestigde dat de bestaande installatie op zolder blijft (rooms[].existing_installation_remains_confirmed_by_installer=true). Route-systeempunten voor de zolder zijn opgelost. Verboden: zolder als ruimte voor een nieuwe binnenunit/route/doorboring/condensafvoer of drie nieuwe binnenunits.",
+  "summary_input": {
+    "answers": {
+      "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+      "cooling_heating": {
+        "value": "both",
+        "label": "Koelen en verwarmen"
+      },
+      "indoor_unit_count": {
+        "number": 3
+      },
+      "pipe_visibility": {
+        "value": "visible",
+        "label": "Zichtwerk is oké"
+      },
+      "noise_sensitive": false,
+      "desired_planning": {
+        "text": "Voor de zomer"
+      },
+      "additional_comments": {
+        "text": "Geen kruipruimte. Zichtwerk is akkoord als voorkeur. De installateur moet de leidingroute en aansluiting nog controleren."
+      },
+      "preferred_indoor_location": {
+        "text": "Laat installateur kiezen"
+      },
+      "crawl_space_present": {
+        "value": "no",
+        "label": "Nee"
+      }
+    },
+    "external_facts": {},
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [],
+    "dossier": {
+      "rooms": [
+        {
+          "name": "Woonkamer, begane grond",
+          "existing_installation_remains_confirmed_by_installer": false
+        },
+        {
+          "name": "Slaapkamer 1, 1e verdieping",
+          "existing_installation_remains_confirmed_by_installer": false
+        },
+        {
+          "name": "Slaapkamer 2, zolder",
+          "existing_installation_remains_confirmed_by_installer": true
+        }
+      ],
+      "installation_options": [
+        {
+          "label": "Multi-split systeem",
+          "status": "selected",
+          "summary": "Eén buitenunit in de tuin met binnenunits in de woonkamer en slaapkamer 1."
+        }
+      ],
+      "installer_review": null,
+      "dossier_records": []
+    }
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+      "cooling_heating": {
+        "value": "both",
+        "label": "Koelen en verwarmen"
+      },
+      "indoor_unit_count": {
+        "number": 3
+      },
+      "pipe_visibility": {
+        "value": "visible",
+        "label": "Zichtwerk is oké"
+      },
+      "noise_sensitive": false,
+      "desired_planning": {
+        "text": "Voor de zomer"
+      },
+      "additional_comments": {
+        "text": "Geen kruipruimte. Zichtwerk is akkoord als voorkeur. De installateur moet de leidingroute en aansluiting nog controleren."
+      },
+      "preferred_indoor_location": {
+        "text": "Laat installateur kiezen"
+      },
+      "crawl_space_present": {
+        "value": "no",
+        "label": "Nee"
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+        "prefill_source": null
+      },
+      {
+        "reference": "pipe_visibility@answer:survey",
+        "question_key": "pipe_visibility",
+        "question_label": "Liever zichtwerk of weggewerkt?",
+        "section_key": "pipe_route",
+        "section_label": "Leidingroute",
+        "section_instance_key": null,
+        "answer": {
+          "value": "visible",
+          "label": "Zichtwerk is oké"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "preferred_indoor_location@answer:survey",
+        "question_key": "preferred_indoor_location",
+        "question_label": "Waar zou de binnenunit mogen hangen?",
+        "section_key": "rooms",
+        "section_label": "Ruimtes",
+        "section_instance_key": null,
+        "answer": {
+          "text": "Laat installateur kiezen"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "crawl_space_present@answer:survey",
+        "question_key": "crawl_space_present",
+        "question_label": "Is er een kruipruimte onder de vloer?",
+        "section_key": "property",
+        "section_label": "Woning of pand",
+        "section_instance_key": null,
+        "answer": {
+          "value": "no",
+          "label": "Nee"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "additional_comments@answer:survey",
+        "question_key": "additional_comments",
+        "question_label": "Nog iets dat we moeten weten?",
+        "section_key": "closing",
+        "section_label": "Afronding",
+        "section_instance_key": null,
+        "answer": {
+          "text": "Geen kruipruimte. Zichtwerk is akkoord als voorkeur. De installateur moet de leidingroute en aansluiting nog controleren."
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [],
+    "follow_up": [],
+    "system_attention_points": [
+      {
+        "reference": "pipe_route_open",
+        "source": "system",
+        "code": "pipe_route_open",
+        "label": "Open technisch punt: leidingroute nog te beoordelen · Koelleiding zolder",
+        "is_resolved": true
+      },
+      {
+        "reference": "condensate_pump_open",
+        "source": "system",
+        "code": "condensate_pump_open",
+        "label": "Open technisch punt: condenspomp of natuurlijk afschot nog te bepalen · Condensafvoer zolder",
+        "is_resolved": true
+      },
+      {
+        "reference": "drillings_open",
+        "source": "system",
+        "code": "drillings_open",
+        "label": "Open technisch punt: doorboringen door muren/vloeren nog te beoordelen · Doorboring zolder",
+        "is_resolved": true
+      },
+      {
+        "reference": "electrical_provision_open",
+        "source": "system",
+        "code": "electrical_provision_open",
+        "label": "Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen",
+        "is_resolved": false
+      }
+    ],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed",
+    "rooms": [
+      {
+        "name": "Woonkamer, begane grond",
+        "existing_installation_remains_confirmed_by_installer": false
+      },
+      {
+        "name": "Slaapkamer 1, 1e verdieping",
+        "existing_installation_remains_confirmed_by_installer": false
+      },
+      {
+        "name": "Slaapkamer 2, zolder",
+        "existing_installation_remains_confirmed_by_installer": true
+      }
+    ]
+  },
+  "expected": {
+    "claims": [],
+    "judge_claims": [
+      {
+        "id": "attic_new_unit_or_route",
+        "question": "Wordt de zolder (slaapkamer 2, zolder) behandeld als ruimte die een nieuwe binnenunit krijgt of waarvoor nog een leidingroute, doorboring, koelleiding of condensafvoer voor een nieuwe unit beoordeeld moet worden (bijv. 'drie binnenunits (inclusief zolder)', 'leidingroute naar de zolder nog beoordelen')? Telt niet: vermelden dat de bestaande installatie op zolder blijft, of punten die alleen over de woonkamer en slaapkamer 1 gaan.",
+        "forbidden": true
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "verify_free_group",
+        "label": "Stroomvoorziening / vrije groep voor de buitenunit nog beoordelen.",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "system_attention_point",
+            "reference": "electrical_provision_open"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco (koelen en verwarmen) in de woonkamer en slaapkamer 1; op zolder blijft de bestaande installatie.",
+    "highlights": [
+      "Zichtwerk voor de leidingen is oké voor de klant.",
+      "Planning: voor de zomer."
+    ]
+  },
+  "disputed_facts": {}
+}
