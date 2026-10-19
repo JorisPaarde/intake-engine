@@ -178,7 +178,7 @@
     "judge_claims": [
       {
         "id": "customer_prefers_concealed",
-        "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in de muur/goot weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt, dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+        "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
         "forbidden": true
       },
       {
