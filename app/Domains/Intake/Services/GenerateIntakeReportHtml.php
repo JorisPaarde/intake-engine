@@ -510,7 +510,11 @@ final class GenerateIntakeReportHtml
             // N99: with a known m² the size class is redundant and can contradict it
             // (photo 'Klein' vs 12 m²) — the exact area is the one measure shown.
             if ($question->key === 'room_size_indication'
-                && RoomAreaAcceptance::hasKnownArea($answers, $target['section_instance_key'])) {
+                && RoomAreaAcceptance::hasKnownRoomArea(
+                    $answers,
+                    $target['section_instance_key'],
+                    $this->roomDimensionsFor($intake, $target['section_instance_key']),
+                )) {
                 continue;
             }
 
@@ -566,6 +570,20 @@ final class GenerateIntakeReportHtml
     /**
      * N81: never show an internal instance key ("room-1") in the report.
      */
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function roomDimensionsFor(Intake $intake, ?string $instanceKey): ?array
+    {
+        if ($instanceKey === null || $instanceKey === '') {
+            return null;
+        }
+
+        $dimensions = $intake->aircoRooms->firstWhere('key', $instanceKey)?->dimensions;
+
+        return is_array($dimensions) ? $dimensions : null;
+    }
+
     private function readableInstanceLabel(Intake $intake, ?string $instanceKey): ?string
     {
         if ($instanceKey === null || $instanceKey === '') {

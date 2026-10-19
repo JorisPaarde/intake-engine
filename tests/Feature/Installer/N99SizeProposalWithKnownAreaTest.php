@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\DossierOverviewBuilder;
+use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\ContributionMode;
 use App\Enums\DossierRecordStatus;
@@ -101,4 +103,21 @@ test('N99: Klaar voor offerte verandert niet door het weglaten van het groottevo
     $withoutProposal = n99AreaStatuses(n99SizeIntake(['area' => true, 'size' => null]));
 
     expect($withProposal)->toBe($withoutProposal);
+});
+
+test('N99: groottevoorstel vervalt ook na latere maatcorrectie door de installateur (L×B op de ruimte)', function () {
+    $intake = n99SizeIntake(['area' => false, 'size' => 'medium']);
+    expect(n99SizeRecord($intake)->status)->not->toBe(DossierRecordStatus::Superseded);
+
+    $room = AircoRoom::query()->where('intake_id', $intake->id)->where('key', 'room-1')->firstOrFail();
+    $room->update(['dimensions' => ['length_m' => 4, 'width_m' => 3.5, 'source' => 'installer']]);
+    app(DossierManager::class)->initialize($intake->fresh());
+
+    expect(n99SizeRecord($intake)->fresh()->status)->toBe(DossierRecordStatus::Superseded);
+
+    $html = app(GenerateIntakeReportHtml::class)->handle(
+        $intake->fresh(),
+        $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail(),
+    );
+    expect($html)->not->toContain('Gemiddeld (ca. 12–20 m²)');
 });
