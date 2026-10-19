@@ -1,0 +1,81 @@
+{
+    "id": "jc-n100-calibration",
+    "kind": "judge_calibration",
+    "origin": "N100",
+    "source_kind": "synthetic",
+    "note": "Kalibratie eval-judge N100: voorkeur weggewerkt verzonnen; systeemkeuze aan klant toegeschreven.",
+    "items": [
+        {
+            "id": "n100_concealed_pref",
+            "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+            "texts": [
+                "De klant geeft de voorkeur aan weggewerkt leidingwerk, maar staat open voor zichtwerk."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n100_concealed_wish",
+            "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+            "texts": [
+                "De klant wil de leidingen zoveel mogelijk weggewerkt."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n100_visible_ok",
+            "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+            "texts": [
+                "Zichtwerk voor leidingen is akkoord."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n100_visible_pref",
+            "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+            "texts": [
+                "De klant vindt zichtwerk van de leidingen oké; de installateur controleert de leidingroute nog."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n100_visible_duct",
+            "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+            "texts": [
+                "Zichtbare leidingen in een opbouwgoot zijn prima voor de klant."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n100_system_customer",
+            "question": "Wordt de keuze voor een multi-split (of een ander systeemtype zoals single-split) gepresenteerd als wens, voorkeur of keuze van de klant (bijv. 'de klant wenst een multi-split', 'de klant kiest voor multi-split')? Telt niet: dat een multi-split is gekozen of voorgesteld door de installateur of in het installatievoorstel staat, of een neutrale vermelding ('multi-split voor drie ruimtes', 'gekozen optie: multi-split').",
+            "texts": [
+                "De klant wenst een multi-split airco-installatie voor de woonkamer en twee slaapkamers."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n100_system_customer_choice",
+            "question": "Wordt de keuze voor een multi-split (of een ander systeemtype zoals single-split) gepresenteerd als wens, voorkeur of keuze van de klant (bijv. 'de klant wenst een multi-split', 'de klant kiest voor multi-split')? Telt niet: dat een multi-split is gekozen of voorgesteld door de installateur of in het installatievoorstel staat, of een neutrale vermelding ('multi-split voor drie ruimtes', 'gekozen optie: multi-split').",
+            "texts": [
+                "De klant kiest voor een multi-split systeem."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n100_system_installer",
+            "question": "Wordt de keuze voor een multi-split (of een ander systeemtype zoals single-split) gepresenteerd als wens, voorkeur of keuze van de klant (bijv. 'de klant wenst een multi-split', 'de klant kiest voor multi-split')? Telt niet: dat een multi-split is gekozen of voorgesteld door de installateur of in het installatievoorstel staat, of een neutrale vermelding ('multi-split voor drie ruimtes', 'gekozen optie: multi-split').",
+            "texts": [
+                "De klant wil airco in de woonkamer en twee slaapkamers; de gekozen optie is een multi-split met één buitenunit in de tuin."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n100_system_neutral",
+            "question": "Wordt de keuze voor een multi-split (of een ander systeemtype zoals single-split) gepresenteerd als wens, voorkeur of keuze van de klant (bijv. 'de klant wenst een multi-split', 'de klant kiest voor multi-split')? Telt niet: dat een multi-split is gekozen of voorgesteld door de installateur of in het installatievoorstel staat, of een neutrale vermelding ('multi-split voor drie ruimtes', 'gekozen optie: multi-split').",
+            "texts": [
+                "Multi-split voor drie ruimtes, voorgesteld door de installateur."
+            ],
+            "expected": "no"
+        }
+    ]
+}

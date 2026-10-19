@@ -1,0 +1,216 @@
+{
+  "id": "rc-n100-visible-preference-installer-system-choice",
+  "kind": "report_claims",
+  "origin": "N100 — run-2026-10-19-0713 codex-installateur P2-1 (reconstructed from report + dossier text)",
+  "source_kind": "reconstructed",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Klant koos 'Zichtwerk is oké' en schreef 'Zichtwerk is akkoord als voorkeur'; binnenunitpositie 'Laat installateur kiezen'. Multi-split is een installateurskeuze (geselecteerde optie). Verboden: klant krijgt voorkeur voor weggewerkt leidingwerk; multi-split als wens/keuze van de klant.",
+  "summary_input": {
+    "answers": {
+      "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+      "cooling_heating": {
+        "value": "both",
+        "label": "Koelen en verwarmen"
+      },
+      "indoor_unit_count": {
+        "number": 3
+      },
+      "pipe_visibility": {
+        "value": "visible",
+        "label": "Zichtwerk is oké"
+      },
+      "noise_sensitive": false,
+      "desired_planning": {
+        "text": "Voor de zomer"
+      },
+      "additional_comments": {
+        "text": "Geen kruipruimte. Zichtwerk is akkoord als voorkeur. De installateur moet de leidingroute en aansluiting nog controleren."
+      },
+      "preferred_indoor_location": {
+        "text": "Laat installateur kiezen"
+      },
+      "crawl_space_present": {
+        "value": "no",
+        "label": "Nee"
+      }
+    },
+    "external_facts": {},
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": [],
+    "dossier": {
+      "rooms": [
+        {
+          "name": "Woonkamer, begane grond",
+          "existing_installation_remains_confirmed_by_installer": false
+        },
+        {
+          "name": "Slaapkamer 1, 1e verdieping",
+          "existing_installation_remains_confirmed_by_installer": false
+        },
+        {
+          "name": "Slaapkamer 2, zolder",
+          "existing_installation_remains_confirmed_by_installer": false
+        }
+      ],
+      "installation_options": [
+        {
+          "label": "Multi-split systeem",
+          "status": "selected",
+          "summary": "Eén buitenunit in de tuin met drie binnenunits (woonkamer, slaapkamer 1, slaapkamer 2)."
+        }
+      ],
+      "installer_review": null,
+      "dossier_records": []
+    }
+  },
+  "attention_input": {
+    "answers": {
+      "request_text": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+      "cooling_heating": {
+        "value": "both",
+        "label": "Koelen en verwarmen"
+      },
+      "indoor_unit_count": {
+        "number": 3
+      },
+      "pipe_visibility": {
+        "value": "visible",
+        "label": "Zichtwerk is oké"
+      },
+      "noise_sensitive": false,
+      "desired_planning": {
+        "text": "Voor de zomer"
+      },
+      "additional_comments": {
+        "text": "Geen kruipruimte. Zichtwerk is akkoord als voorkeur. De installateur moet de leidingroute en aansluiting nog controleren."
+      },
+      "preferred_indoor_location": {
+        "text": "Laat installateur kiezen"
+      },
+      "crawl_space_present": {
+        "value": "no",
+        "label": "Nee"
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_text@answer:survey",
+        "question_key": "request_text",
+        "question_label": "Wat is de reden van je aanvraag?",
+        "section_key": "request",
+        "section_label": "Aanvraag",
+        "section_instance_key": null,
+        "answer": "Airco in woonkamer (~30 m² begane grond) en twee slaapkamers (één op 1e, één op zolder). Meterkast in de gang, 3-fase weet de klant niet zeker. Buitenunit in de tuin/achtererf. Planning voor de zomer.",
+        "prefill_source": null
+      },
+      {
+        "reference": "pipe_visibility@answer:survey",
+        "question_key": "pipe_visibility",
+        "question_label": "Liever zichtwerk of weggewerkt?",
+        "section_key": "pipe_route",
+        "section_label": "Leidingroute",
+        "section_instance_key": null,
+        "answer": {
+          "value": "visible",
+          "label": "Zichtwerk is oké"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "preferred_indoor_location@answer:survey",
+        "question_key": "preferred_indoor_location",
+        "question_label": "Waar zou de binnenunit mogen hangen?",
+        "section_key": "rooms",
+        "section_label": "Ruimtes",
+        "section_instance_key": null,
+        "answer": {
+          "text": "Laat installateur kiezen"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "crawl_space_present@answer:survey",
+        "question_key": "crawl_space_present",
+        "question_label": "Is er een kruipruimte onder de vloer?",
+        "section_key": "property",
+        "section_label": "Woning of pand",
+        "section_instance_key": null,
+        "answer": {
+          "value": "no",
+          "label": "Nee"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "additional_comments@answer:survey",
+        "question_key": "additional_comments",
+        "question_label": "Nog iets dat we moeten weten?",
+        "section_key": "closing",
+        "section_label": "Afronding",
+        "section_instance_key": null,
+        "answer": {
+          "text": "Geen kruipruimte. Zichtwerk is akkoord als voorkeur. De installateur moet de leidingroute en aansluiting nog controleren."
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "completed"
+  },
+  "expected": {
+    "claims": [],
+    "judge_claims": [
+      {
+        "id": "customer_prefers_concealed",
+        "question": "Schrijft de tekst de klant een voorkeur of wens toe voor weggewerkte (verborgen, in muur, vloer of plafond weggewerkte) leidingen, ook als 'voorkeur … maar staat open voor zichtwerk'? Telt niet: dat de klant zichtwerk oké/akkoord vindt (ook zichtbare leidingen in een opbouwgoot), dat de leidingroute nog door de installateur gecontroleerd moet worden, of een neutrale vermelding van de leidingroute.",
+        "forbidden": true
+      },
+      {
+        "id": "system_choice_attributed_to_customer",
+        "question": "Wordt de keuze voor een multi-split (of een ander systeemtype zoals single-split) gepresenteerd als wens, voorkeur of keuze van de klant (bijv. 'de klant wenst een multi-split', 'de klant kiest voor multi-split')? Telt niet: dat een multi-split is gekozen of voorgesteld door de installateur of in het installatievoorstel staat, of een neutrale vermelding ('multi-split voor drie ruimtes', 'gekozen optie: multi-split').",
+        "forbidden": true
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "verify_pipe_route",
+        "label": "Leidingroute en aansluiting controleren (klant vindt zichtwerk oké).",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "additional_comments@answer:survey"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "De klant wil airco (koelen en verwarmen) in de woonkamer en twee slaapkamers; gekozen optie is een multi-split met de buitenunit in de tuin.",
+    "highlights": [
+      "Zichtwerk voor de leidingen is oké voor de klant.",
+      "Geen kruipruimte; de installateur controleert de leidingroute.",
+      "Planning: voor de zomer."
+    ]
+  },
+  "disputed_facts": {}
+}
