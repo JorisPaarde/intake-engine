@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
@@ -46,6 +47,7 @@ final class IntakeAttentionContextBuilder
             'followUpRounds.items.uploads',
             'review',
             'pipeRouteSessions.segments',
+            'aircoRooms',
             'templateVersion.template',
             'templateVersion.sections.questions',
         ]);
@@ -148,6 +150,16 @@ final class IntakeAttentionContextBuilder
                 'summary' => $intake->review->summary,
             ],
             'pipe_routes' => $this->pipeRouteContext($intake),
+            // N74: the installer's room scope. A room whose existing installation remains
+            // gets no new indoor unit; same structured field as the summary context.
+            'rooms' => $intake->aircoRooms
+                ->sortBy(static fn (AircoRoom $room): int => (int) $room->sort_order)
+                ->map(static fn (AircoRoom $room): array => [
+                    'name' => $room->name,
+                    'existing_installation_remains_confirmed_by_installer' => $room->isExistingInstallationConfirmed(),
+                ])
+                ->values()
+                ->all(),
             'template_key' => $intake->templateVersion?->template?->key,
             'template_version' => $intake->templateVersion?->version,
             'intake_status' => $intake->status->value,

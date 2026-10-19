@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
@@ -23,6 +24,7 @@ use App\Enums\AircoPlacementType;
 use App\Enums\AttentionPointSource;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
+use App\Enums\IntakeStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -150,6 +152,13 @@ final class AircoSurveyService
             ]);
         }
         $this->refreshStoredReport($freshIntake);
+
+        // N74: still-proposed AI attention points were derived from the old room scope
+        // ("drie binnenunits (inclusief zolder)"). Re-derive them from the new scope;
+        // accepted/dismissed AI points are kept by SuggestAttentionPoints.
+        if (in_array($freshIntake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)) {
+            SuggestAttentionPointsJob::dispatch($freshIntake->id);
+        }
 
         return $room->fresh() ?? $room;
     }
