@@ -530,7 +530,13 @@ final class IntakeStepBuilder
         mixed $answerValue,
     ): bool {
         // Only an AI/request prefill; a customer or installer answer is never overruled.
-        if (! in_array($answerSource, [PrefillSources::AI_TEXT, PrefillSources::REQUEST_TEXT], true)) {
+        // An inferred count ("woonkamer en twee slaapkamers" → 3) is never a known fact,
+        // so in production it is stored as a text suggestion; that is the case this rule covers.
+        if (! in_array($answerSource, [
+            PrefillSources::AI_TEXT,
+            PrefillSources::REQUEST_TEXT,
+            PrefillSources::AI_TEXT_SUGGESTION,
+        ], true)) {
             return false;
         }
 
