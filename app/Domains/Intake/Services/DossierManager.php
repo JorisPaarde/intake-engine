@@ -233,6 +233,11 @@ final class DossierManager
 
         $roomSubjects = $this->syncRooms($intake, $root);
         $questionIndex = $this->questionIndex($intake);
+        /** @var array<string, array<string, mixed>> $roomDimensions */
+        $roomDimensions = AircoRoom::query()->where('intake_id', $intake->id)->get(['key', 'dimensions'])
+            ->filter(static fn (AircoRoom $room): bool => is_array($room->dimensions))
+            ->mapWithKeys(static fn (AircoRoom $room): array => [(string) $room->key => $room->dimensions])
+            ->all();
         /** @var array<string, mixed> $knownAreaAnswers */
         $knownAreaAnswers = [];
         foreach ($intake->answers as $areaAnswer) {
@@ -270,7 +275,7 @@ final class DossierManager
 
             // N99: a known m² makes an AI size-class proposal redundant — do not ask the
             // installer to confirm it. Structural: the stored area answer, never text.
-            if ($this->isRedundantSizeProposal($answer, $isAssumption, $knownAreaAnswers)) {
+            if ($this->isRedundantSizeProposal($answer, $isAssumption, $knownAreaAnswers, $roomDimensions)) {
                 if ($existingAnswerRecord !== null
                     && $existingAnswerRecord->status !== DossierRecordStatus::Superseded) {
                     $existingAnswerRecord->update(['status' => DossierRecordStatus::Superseded]);
@@ -1102,8 +1107,9 @@ final class DossierManager
 
     /**
      * @param  array<string, mixed>  $knownAreaAnswers
+     * @param  array<string, array<string, mixed>>  $roomDimensions
      */
-    private function isRedundantSizeProposal(IntakeAnswer $answer, bool $isAssumption, array $knownAreaAnswers): bool
+    private function isRedundantSizeProposal(IntakeAnswer $answer, bool $isAssumption, array $knownAreaAnswers, array $roomDimensions): bool
     {
         if ($answer->question_key !== 'room_size_indication'
             || ! is_string($answer->section_instance_key)
@@ -1116,7 +1122,11 @@ final class DossierManager
             return false;
         }
 
-        return RoomAreaAcceptance::hasKnownArea($knownAreaAnswers, $answer->section_instance_key);
+        return RoomAreaAcceptance::hasKnownRoomArea(
+            $knownAreaAnswers,
+            $answer->section_instance_key,
+            $roomDimensions[$answer->section_instance_key] ?? null,
+        );
     }
 
     private function answerRecordMethod(IntakeAnswer $answer, bool $isAssumption): string

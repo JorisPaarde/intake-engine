@@ -89,6 +89,24 @@ final class RoomAreaAcceptance
         return is_numeric($number) && (float) $number > 0;
     }
 
+    /**
+     * N99: area is known from the answers or from the room's stored dimensions
+     * (e.g. an installer L×B correction that never became a room_area_m2 answer).
+     *
+     * @param  array<string, mixed>  $answers
+     * @param  array<string, mixed>|null  $roomDimensions
+     */
+    public static function hasKnownRoomArea(array $answers, ?string $sectionInstanceKey, ?array $roomDimensions): bool
+    {
+        if (self::hasKnownArea($answers, $sectionInstanceKey)) {
+            return true;
+        }
+
+        $area = RoomDimensions::from($roomDimensions)->effectiveFloorAreaM2();
+
+        return $area !== null && $area > 0;
+    }
+
     public static function isPlausibleArea(float $areaM2): bool
     {
         return $areaM2 >= self::MIN_PLAUSIBLE_AREA_M2
