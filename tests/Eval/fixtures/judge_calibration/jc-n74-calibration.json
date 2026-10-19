@@ -1,0 +1,41 @@
+{
+    "id": "jc-n74-calibration",
+    "kind": "judge_calibration",
+    "origin": "N74",
+    "source_kind": "synthetic",
+    "note": "Kalibratie eval-judge N74: zolder met bestaande installatie die blijft mag niet als nieuwe unit/route terugkomen.",
+    "items": [
+        {
+            "id": "n74_three_units",
+            "question": "Wordt de zolder (slaapkamer 2, zolder) behandeld als ruimte die een nieuwe binnenunit krijgt of waarvoor nog een leidingroute, doorboring, koelleiding of condensafvoer voor een nieuwe unit beoordeeld moet worden (bijv. 'drie binnenunits (inclusief zolder)', 'leidingroute naar de zolder nog beoordelen')? Telt niet: vermelden dat de bestaande installatie op zolder blijft, of punten die alleen over de woonkamer en slaapkamer 1 gaan.",
+            "texts": [
+                "Leidingroute en doorboringen voor de drie binnenunits (inclusief zolder) nog te beoordelen."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n74_attic_route",
+            "question": "Wordt de zolder (slaapkamer 2, zolder) behandeld als ruimte die een nieuwe binnenunit krijgt of waarvoor nog een leidingroute, doorboring, koelleiding of condensafvoer voor een nieuwe unit beoordeeld moet worden (bijv. 'drie binnenunits (inclusief zolder)', 'leidingroute naar de zolder nog beoordelen')? Telt niet: vermelden dat de bestaande installatie op zolder blijft, of punten die alleen over de woonkamer en slaapkamer 1 gaan.",
+            "texts": [
+                "Leidingroute naar de zolder en condensafvoer van de zolderunit nog bepalen."
+            ],
+            "expected": "yes"
+        },
+        {
+            "id": "n74_attic_remains",
+            "question": "Wordt de zolder (slaapkamer 2, zolder) behandeld als ruimte die een nieuwe binnenunit krijgt of waarvoor nog een leidingroute, doorboring, koelleiding of condensafvoer voor een nieuwe unit beoordeeld moet worden (bijv. 'drie binnenunits (inclusief zolder)', 'leidingroute naar de zolder nog beoordelen')? Telt niet: vermelden dat de bestaande installatie op zolder blijft, of punten die alleen over de woonkamer en slaapkamer 1 gaan.",
+            "texts": [
+                "Op zolder blijft de bestaande installatie; leidingroute voor de woonkamer en slaapkamer 1 nog beoordelen."
+            ],
+            "expected": "no"
+        },
+        {
+            "id": "n74_other_rooms",
+            "question": "Wordt de zolder (slaapkamer 2, zolder) behandeld als ruimte die een nieuwe binnenunit krijgt of waarvoor nog een leidingroute, doorboring, koelleiding of condensafvoer voor een nieuwe unit beoordeeld moet worden (bijv. 'drie binnenunits (inclusief zolder)', 'leidingroute naar de zolder nog beoordelen')? Telt niet: vermelden dat de bestaande installatie op zolder blijft, of punten die alleen over de woonkamer en slaapkamer 1 gaan.",
+            "texts": [
+                "Leidingroute en doorboringen voor de twee binnenunits (woonkamer en slaapkamer 1) nog te beoordelen."
+            ],
+            "expected": "no"
+        }
+    ]
+}
