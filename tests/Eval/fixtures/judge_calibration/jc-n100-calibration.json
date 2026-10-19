@@ -65,7 +65,7 @@
             "id": "n100_system_installer",
             "question": "Wordt de keuze voor een multi-split (of een ander systeemtype zoals single-split) gepresenteerd als wens, voorkeur of keuze van de klant (bijv. 'de klant wenst een multi-split', 'de klant kiest voor multi-split')? Telt niet: dat een multi-split is gekozen of voorgesteld door de installateur of in het installatievoorstel staat, of een neutrale vermelding ('multi-split voor drie ruimtes', 'gekozen optie: multi-split').",
             "texts": [
-                "De klant wil airco in de woonkamer en twee slaapkamers; de gekozen optie is een multi-split met één buitenunit in de tuin."
+                "De klant wil airco in de woonkamer en twee slaapkamers; de installateur heeft gekozen voor een multi-split met één buitenunit in de tuin."
             ],
             "expected": "no"
         },
