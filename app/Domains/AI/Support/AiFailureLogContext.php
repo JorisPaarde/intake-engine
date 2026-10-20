@@ -27,21 +27,31 @@ final class AiFailureLogContext
      */
     public static function from(Throwable $exception): array
     {
+        // Only AiClientException messages are built from provider error text
+        // and our own fixed strings. Other throwables (e.g. QueryException with
+        // SQL bindings) can carry customer data, so for those we log the class
+        // only; the full text stays in ai_runs.error_message as before.
+        if (! $exception instanceof AiClientException) {
+            return [
+                'exception' => $exception::class,
+                'error_message' => 'Geen AI-providerfout ('.class_basename($exception).'); zie ai_runs.error_message.',
+            ];
+        }
+
         $context = [
             'exception' => $exception::class,
             'error_message' => self::message($exception),
         ];
 
-        if ($exception instanceof AiClientException) {
-            if ($exception->httpStatus !== null) {
-                $context['http_status'] = $exception->httpStatus;
-            }
-            if ($exception->providerErrorCode !== null && $exception->providerErrorCode !== '') {
-                $context['provider_error_code'] = $exception->providerErrorCode;
-            }
-            if ($exception->errorClass !== null && $exception->errorClass !== '') {
-                $context['error_class'] = $exception->errorClass;
-            }
+        if ($exception->httpStatus !== null) {
+            $context['http_status'] = $exception->httpStatus;
+        }
+        $code = self::safeCode($exception->providerErrorCode);
+        if ($code !== null) {
+            $context['provider_error_code'] = $code;
+        }
+        if ($exception->errorClass !== null && $exception->errorClass !== '') {
+            $context['error_class'] = $exception->errorClass;
         }
 
         return $context;
@@ -54,11 +64,40 @@ final class AiFailureLogContext
             $message = '(geen melding) '.$exception::class;
         }
 
-        $apiKey = config('ai.api_key');
-        if (is_string($apiKey) && $apiKey !== '') {
-            $message = str_replace($apiKey, '[redacted]', $message);
+        return Str::limit(self::redact($message), self::MESSAGE_LIMIT);
+    }
+
+    /**
+     * Provider codes are short identifiers (402, "insufficient_quota"). Anything
+     * else is dropped rather than logged.
+     */
+    public static function safeCode(?string $code): ?string
+    {
+        if ($code === null) {
+            return null;
         }
 
-        return Str::limit($message, self::MESSAGE_LIMIT);
+        $code = trim($code);
+        if ($code === '' || preg_match('/^[A-Za-z0-9_.\-]{1,64}$/', $code) !== 1) {
+            return null;
+        }
+
+        return self::redact($code) === $code && ! str_starts_with(strtolower($code), 'sk-')
+            ? $code
+            : null;
+    }
+
+    private static function redact(string $text): string
+    {
+        $apiKey = config('ai.api_key');
+        if (is_string($apiKey) && $apiKey !== '') {
+            $text = str_replace($apiKey, '[redacted]', $text);
+        }
+
+        // Key-shaped tokens, e-mail addresses and phone numbers never go to the log.
+        $text = (string) preg_replace('/\bsk-[A-Za-z0-9_\-]{8,}/', '[redacted]', $text);
+        $text = (string) preg_replace('/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/', '[e-mail]', $text);
+
+        return (string) preg_replace('/(?<![\d.])(?:\+31|0)[\s\-]?\d(?:[\s\-]?\d){7,9}(?!\d)/', '[telefoon]', $text);
     }
 }

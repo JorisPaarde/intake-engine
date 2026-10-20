@@ -14,6 +14,7 @@ use App\Enums\AiRunStatus;
 use App\Enums\ContributionMode;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -59,12 +60,48 @@ test('log context carries status, provider code and a capped message without the
         ->and(mb_strlen($context['error_message']))->toBeLessThanOrEqual(AiFailureLogContext::MESSAGE_LIMIT + 3);
 });
 
-test('log context for a non-AI throwable keeps class and message', function () {
-    $context = AiFailureLogContext::from(new RuntimeException(''));
+test('log context for a non-AI throwable logs the class only, never its text', function () {
+    $query = new QueryException(
+        'sqlite',
+        'insert into intake_answers (value) values (?)',
+        ['Contact alice@example.com'],
+        new RuntimeException('constraint failed'),
+    );
 
-    expect($context['exception'])->toBe(RuntimeException::class)
-        ->and($context['error_message'])->toContain('geen melding')
+    $context = AiFailureLogContext::from($query);
+
+    expect($context['exception'])->toBe(QueryException::class)
+        ->and($context['error_message'])->toContain('Geen AI-providerfout')
+        ->and($context['error_message'])->not->toContain('alice@example.com')
+        ->and($context['error_message'])->not->toContain('insert into')
         ->and($context)->not->toHaveKey('http_status');
+});
+
+test('provider code must look like a code and never carries the key', function () {
+    config(['ai.api_key' => 'sk-test-secret-123']);
+
+    expect(AiFailureLogContext::safeCode('402'))->toBe('402')
+        ->and(AiFailureLogContext::safeCode('insufficient_quota'))->toBe('insufficient_quota')
+        ->and(AiFailureLogContext::safeCode('sk-test-secret-123'))->toBeNull()
+        ->and(AiFailureLogContext::safeCode('sk-or-v1-abcdefgh1234'))->toBeNull()
+        ->and(AiFailureLogContext::safeCode('not a code with spaces'))->toBeNull()
+        ->and(AiFailureLogContext::safeCode(str_repeat('a', 65)))->toBeNull()
+        ->and(AiFailureLogContext::from(new AiClientException('x', providerErrorCode: 'sk-test-secret-123')))
+        ->not->toHaveKey('provider_error_code');
+});
+
+test('provider message is scrubbed of key-shaped tokens, e-mail and phone numbers', function () {
+    config(['ai.api_key' => '']);
+
+    $context = AiFailureLogContext::from(new AiClientException(
+        'Externe AI-provider gaf status 400. bad input jan@example.com 06-12345678 sk-or-v1-abcdefghijkl',
+        httpStatus: 400,
+    ));
+
+    expect($context['error_message'])->toStartWith('Externe AI-provider gaf status 400.')
+        ->and($context['error_message'])->not->toContain('jan@example.com')
+        ->and($context['error_message'])->not->toContain('12345678')
+        ->and($context['error_message'])->not->toContain('sk-or-v1-abcdefghijkl');
 });
 
 test('openai client maps an OpenRouter 402 to status, provider code and message', function () {
