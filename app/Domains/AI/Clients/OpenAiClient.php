@@ -189,6 +189,7 @@ final class OpenAiClient implements AiClientInterface
                     modelParameters: $modelParameters,
                     httpStatus: $status,
                     providerErrorCode: $this->providerErrorCode($response),
+                    providerMessage: $this->providerPrimaryMessage($response),
                 );
             }
 
@@ -377,6 +378,19 @@ final class OpenAiClient implements AiClientInterface
         }
 
         return null;
+    }
+
+    /**
+     * Only `error.message` (never `error.metadata.raw`, which may echo input).
+     */
+    private function providerPrimaryMessage(Response $response): ?string
+    {
+        $value = $response->json('error.message');
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        return Str::limit($this->safeExceptionMessage(trim($value), (string) config('ai.api_key')), 500, '');
     }
 
     private function providerErrorMessage(Response $response): ?string

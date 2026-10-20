@@ -13,35 +13,50 @@ use Throwable;
  *
  * Gives every AI failure log line the HTTP status, the provider error code and
  * the first ~200 characters of the message, so a 402 (credits) or 429 is
- * visible in laravel.log instead of only the exception class. Never includes
- * the API key or the prompt: AiClientException messages are built from the
- * provider's error text (key already redacted in OpenAiClient), and the key is
- * redacted here once more as a safety net.
+ * visible in laravel.log instead of only the exception class. Whitelist-based:
+ * provider text is only logged for account/availability statuses (never for
+ * 400/422, which may echo input), only our own fixed messages are logged
+ * otherwise, and the key, key-shaped tokens, e-mail and phone numbers are
+ * scrubbed. Never the prompt or customer data.
  */
 final class AiFailureLogContext
 {
     public const MESSAGE_LIMIT = 200;
 
     /**
+     * HTTP statuses whose provider text is a standard account/availability
+     * message (credits, auth, rate limit, outage) and not an echo of our input.
+     * For other statuses (400/422 …) only status and code are logged.
+     */
+    private const MESSAGE_SAFE_STATUSES = [401, 402, 403, 404, 408, 409, 429, 500, 502, 503, 504];
+
+    /**
+     * Fixed messages built by OpenAiClient / AiBudgetGuard / NullAiClient.
+     */
+    private const SAFE_MESSAGE_PREFIXES = [
+        'Externe AI-aanroep mislukt: cURL error',
+        'Externe AI-provider gaf geen bruikbare inhoud',
+        'Externe AI-provider gaf afgekapte JSON',
+        'Externe AI-provider gaf ongeldige JSON',
+        'AI-budgetlimiet bereikt',
+        'AI-budgetcap ontbreekt',
+        'AI_API_KEY ontbreekt',
+        'AI-provider is niet geconfigureerd',
+    ];
+
+    /**
      * @return array{exception: class-string, error_message: string, http_status?: int, provider_error_code?: string, error_class?: string}
      */
     public static function from(Throwable $exception): array
     {
-        // Only AiClientException messages are built from provider error text
-        // and our own fixed strings. Other throwables (e.g. QueryException with
-        // SQL bindings) can carry customer data, so for those we log the class
-        // only; the full text stays in ai_runs.error_message as before.
-        if (! $exception instanceof AiClientException) {
-            return [
-                'exception' => $exception::class,
-                'error_message' => 'Geen AI-providerfout ('.class_basename($exception).'); zie ai_runs.error_message.',
-            ];
-        }
-
         $context = [
             'exception' => $exception::class,
             'error_message' => self::message($exception),
         ];
+
+        if (! $exception instanceof AiClientException) {
+            return $context;
+        }
 
         if ($exception->httpStatus !== null) {
             $context['http_status'] = $exception->httpStatus;
@@ -57,14 +72,40 @@ final class AiFailureLogContext
         return $context;
     }
 
+    /**
+     * Whitelist: only text we know cannot contain customer data or prompts.
+     * Everything else is reduced to the exception class; the full text stays
+     * in ai_runs.error_message as before.
+     */
     public static function message(Throwable $exception): string
     {
-        $message = trim($exception->getMessage());
-        if ($message === '') {
-            $message = '(geen melding) '.$exception::class;
+        if ($exception instanceof AiClientException && $exception->httpStatus !== null) {
+            $message = 'Externe AI-provider gaf status '.$exception->httpStatus.'.';
+            $provider = $exception->providerMessage !== null ? trim($exception->providerMessage) : '';
+
+            if ($provider !== '' && in_array($exception->httpStatus, self::MESSAGE_SAFE_STATUSES, true)) {
+                $message .= ' '.$provider;
+            } elseif ($provider !== '') {
+                $message .= ' (providermelding niet gelogd; zie ai_runs.error_message)';
+            }
+
+            return Str::limit(self::redact($message), self::MESSAGE_LIMIT);
         }
 
-        return Str::limit(self::redact($message), self::MESSAGE_LIMIT);
+        $text = trim($exception->getMessage());
+        if ($exception instanceof AiClientException) {
+            foreach (self::SAFE_MESSAGE_PREFIXES as $prefix) {
+                if (str_starts_with($text, $prefix)) {
+                    return Str::limit(self::redact($text), self::MESSAGE_LIMIT);
+                }
+            }
+        }
+
+        $source = $exception instanceof AiClientException && $exception->getPrevious() !== null
+            ? $exception->getPrevious()
+            : $exception;
+
+        return 'AI-fout zonder logbare melding ('.class_basename($source).'); zie ai_runs.error_message.';
     }
 
     /**

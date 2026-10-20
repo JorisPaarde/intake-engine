@@ -39,14 +39,15 @@ test('AiClientException never has an empty message', function () {
         ->and((new AiClientException('echte melding'))->getMessage())->toBe('echte melding');
 });
 
-test('log context carries status, provider code and a capped message without the key', function () {
+test('log context carries status, provider code and a capped provider message without the key', function () {
     config(['ai.api_key' => 'sk-or-v1-secretsecret']);
 
     $exception = new AiClientException(
-        'Externe AI-provider gaf status 402. key sk-or-v1-secretsecret '.str_repeat('x', 400),
+        'Externe AI-provider gaf status 402. whatever',
         errorClass: 'provider_error',
         httpStatus: 402,
         providerErrorCode: '402',
+        providerMessage: 'This request requires more credits. key sk-or-v1-secretsecret '.str_repeat('x', 400),
     );
 
     $context = AiFailureLogContext::from($exception);
@@ -55,9 +56,42 @@ test('log context carries status, provider code and a capped message without the
         ->and($context['http_status'])->toBe(402)
         ->and($context['provider_error_code'])->toBe('402')
         ->and($context['error_class'])->toBe('provider_error')
-        ->and($context['error_message'])->toStartWith('Externe AI-provider gaf status 402.')
+        ->and($context['error_message'])->toStartWith('Externe AI-provider gaf status 402. This request requires more credits.')
         ->and($context['error_message'])->not->toContain('sk-or-v1-secretsecret')
         ->and(mb_strlen($context['error_message']))->toBeLessThanOrEqual(AiFailureLogContext::MESSAGE_LIMIT + 3);
+});
+
+test('a 400 provider text (may echo input) is not logged, only status and code', function () {
+    $context = AiFailureLogContext::from(new AiClientException(
+        'Externe AI-provider gaf status 400. Invalid input: Jan Jansen, Damrak 1; prompt: Vat samen.',
+        httpStatus: 400,
+        providerErrorCode: 'invalid_request',
+        providerMessage: 'Invalid input: Jan Jansen, Damrak 1; prompt: Vat samen.',
+    ));
+
+    expect($context['http_status'])->toBe(400)
+        ->and($context['provider_error_code'])->toBe('invalid_request')
+        ->and($context['error_message'])->toContain('status 400')
+        ->and($context['error_message'])->not->toContain('Jan Jansen')
+        ->and($context['error_message'])->not->toContain('Vat samen');
+});
+
+test('a wrapped non-AI exception (AiGateway) logs only the class of the cause', function () {
+    $query = new QueryException('sqlite', 'insert into x values (?, ?)', ['Damrak 1', 'Jan Jansen'], new RuntimeException('failed'));
+    $wrapped = new AiClientException('AI-aanroep mislukt: '.$query->getMessage(), previous: $query);
+
+    $context = AiFailureLogContext::from($wrapped);
+
+    expect($context['error_message'])->toContain('QueryException')
+        ->and($context['error_message'])->not->toContain('Jan Jansen')
+        ->and($context['error_message'])->not->toContain('insert into');
+});
+
+test('own fixed messages (budget, invalid JSON) are logged as-is', function () {
+    expect(AiFailureLogContext::from(new AiClientException('AI-budgetlimiet bereikt voor vandaag.'))['error_message'])
+        ->toBe('AI-budgetlimiet bereikt voor vandaag.')
+        ->and(AiFailureLogContext::from(new AiClientException('Externe AI-provider gaf ongeldige JSON.', errorClass: 'invalid_json'))['error_message'])
+        ->toBe('Externe AI-provider gaf ongeldige JSON.');
 });
 
 test('log context for a non-AI throwable logs the class only, never its text', function () {
@@ -71,7 +105,7 @@ test('log context for a non-AI throwable logs the class only, never its text', f
     $context = AiFailureLogContext::from($query);
 
     expect($context['exception'])->toBe(QueryException::class)
-        ->and($context['error_message'])->toContain('Geen AI-providerfout')
+        ->and($context['error_message'])->toContain('QueryException')
         ->and($context['error_message'])->not->toContain('alice@example.com')
         ->and($context['error_message'])->not->toContain('insert into')
         ->and($context)->not->toHaveKey('http_status');
@@ -94,11 +128,12 @@ test('provider message is scrubbed of key-shaped tokens, e-mail and phone number
     config(['ai.api_key' => '']);
 
     $context = AiFailureLogContext::from(new AiClientException(
-        'Externe AI-provider gaf status 400. bad input jan@example.com 06-12345678 sk-or-v1-abcdefghijkl',
-        httpStatus: 400,
+        'x',
+        httpStatus: 429,
+        providerMessage: 'Rate limited for jan@example.com 06-12345678 sk-or-v1-abcdefghijkl',
     ));
 
-    expect($context['error_message'])->toStartWith('Externe AI-provider gaf status 400.')
+    expect($context['error_message'])->toStartWith('Externe AI-provider gaf status 429. Rate limited')
         ->and($context['error_message'])->not->toContain('jan@example.com')
         ->and($context['error_message'])->not->toContain('12345678')
         ->and($context['error_message'])->not->toContain('sk-or-v1-abcdefghijkl');
@@ -127,6 +162,7 @@ test('openai client maps an OpenRouter 402 to status, provider code and message'
 
         expect($e->httpStatus)->toBe(402)
             ->and($e->providerErrorCode)->toBe('402')
+            ->and($e->providerMessage)->toContain('requires more credits')
             ->and($context['error_message'])->toContain('requires more credits')
             ->and($context['error_message'])->not->toContain('Vat samen');
     }
@@ -149,15 +185,26 @@ test('request prefill failure is logged with the provider message and stored on 
         'prefill' => ['request_reason' => 'Airco in woonkamer en twee slaapkamers.'],
     ]);
 
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.model' => 'gpt-test',
+        'ai.budget.daily_cents' => 1000,
+        'ai.budget.monthly_cents' => 10000,
+        'ai.budget.reserve_cents_per_call' => 1,
+    ]);
+    Http::fake(['*/chat/completions' => Http::response(n103OpenRouter402Body(), 402)]);
     Log::spy();
-    FakeAiClient::alwaysFail('Externe AI-provider gaf status 402. This request requires more credits');
 
     app(PrefillAnswersFromKnownContext::class)->handle($intake->fresh() ?? $intake);
 
     Log::shouldHaveReceived('warning')
         ->withArgs(fn (string $message, array $context = []) => $message === 'AI known-context prefill failed'
             && $context['intake_id'] === $intake->id
-            && str_contains($context['error_message'], 'status 402'))
+            && ($context['http_status'] ?? null) === 402
+            && ($context['provider_error_code'] ?? null) === '402'
+            && str_contains($context['error_message'], 'requires more credits')
+            && ! str_contains($context['error_message'], 'Airco in woonkamer'))
         ->once();
 
     $run = AiRun::query()->where('intake_id', $intake->id)->latest('id')->first();

@@ -26,6 +26,7 @@ final class AiClientException extends RuntimeException
         public readonly array $modelParameters = [],
         public readonly ?int $httpStatus = null,
         public readonly ?string $providerErrorCode = null,
+        public readonly ?string $providerMessage = null,
     ) {
         // N103: an AI failure must never carry an empty message, otherwise logs
         // and ai_runs.error_message lose the cause (e.g. a 402 for credits).
