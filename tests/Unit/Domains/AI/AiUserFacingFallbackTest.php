@@ -7,8 +7,9 @@ use App\Domains\AI\Services\AiUserFacingFallback;
 
 test('user-facing fallback never includes raw provider text', function () {
     $fallback = new AiUserFacingFallback;
+    $key = fakeApiKey('sk-proj-');
     $exception = new AiClientException(
-        'Externe AI-provider gaf status 402. Insufficient credits for sk-proj-SECRET',
+        'Externe AI-provider gaf status 402. Insufficient credits for '.$key,
         httpStatus: 402,
     );
 
@@ -17,7 +18,7 @@ test('user-facing fallback never includes raw provider text', function () {
     expect($message)->toBe('De AI-dienst is tijdelijk niet beschikbaar. Probeer het later opnieuw.')
         ->and($message)->not->toContain('402')
         ->and($message)->not->toContain('Insufficient')
-        ->and($message)->not->toContain('SECRET');
+        ->and($message)->not->toContain($key);
 });
 
 test('catalog fallback stays dutch and secret-free', function () {

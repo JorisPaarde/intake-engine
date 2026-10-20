@@ -379,20 +379,23 @@ test('AiTraceRedactor verwijdert e-mail en telefoon uit payloads', function () {
 
 test('AiTraceRedactor verwijdert API-keys authheaders en klanttokens', function () {
     $redactor = app(AiTraceRedactor::class);
+    $bearerKey = fakeApiKey('sk-live-');
+    $plainKey = fakeApiKey('sk-');
+    $nestedKey = fakeApiKey('sk-nested-');
 
     $redacted = $redactor->redact([
-        'authorization' => 'Bearer sk-live-secret-value-1234567890',
-        'api_key' => 'sk-abcdefghijklmnopqrstuvwxyz',
+        'authorization' => 'Bearer '.$bearerKey,
+        'api_key' => $plainKey,
         'url' => 'https://example.test/o/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWx',
         'image_url' => 'data:image/jpeg;base64,'.str_repeat('A', 800),
-        'nested' => ['X-Api-Key' => 'sk-nested-key-abcdefgh'],
+        'nested' => ['X-Api-Key' => $nestedKey],
     ]);
 
     $json = (string) json_encode($redacted);
 
-    expect($json)->not->toContain('sk-live-secret')
-        ->and($json)->not->toContain('sk-abcdefghijklmnopqrstuvwxyz')
-        ->and($json)->not->toContain('sk-nested-key')
+    expect($json)->not->toContain($bearerKey)
+        ->and($json)->not->toContain($plainKey)
+        ->and($json)->not->toContain($nestedKey)
         ->and($json)->toContain('[redacted]')
         ->and($json)->toContain('[token-redacted]')
         ->and($json)->toContain('[image-omitted')
