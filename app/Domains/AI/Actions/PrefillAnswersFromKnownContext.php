@@ -14,6 +14,7 @@ use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\RequestPrefillContextBuilder;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -293,6 +294,12 @@ final class PrefillAnswersFromKnownContext
             $errorMessage = $exception instanceof ValidationException
                 ? $this->validationFailureFormatter->fromException($exception)
                 : Str::limit($exception->getMessage(), 1000, '');
+
+            Log::warning('AI known-context prefill failed', [
+                'intake_id' => $intake->id,
+                'ai_run_id' => $run->id,
+                ...AiFailureLogContext::from($exception),
+            ]);
 
             $run->update([
                 'status' => AiRunStatus::Failed,

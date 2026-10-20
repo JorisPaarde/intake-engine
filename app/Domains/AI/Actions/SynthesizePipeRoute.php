@@ -11,6 +11,7 @@ use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Models\PipeRouteSegment;
@@ -115,14 +116,14 @@ final class SynthesizePipeRoute
                 } catch (Throwable $reviewException) {
                     Log::warning('Pipe route synthesis review failed', [
                         'session_id' => $session->id,
-                        'exception' => $reviewException::class,
+                        ...AiFailureLogContext::from($reviewException),
                     ]);
                 }
             }
         } catch (Throwable $exception) {
             Log::warning('Pipe route synthesis failed', [
                 'session_id' => $session->id,
-                'exception' => $exception::class,
+                ...AiFailureLogContext::from($exception),
             ]);
 
             if ($primary !== null) {
@@ -177,7 +178,7 @@ final class SynthesizePipeRoute
         } catch (Throwable $exception) {
             Log::warning('Pipe route synthesis persist failed', [
                 'session_id' => $session->id,
-                'exception' => $exception::class,
+                ...AiFailureLogContext::from($exception),
             ]);
 
             return $session;

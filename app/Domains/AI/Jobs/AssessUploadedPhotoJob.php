@@ -10,6 +10,7 @@ use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Services\AiSkipRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\AI\Support\PhotoSubject;
@@ -120,8 +121,8 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
                 'upload_id' => $this->uploadId,
                 'attempt' => $attempt,
                 'queue_wait_ms' => $queueWaitMs,
-                'exception' => $exception::class,
-                'message' => $exception->getMessage(),
+                ...AiFailureLogContext::from($exception),
+                ...AiFailureLogContext::from($exception),
             ]);
 
             $lifecycle->ensureTerminal($upload);

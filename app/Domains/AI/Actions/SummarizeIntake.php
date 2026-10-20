@@ -11,6 +11,7 @@ use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\SummaryDossierContext;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
@@ -127,7 +128,7 @@ final class SummarizeIntake
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
                 'ai_trace_id' => $trace->traceId(),
-                'message' => $e->getMessage(),
+                ...AiFailureLogContext::from($e),
             ]);
 
             $run->update([

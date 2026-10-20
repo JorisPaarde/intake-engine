@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Enums\AiRunStatus;
@@ -175,7 +176,7 @@ final class AnalyzeRoutePhoto
                 'segment_id' => $segment->id,
                 'ai_run_id' => $run->id,
                 'ai_trace_id' => $trace->traceId(),
-                'exception' => $exception::class,
+                ...AiFailureLogContext::from($exception),
             ]);
 
             $run->update([

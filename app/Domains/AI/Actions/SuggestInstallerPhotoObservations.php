@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
@@ -274,7 +275,7 @@ final class SuggestInstallerPhotoObservations
                 'upload_id' => $upload->id,
                 'ai_run_id' => $run->id,
                 'ai_trace_id' => $trace->traceId(),
-                'exception' => $exception::class,
+                ...AiFailureLogContext::from($exception),
             ]);
 
             $run->update([

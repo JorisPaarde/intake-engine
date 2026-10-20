@@ -14,6 +14,7 @@ use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\ContributionTask;
@@ -236,7 +237,7 @@ final class AssessFollowUpPhotoSubject
                 'ai_run_id' => $run->id,
                 'ai_trace_id' => $trace->traceId(),
                 'upload_id' => $upload->id,
-                'exception' => $exception::class,
+                ...AiFailureLogContext::from($exception),
             ]);
 
             $run->update([

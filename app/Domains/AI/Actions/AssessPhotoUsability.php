@@ -9,6 +9,7 @@ use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Services\PhotoUsabilityHeuristic;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
@@ -147,7 +148,7 @@ final class AssessPhotoUsability
             Log::warning('AI photo usability failed', [
                 'intake_id' => $upload->intake_id,
                 'upload_id' => $upload->id,
-                'message' => $e->getMessage(),
+                ...AiFailureLogContext::from($e),
             ]);
 
             $verdict = self::persistFallbackVerdict($upload);
