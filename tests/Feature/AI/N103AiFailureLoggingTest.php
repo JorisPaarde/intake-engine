@@ -40,14 +40,15 @@ test('AiClientException never has an empty message', function () {
 });
 
 test('log context carries status, provider code and a capped provider message without the key', function () {
-    config(['ai.api_key' => 'sk-or-v1-secretsecret']);
+    $apiKey = fakeApiKey();
+    config(['ai.api_key' => $apiKey]);
 
     $exception = new AiClientException(
         'Externe AI-provider gaf status 402. whatever',
         errorClass: 'provider_error',
         httpStatus: 402,
         providerErrorCode: '402',
-        providerMessage: 'This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 25604. key sk-or-v1-secretsecret '.str_repeat('x', 400),
+        providerMessage: 'This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 25604. key '.$apiKey.' '.str_repeat('x', 400),
     );
 
     $context = AiFailureLogContext::from($exception);
@@ -57,7 +58,7 @@ test('log context carries status, provider code and a capped provider message wi
         ->and($context['provider_error_code'])->toBe('402')
         ->and($context['error_class'])->toBe('provider_error')
         ->and($context['error_message'])->toBe('Externe AI-provider gaf status 402 (onvoldoende krediet of te hoge max_tokens). This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 25604.')
-        ->and($context['error_message'])->not->toContain('sk-or-v1-secretsecret')
+        ->and($context['error_message'])->not->toContain($apiKey)
         ->and(mb_strlen($context['error_message']))->toBeLessThanOrEqual(AiFailureLogContext::MESSAGE_LIMIT + 3);
 });
 
@@ -113,32 +114,34 @@ test('log context for a non-AI throwable logs the class only, never its text', f
 });
 
 test('provider code must look like a code and never carries the key', function () {
-    config(['ai.api_key' => 'sk-test-secret-123']);
+    $apiKey = fakeApiKey('sk-test-');
+    config(['ai.api_key' => $apiKey]);
 
     expect(AiFailureLogContext::safeCode('402'))->toBe('402')
         ->and(AiFailureLogContext::safeCode('insufficient_quota'))->toBe('insufficient_quota')
-        ->and(AiFailureLogContext::safeCode('sk-test-secret-123'))->toBeNull()
-        ->and(AiFailureLogContext::safeCode('sk-or-v1-abcdefgh1234'))->toBeNull()
+        ->and(AiFailureLogContext::safeCode($apiKey))->toBeNull()
+        ->and(AiFailureLogContext::safeCode(fakeApiKey()))->toBeNull()
         ->and(AiFailureLogContext::safeCode('not a code with spaces'))->toBeNull()
         ->and(AiFailureLogContext::safeCode(str_repeat('a', 65)))->toBeNull()
-        ->and(AiFailureLogContext::from(new AiClientException('x', providerErrorCode: 'sk-test-secret-123')))
+        ->and(AiFailureLogContext::from(new AiClientException('x', providerErrorCode: $apiKey)))
         ->not->toHaveKey('provider_error_code');
 });
 
 test('known provider prefix logs only the fixed prefix, never the text after it', function () {
     config(['ai.api_key' => '']);
+    $otherKey = fakeApiKey();
 
     $context = AiFailureLogContext::from(new AiClientException(
         'x',
         httpStatus: 429,
-        providerMessage: 'Rate limit exceeded for user Jan Jansen at Damrak 1, jan@example.com 06-12345678 sk-or-v1-abcdefghijkl',
+        providerMessage: 'Rate limit exceeded for user Jan Jansen at Damrak 1, jan@example.com 06-12345678 '.$otherKey,
     ));
 
     expect($context['error_message'])->toBe('Externe AI-provider gaf status 429 (rate limit). Rate limit exceeded …')
         ->and($context['error_message'])->not->toContain('Jan Jansen')
         ->and($context['error_message'])->not->toContain('jan@example.com')
         ->and($context['error_message'])->not->toContain('12345678')
-        ->and($context['error_message'])->not->toContain('sk-or-v1-abcdefghijkl');
+        ->and($context['error_message'])->not->toContain($otherKey);
 });
 
 test('openai client maps an OpenRouter 402 to status, provider code and message', function () {

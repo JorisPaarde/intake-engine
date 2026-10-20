@@ -54,14 +54,15 @@ test('alleen AI_API_KEY in env activeert openai met eval-defaults en waarschuwin
         'ai.budget.daily_cents' => null,
         'ai.budget.monthly_cents' => null,
     ]);
-    $_ENV['AI_API_KEY'] = 'sk-or-test-eval-only';
-    $_SERVER['AI_API_KEY'] = 'sk-or-test-eval-only';
+    $fakeKey = fakeApiKey();
+    $_ENV['AI_API_KEY'] = $fakeKey;
+    $_SERVER['AI_API_KEY'] = $fakeKey;
 
     $result = app(EvalRuntimeBootstrap::class)->activate(forceFake: false);
 
     expect($result['mode'])->toBe('openai')
         ->and($result['api_key_present'])->toBeTrue()
-        ->and(config('ai.api_key'))->toBe('sk-or-test-eval-only')
+        ->and(config('ai.api_key'))->toBe($fakeKey)
         ->and(config('ai.provider'))->toBe('openai')
         ->and(config('ai.base_url'))->toBe(EvalRuntimeBootstrap::EVAL_OPENROUTER_BASE_URL)
         ->and(config('ai.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
@@ -81,8 +82,9 @@ test('OPENROUTER_API_KEY alleen is geen geldige eval-key', function () {
         'ai.provider' => 'null',
         'ai.api_key' => null,
     ]);
-    $_ENV['OPENROUTER_API_KEY'] = 'sk-or-alias-ignored';
-    $_SERVER['OPENROUTER_API_KEY'] = 'sk-or-alias-ignored';
+    $fakeKey = fakeApiKey();
+    $_ENV['OPENROUTER_API_KEY'] = $fakeKey;
+    $_SERVER['OPENROUTER_API_KEY'] = $fakeKey;
 
     $result = app(EvalRuntimeBootstrap::class)->activate(forceFake: false);
 
@@ -103,13 +105,14 @@ test('bestaande prod model en base_url blijven staan bij AI_API_KEY', function (
         'ai.budget.daily_cents' => 500,
         'ai.budget.monthly_cents' => null,
     ]);
-    $_ENV['AI_API_KEY'] = 'sk-or-prod-mirror';
-    $_SERVER['AI_API_KEY'] = 'sk-or-prod-mirror';
+    $fakeKey = fakeApiKey();
+    $_ENV['AI_API_KEY'] = $fakeKey;
+    $_SERVER['AI_API_KEY'] = $fakeKey;
 
     $result = app(EvalRuntimeBootstrap::class)->activate(forceFake: false);
 
     expect($result['mode'])->toBe('openai')
-        ->and(config('ai.api_key'))->toBe('sk-or-prod-mirror')
+        ->and(config('ai.api_key'))->toBe($fakeKey)
         ->and(config('ai.base_url'))->toBe('https://openrouter.ai/api/v1')
         ->and(config('ai.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
         ->and(config('ai.vision_model'))->toBe('prod-vision')
@@ -124,8 +127,9 @@ test('--fake wint van aanwezige AI_API_KEY', function () {
         'ai.provider' => 'null',
         'ai.api_key' => null,
     ]);
-    $_ENV['AI_API_KEY'] = 'sk-or-ignored';
-    $_SERVER['AI_API_KEY'] = 'sk-or-ignored';
+    $fakeKey = fakeApiKey();
+    $_ENV['AI_API_KEY'] = $fakeKey;
+    $_SERVER['AI_API_KEY'] = $fakeKey;
 
     $result = app(EvalRuntimeBootstrap::class)->activate(forceFake: true);
 

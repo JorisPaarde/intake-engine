@@ -129,3 +129,13 @@ function runProcessIntakePhotoVariantsJob(
 
     app()->call([$job, 'handle']);
 }
+
+/**
+ * Random, test-only API key (never a key-shaped literal in the repo, so secret
+ * scanners such as GitGuardian stay quiet). Prefix keeps format-based
+ * redaction rules testable.
+ */
+function fakeApiKey(string $prefix = 'sk-or-v1-'): string
+{
+    return $prefix.bin2hex(random_bytes(16));
+}

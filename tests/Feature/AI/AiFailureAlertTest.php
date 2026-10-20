@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Mail;
 beforeEach(function () {
     config([
         'ai.provider' => 'openai',
-        'ai.api_key' => 'sk-test-alert-key-value-12345678',
+        'ai.api_key' => fakeApiKey('sk-test-'),
         'ai.model' => 'gpt-test',
         'ai.budget.daily_cents' => 1000,
         'ai.budget.monthly_cents' => 10000,
@@ -52,11 +52,12 @@ test('openai client alerts once per hour per error type after retries', function
     expect(fn () => app(OpenAiClient::class)->complete(alertAiRequest()))
         ->toThrow(AiClientException::class);
 
-    Mail::assertSent(AiFailureAlertMail::class, function (AiFailureAlertMail $mail): bool {
+    $apiKey = (string) config('ai.api_key');
+    Mail::assertSent(AiFailureAlertMail::class, function (AiFailureAlertMail $mail) use ($apiKey): bool {
         return $mail->hasTo('info@jpwebcreation.nl')
             && $mail->errorType === AiAlertErrorType::Payment
             && $mail->httpStatus === 402
-            && ! str_contains($mail->sanitizedMessage, 'sk-test-alert-key');
+            && ! str_contains($mail->sanitizedMessage, $apiKey);
     });
 
     Mail::fake();
@@ -97,17 +98,18 @@ test('openai client does not alert on 400 client errors', function () {
 
 test('alert service redacts secrets in mail body', function () {
     Mail::fake();
+    $leakedKey = fakeApiKey('sk-proj-');
     $sent = app(AiFailureAlertService::class)->alertHttpFailure(
         401,
-        'Unauthorized Bearer sk-proj-LEAKEDSECRETTOKEN12345',
-        'sk-proj-LEAKEDSECRETTOKEN12345',
+        'Unauthorized Bearer '.$leakedKey,
+        $leakedKey,
         force: true,
     );
 
     expect($sent)->toBeTrue();
 
-    Mail::assertSent(AiFailureAlertMail::class, function (AiFailureAlertMail $mail): bool {
-        return ! str_contains($mail->sanitizedMessage, 'LEAKEDSECRETTOKEN')
+    Mail::assertSent(AiFailureAlertMail::class, function (AiFailureAlertMail $mail) use ($leakedKey): bool {
+        return ! str_contains($mail->sanitizedMessage, substr($leakedKey, 8))
             && str_contains($mail->sanitizedMessage, '[redacted]');
     });
 });
@@ -124,7 +126,7 @@ test('balance check warns below threshold and throttles daily', function () {
         ], 200),
     ]);
 
-    $result = app(OpenRouterBalanceChecker::class)->check('sk-test-alert-key-value-12345678');
+    $result = app(OpenRouterBalanceChecker::class)->check((string) config('ai.api_key'));
 
     expect($result['remaining_usd'])->toBe(3.5)
         ->and($result['source'])->toBe('key.limit_remaining');
@@ -149,7 +151,7 @@ test('balance check falls back to credits endpoint', function () {
         ], 200),
     ]);
 
-    $result = app(OpenRouterBalanceChecker::class)->check('sk-test-alert-key-value-12345678');
+    $result = app(OpenRouterBalanceChecker::class)->check((string) config('ai.api_key'));
 
     expect($result['remaining_usd'])->toBe(1.75)
         ->and($result['source'])->toBe('credits.total_credits_minus_usage');
