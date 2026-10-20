@@ -17,6 +17,7 @@ use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Services\DossierSynthesisPartialAcceptor;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\SurveySynthesisContextBuilder;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\AI\Support\InstallerCandidateDecisionPreserver;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\AircoConnection;
@@ -270,7 +271,7 @@ final class SynthesizeSurveyDossier
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run?->id,
                 'ai_trace_id' => $trace?->traceId(),
-                'exception' => $exception::class,
+                ...AiFailureLogContext::from($exception),
                 'error_class' => $exception instanceof ValidationException
                     ? 'validation'
                     : class_basename($exception),

@@ -188,6 +188,7 @@ final class OpenAiClient implements AiClientInterface
                     model: $model,
                     modelParameters: $modelParameters,
                     httpStatus: $status,
+                    providerErrorCode: $this->providerErrorCode($response),
                 );
             }
 
@@ -366,6 +367,18 @@ final class OpenAiClient implements AiClientInterface
      * Extract a short provider error.message from a failed chat/completions body.
      * Never includes request payloads or PII — only the provider's error text.
      */
+    private function providerErrorCode(Response $response): ?string
+    {
+        foreach (['error.code', 'error.type', 'code'] as $path) {
+            $value = $response->json($path);
+            if (is_int($value) || (is_string($value) && trim($value) !== '')) {
+                return Str::limit(trim((string) $value), 64, '');
+            }
+        }
+
+        return null;
+    }
+
     private function providerErrorMessage(Response $response): ?string
     {
         $candidates = [

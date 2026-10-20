@@ -11,6 +11,7 @@ use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\AiFailureLogContext;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
@@ -140,7 +141,7 @@ final class SuggestAttentionPoints
                 'ai_run_id' => $run?->id,
                 'ai_trace_id' => $trace?->traceId(),
                 'error_class' => $errorClass,
-                'message' => $e->getMessage(),
+                ...AiFailureLogContext::from($e),
             ]);
 
             if ($run !== null) {

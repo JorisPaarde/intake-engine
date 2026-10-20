@@ -25,7 +25,16 @@ final class AiClientException extends RuntimeException
         public readonly ?string $model = null,
         public readonly array $modelParameters = [],
         public readonly ?int $httpStatus = null,
+        public readonly ?string $providerErrorCode = null,
     ) {
+        // N103: an AI failure must never carry an empty message, otherwise logs
+        // and ai_runs.error_message lose the cause (e.g. a 402 for credits).
+        if (trim($message) === '') {
+            $message = $httpStatus !== null
+                ? 'Externe AI-provider gaf status '.$httpStatus.' (geen melding).'
+                : 'AI-aanroep mislukt (geen melding'.($previous !== null ? ': '.$previous::class : '').').';
+        }
+
         parent::__construct($message, $code, $previous);
     }
 }
