@@ -47,7 +47,7 @@ test('log context carries status, provider code and a capped provider message wi
         errorClass: 'provider_error',
         httpStatus: 402,
         providerErrorCode: '402',
-        providerMessage: 'This request requires more credits. key sk-or-v1-secretsecret '.str_repeat('x', 400),
+        providerMessage: 'This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 25604. key sk-or-v1-secretsecret '.str_repeat('x', 400),
     );
 
     $context = AiFailureLogContext::from($exception);
@@ -56,7 +56,7 @@ test('log context carries status, provider code and a capped provider message wi
         ->and($context['http_status'])->toBe(402)
         ->and($context['provider_error_code'])->toBe('402')
         ->and($context['error_class'])->toBe('provider_error')
-        ->and($context['error_message'])->toStartWith('Externe AI-provider gaf status 402 (onvoldoende krediet of te hoge max_tokens). This request requires more credits.')
+        ->and($context['error_message'])->toBe('Externe AI-provider gaf status 402 (onvoldoende krediet of te hoge max_tokens). This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 25604.')
         ->and($context['error_message'])->not->toContain('sk-or-v1-secretsecret')
         ->and(mb_strlen($context['error_message']))->toBeLessThanOrEqual(AiFailureLogContext::MESSAGE_LIMIT + 3);
 });
@@ -125,16 +125,17 @@ test('provider code must look like a code and never carries the key', function (
         ->not->toHaveKey('provider_error_code');
 });
 
-test('provider message is scrubbed of key-shaped tokens, e-mail and phone numbers', function () {
+test('known provider prefix logs only the fixed prefix, never the text after it', function () {
     config(['ai.api_key' => '']);
 
     $context = AiFailureLogContext::from(new AiClientException(
         'x',
         httpStatus: 429,
-        providerMessage: 'Rate limit exceeded for jan@example.com 06-12345678 sk-or-v1-abcdefghijkl',
+        providerMessage: 'Rate limit exceeded for user Jan Jansen at Damrak 1, jan@example.com 06-12345678 sk-or-v1-abcdefghijkl',
     ));
 
-    expect($context['error_message'])->toStartWith('Externe AI-provider gaf status 429 (rate limit). Rate limit exceeded')
+    expect($context['error_message'])->toBe('Externe AI-provider gaf status 429 (rate limit). Rate limit exceeded …')
+        ->and($context['error_message'])->not->toContain('Jan Jansen')
         ->and($context['error_message'])->not->toContain('jan@example.com')
         ->and($context['error_message'])->not->toContain('12345678')
         ->and($context['error_message'])->not->toContain('sk-or-v1-abcdefghijkl');

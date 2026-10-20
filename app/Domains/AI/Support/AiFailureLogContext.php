@@ -45,8 +45,9 @@ final class AiFailureLogContext
 
     /**
      * Provider texts known to be standard account/availability messages
-     * (OpenRouter/OpenAI). Only these are logged verbatim (capped): any other
-     * provider text might echo input and is left to ai_runs.error_message.
+     * (OpenRouter/OpenAI). Only the fixed prefix itself is logged (plus the two
+     * token numbers of the OpenRouter credits message), never the rest of the
+     * provider text: that might echo input and stays in ai_runs.error_message.
      */
     private const SAFE_PROVIDER_MESSAGE_PREFIXES = [
         'This request requires more credits',
@@ -117,8 +118,9 @@ final class AiFailureLogContext
             $message = 'Externe AI-provider gaf status '.$status.' ('.$label.').';
             $provider = $exception->providerMessage !== null ? trim($exception->providerMessage) : '';
 
-            if ($provider !== '' && self::isSafeProviderMessage($provider)) {
-                $message .= ' '.$provider;
+            $safe = $provider !== '' ? self::safeProviderSummary($provider) : null;
+            if ($safe !== null) {
+                $message .= ' '.$safe;
             } elseif ($provider !== '') {
                 $message .= ' Providermelding niet gelogd; zie ai_runs.error_message.';
             }
@@ -142,15 +144,23 @@ final class AiFailureLogContext
         return 'AI-fout zonder logbare melding ('.class_basename($source).'); zie ai_runs.error_message.';
     }
 
-    private static function isSafeProviderMessage(string $text): bool
+    /**
+     * Rebuilds a known provider message from fixed text and extracted numbers
+     * only; never returns provider-supplied free text.
+     */
+    private static function safeProviderSummary(string $text): ?string
     {
+        if (preg_match('/^This request requires more credits, or fewer max_tokens\. You requested up to (\d{1,9}) tokens, but can only afford (\d{1,9})\b/', $text, $m) === 1) {
+            return 'This request requires more credits, or fewer max_tokens. You requested up to '.$m[1].' tokens, but can only afford '.$m[2].'.';
+        }
+
         foreach (self::SAFE_PROVIDER_MESSAGE_PREFIXES as $prefix) {
             if (str_starts_with($text, $prefix)) {
-                return true;
+                return $prefix.(strlen($text) > strlen($prefix) ? ' …' : '');
             }
         }
 
-        return false;
+        return null;
     }
 
     /**
