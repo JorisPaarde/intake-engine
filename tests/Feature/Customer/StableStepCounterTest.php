@@ -38,7 +38,7 @@ function stableCounterIntake(array $overrides = []): Intake
     ], $overrides));
 }
 
-test('teller toont geen van-N tot ruimtes bekend zijn, daarna stabiel high-water', function () {
+test('teller toont geen van-N tot ruimtes bekend zijn; totaal mag krimpen', function () {
     $intake = stableCounterIntake();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
@@ -64,17 +64,51 @@ test('teller toont geen van-N tot ruimtes bekend zijn, daarna stabiel high-water
         ->and($component->viewData('stepDisplayTotal'))->toBe($total)
         ->and((int) $component->get('stepTotalHighWater'))->toBe($total);
 
-    $highWater = (int) $component->get('stepTotalHighWater');
     app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '1'], PrefillSources::AI_TEXT);
     app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-2', ['value' => '1'], PrefillSources::AI_TEXT);
     app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-3', ['value' => '1'], PrefillSources::AI_TEXT);
 
     $component->call('$refresh');
     $shrunk = count($component->viewData('steps'));
+    $displayTotal = (int) $component->viewData('stepDisplayTotal');
 
     expect($shrunk)->toBeLessThanOrEqual($total)
-        ->and((int) $component->viewData('stepDisplayTotal'))->toBeGreaterThanOrEqual($highWater)
-        ->and((int) $component->get('stepTotalHighWater'))->toBeGreaterThanOrEqual($highWater);
+        ->and($displayTotal)->toBe($shrunk)
+        ->and((int) $component->get('stepTotalHighWater'))->toBe($shrunk);
+});
+
+test('teller hergebruikt nummer als tussenstap wegvalt (geen gat 25→27)', function () {
+    $intake = stableCounterIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 2], PrefillSources::AI_TEXT);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-2', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+
+    $firstKey = $steps[0]['key'];
+    $secondKey = $steps[1]['key'] ?? null;
+    expect($secondKey)->toBeString();
+
+    $component->set('stepIndex', 0)->set('activeStepKey', $firstKey);
+    expect((int) $component->viewData('stepDisplayNumber'))->toBe(1);
+
+    // Locked props: zet via reflection (simuleert ordinal van een later weggevallen stap).
+    $wizard = $component->instance();
+    $ordinals = new ReflectionProperty($wizard, 'stepDisplayOrdinals');
+    $seq = new ReflectionProperty($wizard, 'stepOrdinalSeq');
+    $ordinals->setValue($wizard, [
+        $firstKey => 1,
+        'rooms::room-99::gone_step' => 2,
+    ]);
+    $seq->setValue($wizard, 2);
+
+    $component->set('stepIndex', 1)->set('activeStepKey', $secondKey);
+    // Prune verwijdert gone_step → seq=1 → secondKey krijgt 2 (geen sprong naar 3).
+    expect((int) $component->viewData('stepDisplayNumber'))->toBe(2)
+        ->and($component->get('stepDisplayOrdinals'))->not->toHaveKey('rooms::room-99::gone_step')
+        ->and($component->get('stepDisplayOrdinals')[$secondKey] ?? null)->toBe(2);
 });
 
 test('zelfde stap houdt display-nummer bij krimpende lijst', function () {

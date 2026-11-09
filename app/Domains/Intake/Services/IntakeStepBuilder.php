@@ -1210,30 +1210,80 @@ final class IntakeStepBuilder
     }
 
     /**
+     * Klant-eyebrow basisnaam: type+index of expliciete kamernaam — nooit de
+     * dossiernaam met aangeplakte verdieping (“Slaapkamer 1, kelder / souterrain”).
+     *
      * @param  array<string, array<string, mixed>|null>  $answers
      */
     private function rawRoomName(Intake $intake, string $sectionInstanceKey, array $answers): ?string
     {
-        $intake->loadMissing('aircoRooms');
-        $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
-        if ($room !== null && trim($room->name) !== '') {
-            return trim($room->name);
-        }
-
-        $types = RoomLabelResolver::typesByInstance($answers);
-        if ($types === []) {
-            return null;
-        }
-
-        $typeCounts = [];
-        foreach ($types as $instance => $type) {
-            $label = RoomLabelResolver::label(is_string($type) ? $type : null, $typeCounts);
-            if ($instance === $sectionInstanceKey) {
-                return $label;
+        $explicit = $answers[VisibilityResolver::compositeKey('room_name', $sectionInstanceKey)] ?? null;
+        if (is_array($explicit)) {
+            $text = $explicit['text'] ?? $explicit['value'] ?? null;
+            if (is_string($text) && trim($text) !== '') {
+                return $this->stripAppendedFloorLabel(trim($text));
             }
         }
 
-        return null;
+        $types = RoomLabelResolver::typesByInstance($answers);
+        if ($types !== []) {
+            $typeCounts = [];
+            foreach ($types as $instance => $type) {
+                $label = RoomLabelResolver::label(is_string($type) ? $type : null, $typeCounts);
+                if ($instance === $sectionInstanceKey) {
+                    return $label;
+                }
+            }
+        }
+
+        $intake->loadMissing('aircoRooms');
+        $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
+        if ($room === null) {
+            return null;
+        }
+
+        $useType = is_string($room->use_type) && $room->use_type !== '' ? $room->use_type : null;
+        if ($useType !== null) {
+            $typeCounts = [];
+            $ordered = $intake->aircoRooms->sortBy('key')->values();
+            foreach ($ordered as $candidate) {
+                $candidateType = is_string($candidate->use_type) && $candidate->use_type !== ''
+                    ? $candidate->use_type
+                    : 'other';
+                $label = RoomLabelResolver::label($candidateType, $typeCounts);
+                if ($candidate->key === $sectionInstanceKey) {
+                    return $label;
+                }
+            }
+        }
+
+        $name = trim($room->name);
+
+        return $name !== '' ? $this->stripAppendedFloorLabel($name) : null;
+    }
+
+    /**
+     * DossierManager::appendFloorLabel plakt “, kelder / souterrain” e.d. aan de kamernaam.
+     * Die hoort niet in de klant-eyebrow tussen naam en “van N”.
+     */
+    private function stripAppendedFloorLabel(string $name): string
+    {
+        $suffixes = [
+            ', kelder / souterrain',
+            ', begane grond',
+            ', 1e verdieping',
+            ', 2e verdieping',
+            ', 3e verdieping of hoger',
+            ', zolder',
+        ];
+
+        foreach ($suffixes as $suffix) {
+            if (str_ends_with(mb_strtolower($name), mb_strtolower($suffix))) {
+                return trim(mb_substr($name, 0, mb_strlen($name) - mb_strlen($suffix)));
+            }
+        }
+
+        return $name;
     }
 
     /**

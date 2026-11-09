@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.21 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.22 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Klantwizard eyebrow + teller (BL-155) | todo | - | Staging 390, 3 slaapkamers / 2037GR 273: eyebrow `Slaapkamer N van M · Vraag X van Y` (geen “, kelder / souterrain” tussen naam en van-N); teller aaneengesloten zonder gat (geen 25→27); totaal mag dalen als stappen wegvallen. |
 | Embed BAG-verrijking 2037GR 273 (BL-154) | todo | - | Staging: `php artisan embed:smoke-bag-address` groen; daarna `/embed-test` met **2037GR / 273** → klantheader toont volledige `Bernadottelaan 273, 2037GR Haarlem` (geen Onbekend, geen ellipsis; op ~390 px mag adres naar 2e regel); bouwjaar + woningtype niet gevraagd; screenshot ~390 px. Negatief: huisnummer **1** → nette melding, geen wizard. |
 | Embed-formulier AI + badge + smoke (BL-153) | todo | - | Staging: na deploy is prepare al gedraaid; open **https://staging.intake-engine.nl/embed-test** (bij 404: `php artisan embed:prepare-staging-test`) → invullen → `/o/{token}` → openingszin → **Even geduld**-wachtscherm (geen 20 s dode Volgende) → known-summary; ruimtelabel `Slaapkamer N van M` alleen in eyebrow; gedeelde vraag met **Geldt voor alle slaapkamers** + **Verschilt per ruimte**; bij “3 bij 5 meter” géén matenscherm opnieuw; teller merkelijk lager (~30 i.p.v. ~40); dashboard/detail badge **Nieuw via website**; login `embed-staging-test@example.com` / `password`. |
 | Embed-formulier publiek (BL-152) | todo | - | Staging: iframe op allowlist-host of `/embed-test` → invullen → top-window landt op `/o/{token}`; installateur ziet `source=embed`; honeypot/verkeerd domein/uitgeschakelde sleutel/dagplafond; na alleen create géén request-intent `ai_runs`; backup-mail fail-soft. |
