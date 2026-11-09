@@ -140,7 +140,8 @@ test('voortgang gebruikt één stappenmaat zonder taken-teller', function () {
     $target = min(5, max(1, $total - 2));
     $component->set('stepIndex', $target)->set('activeStepKey', $steps[$target]['key']);
 
-    expect($component->viewData('stepDisplayNumber'))->toBe($target + 1)
+    // Stabiele ordinals (BL-155): na mount op stap 0 is seq=1; sprong naar $target krijgt 2.
+    expect($component->viewData('stepDisplayNumber'))->toBe(2)
         ->and($component->viewData('progressAnswered'))->toBe($target)
         ->and($component->viewData('progressTotal'))->toBe(count($component->viewData('steps')));
 });
@@ -290,8 +291,10 @@ test('N56: alleen "Vraag Y van N" als teller, geen tweede "X van N vragen" die d
 
     $html = $component->html();
     $total = count($component->viewData('steps'));
+    $number = (int) $component->viewData('stepDisplayNumber');
 
     expect($html)->not->toContain('data-testid="progress-step-count"')
         ->and($html)->not->toMatch('/\d+ van '.$total.' vragen/')
-        ->and($html)->toContain('Vraag '.($target + 1).' van '.$total);
+        ->and($html)->toContain('Vraag '.$number.' van '.$total)
+        ->and($number)->toBe(2);
 });
