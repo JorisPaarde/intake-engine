@@ -12,6 +12,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
+/**
+ * @property string|null $embed_public_key
+ * @property list<string>|null $embed_allowed_origins
+ * @property bool $embed_enabled
+ * @property int $embed_daily_limit
+ */
 #[Fillable([
     'uuid',
     'slug',
@@ -24,6 +30,9 @@ use Illuminate\Support\Str;
     'primary_color',
     'accent_color',
     'on_primary_color',
+    'embed_enabled',
+    'embed_daily_limit',
+    'embed_allowed_origins',
 ])]
 class Company extends Model
 {
@@ -35,6 +44,21 @@ class Company extends Model
     public const DEFAULT_ACCENT = '#315F4F';
 
     public const DEFAULT_ON_PRIMARY = '#FFFFFF';
+
+    public const DEFAULT_EMBED_DAILY_LIMIT = 20;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'embed_enabled' => 'boolean',
+            'embed_daily_limit' => 'integer',
+            'embed_allowed_origins' => 'array',
+            'logo_size_bytes' => 'integer',
+        ];
+    }
 
     protected static function booted(): void
     {
@@ -78,6 +102,42 @@ class Company extends Model
             && $this->logo_disk !== ''
             && is_string($this->logo_path)
             && $this->logo_path !== '';
+    }
+
+    public function hasEmbedPublicKey(): bool
+    {
+        return is_string($this->embed_public_key) && $this->embed_public_key !== '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function embedAllowedOrigins(): array
+    {
+        $origins = $this->embed_allowed_origins ?? [];
+
+        $normalized = [];
+
+        foreach ($origins as $origin) {
+            $host = strtolower(trim($origin));
+
+            if ($host !== '') {
+                $normalized[] = $host;
+            }
+        }
+
+        return array_values(array_unique($normalized));
+    }
+
+    public function allowsEmbedOriginHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        if ($host === '') {
+            return false;
+        }
+
+        return in_array($host, $this->embedAllowedOrigins(), true);
     }
 
     /**

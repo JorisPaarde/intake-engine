@@ -78,6 +78,9 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::get('/metrics', MetricsController::class)->name('metrics');
     Route::get('/settings/company', [CompanySettingsController::class, 'edit'])->name('company.settings.edit');
     Route::patch('/settings/company', [CompanySettingsController::class, 'update'])->name('company.settings.update');
+    Route::post('/settings/company/embed/key', [CompanySettingsController::class, 'generateEmbedKey'])->name('company.settings.embed.key.generate');
+    Route::post('/settings/company/embed/key/rotate', [CompanySettingsController::class, 'rotateEmbedKey'])->name('company.settings.embed.key.rotate');
+    Route::patch('/settings/company/embed', [CompanySettingsController::class, 'updateEmbed'])->name('company.settings.embed.update');
     Route::get('/companies/{company}/logo', [CompanyLogoController::class, 'installer'])->name('company.logo.show');
 
     Route::get('/address-suggestions', AddressSuggestionController::class)

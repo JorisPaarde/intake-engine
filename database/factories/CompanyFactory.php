@@ -29,7 +29,21 @@ class CompanyFactory extends Factory
             'primary_color' => Company::DEFAULT_PRIMARY,
             'accent_color' => Company::DEFAULT_ACCENT,
             'on_primary_color' => Company::DEFAULT_ON_PRIMARY,
+            'embed_public_key' => null,
+            'embed_allowed_origins' => [],
+            'embed_enabled' => false,
+            'embed_daily_limit' => Company::DEFAULT_EMBED_DAILY_LIMIT,
         ];
+    }
+
+    public function withEmbedKey(?string $key = null): static
+    {
+        return $this->state(fn (): array => [
+            'embed_public_key' => $key ?? rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '='),
+            'embed_allowed_origins' => ['www.example.nl'],
+            'embed_enabled' => true,
+            'embed_daily_limit' => Company::DEFAULT_EMBED_DAILY_LIMIT,
+        ]);
     }
 
     public function withLogo(string $contents = 'logo'): static

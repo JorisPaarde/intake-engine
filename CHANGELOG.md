@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Embed-formulier PR1 (BL-151):** datamodel op `companies` (`embed_public_key`, `embed_allowed_origins`, `embed_enabled`, `embed_daily_limit` default 20) en `intakes.source` (`installer`|`embed`, bestaande rijen → `installer`). Bedrijfsinstellingen: sleutel maken/vernieuwen, domeinen (hostname-validatie, geen wildcards), dagplafond, aan/uit, kopieerbare iframe-snippet naar `/embed/{public_key}` (publieke route volgt in PR2). Pest: `CompanyEmbedSettingsTest`.
+
 ### Fixed
 
 - **N54 klanttaken:** AI-voorstellen gaan via de gecontroleerde conceptlijst; toevoegen bewaart actuele bewerkingen. Een vernieuwd AI-voorstel blokkeert het versturen van een gecontroleerd concept niet. Herhaling van een eerder beantwoorde taak met bruikbaar foto-, tekst- of documentbewijs vereist bevestiging op basis van gestructureerde taak- en uploadgegevens.

@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.22 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.23 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 ## Ontwerpprincipes
@@ -32,6 +32,7 @@ Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de u
 | `AttentionPointStatus` | `proposed`, `accepted`, `dismissed` |
 | `PhotoUsabilityVerdict` | `ok`, `too_dark`, `too_small` |
 | `ContributionMode` | `customer`, `installer`, `hybrid` |
+| `IntakeSource` | `installer`, `embed` |
 | `ContributionAudience` | `customer`, `installer` |
 | `ContributionTaskStatus` | `proposed`, `open`, `completed`, `cancelled` |
 | `DossierRecordKind` | `observation`, `conclusion` |
@@ -116,6 +117,13 @@ Het publieke POST-pad is rate-limited en heeft een honeypot. Zonder geldige `PRO
 ### `companies`
 
 Tenantbron met UUID/slug, bedrijfsnaam, private logo-metadata en gecontroleerde primaire-, accent- en contrastkleur. Logo's staan op `MEDIA_DISK` onder `companies/{uuid}/branding/`.
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `embed_public_key` | string(64) nullable unique | Publieke sleutel voor het websiteformulier (`/embed/{key}`); CSPRNG, URL-safe; geen geheim |
+| `embed_allowed_origins` | json nullable | Lijst hostnames (geen pad, geen wildcards); `www.`-variant expliciet opnemen |
+| `embed_enabled` | boolean default false | Formulier aan/uit |
+| `embed_daily_limit` | unsigned smallint default 20 | Max. nieuwe embed-opnames per kalenderdag; installateur stelt in (1–500) |
 
 ### `users` (bestaand)
 
@@ -232,7 +240,8 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `uuid` | uuid unique | Stabiele interne referentie |
 | `intake_template_version_id` | FK, restrict | Gepinde versie |
 | `company_id` | FK → companies, restrict | Verplichte tenantgrens |
-| `created_by` | FK → users, restrict | Installateur |
+| `created_by` | FK → users, restrict | Installateur (bij embed: oudste user van de company) |
+| `source` | IntakeSource | `installer` (standaard, ook bestaande rijen) of `embed` (websiteformulier) |
 | `status` | IntakeStatus | |
 | `workflow_mode` | ContributionMode | `customer`, `installer` of `hybrid` |
 | `customer_name` | string | Privacy |
@@ -708,6 +717,10 @@ erDiagram
         uuid uuid UK
         string slug UK
         string name
+        string embed_public_key UK
+        json embed_allowed_origins
+        boolean embed_enabled
+        int embed_daily_limit
     }
 
     intake_templates {
@@ -747,6 +760,7 @@ erDiagram
         bigint intake_template_version_id FK
         bigint company_id FK
         bigint created_by FK
+        string source
         string status
         string workflow_mode
         string customer_name
