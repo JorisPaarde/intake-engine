@@ -109,7 +109,13 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                <span data-testid="step-counter">
+                    @if ($stepDisplayTotalReady ?? false)
+                        Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                    @else
+                        Vraag {{ $stepDisplayNumber }}
+                    @endif
+                </span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -146,7 +152,13 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                <span data-testid="step-counter">
+                    @if ($stepDisplayTotalReady ?? false)
+                        Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                    @else
+                        Vraag {{ $stepDisplayNumber }}
+                    @endif
+                </span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -228,7 +240,13 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                <span data-testid="step-counter">
+                    @if ($stepDisplayTotalReady ?? false)
+                        Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                    @else
+                        Vraag {{ $stepDisplayNumber }}
+                    @endif
+                </span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] ?? $question->label }}
@@ -755,16 +773,31 @@
                 @else
                     <button
                         type="button"
+                        x-data="{ localBusy: false }"
+                        x-on:click="localBusy = true; setTimeout(() => localBusy = false, 12000)"
                         wire:click="next(@js($activeStepKey))"
                         wire:loading.attr="disabled"
+                        wire:loading.delay.shortest
                         wire:target="next,complete,previous"
+                        x-bind:disabled="localBusy"
                         data-testid="next-button"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
                     >
-                        <span wire:loading.remove wire:target="next">
+                        <span wire:loading.remove wire:target="next" x-show="! localBusy">
                             {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
                         </span>
-                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2" data-testid="next-loading">
+                        <span
+                            wire:loading.remove
+                            wire:target="next"
+                            x-cloak
+                            x-show="localBusy"
+                            class="inline-flex items-center justify-center gap-2"
+                            data-testid="next-loading"
+                        >
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Even geduld…
+                        </span>
+                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2">
                             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                             Even geduld…
                         </span>

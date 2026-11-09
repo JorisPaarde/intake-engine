@@ -160,10 +160,16 @@
                     <button
                         type="button"
                         wire:click="acceptPhotoMismatch"
-                        class="flex min-h-11 items-center justify-center rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                        wire:loading.attr="disabled"
+                        wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride"
+                        class="flex min-h-11 items-center justify-center rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                         data-testid="photo-accept-mismatch"
                     >
-                        Toch doorgaan
+                        <span wire:loading.remove wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride">Toch doorgaan</span>
+                        <span wire:loading wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride" class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Bezig…
+                        </span>
                     </button>
                 </div>
             </div>

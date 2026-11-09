@@ -246,6 +246,33 @@ class IntakeWizard extends Component
     #[Locked]
     public int $progressHighWater = 0;
 
+    /**
+     * Stable “Vraag X van Y” noemer: groeit mee, daalt nooit mid-session (BL-153).
+     */
+    #[Locked]
+    public int $stepTotalHighWater = 0;
+
+    /**
+     * Of “van N” getoond mag worden (pas als ruimtes/known-summary bekend zijn).
+     */
+    #[Locked]
+    public bool $stepCounterTotalReady = false;
+
+    /**
+     * Stabiele 1-based ordinals per step-key (alleen bij tonen toegekend → geen sprongen).
+     *
+     * @var array<string, int>
+     */
+    #[Locked]
+    public array $stepDisplayOrdinals = [];
+
+    #[Locked]
+    public int $stepOrdinalSeq = 0;
+
+    /** Na “Toch doorgaan”: korte feedback, daarna advanceAfterPhotoOverride. */
+    #[Locked]
+    public bool $photoOverrideAdvancePending = false;
+
     public int $followUpStepIndex = 0;
 
     /** @var array<int, string|null> */
@@ -582,6 +609,7 @@ class IntakeWizard extends Component
                 'photoNextBlockedByAssessment' => false,
                 'stepDisplayNumber' => 0,
                 'stepDisplayTotal' => 0,
+                'stepDisplayTotalReady' => false,
                 'saveMessage' => '',
                 'isLastStep' => false,
                 'isKnownSummary' => false,
@@ -780,6 +808,7 @@ class IntakeWizard extends Component
             ? []
             : $this->distantUnresolvedPhotoIssues($steps, $step);
         $photoNextBlockedByAssessment = $this->stepHasLookingPhotos($step);
+        $stepDisplay = $this->resolveStableStepDisplay($steps, $step, $displayIndex);
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
@@ -803,9 +832,10 @@ class IntakeWizard extends Component
                 : null,
             'progressPercent' => $progressPercent,
             'progressAnswered' => $progressAnswered,
-            'progressTotal' => $stepTotal,
-            'stepDisplayNumber' => $this->completed ? $stepTotal : ($displayIndex + 1),
-            'stepDisplayTotal' => max(1, $stepTotal),
+            'progressTotal' => $stepDisplay['total'],
+            'stepDisplayNumber' => $stepDisplay['number'],
+            'stepDisplayTotal' => $stepDisplay['total'],
+            'stepDisplayTotalReady' => $stepDisplay['total_ready'],
             'progressExtraNote' => $this->progressExtraNote,
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
@@ -1322,7 +1352,7 @@ class IntakeWizard extends Component
 
         $this->resetErrorBag('follow_up');
         $this->forgetIntakeDerivedCaches();
-        $this->saveMessage = '';
+        $this->saveMessage = PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH;
     }
 
     /**
@@ -2859,8 +2889,8 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Soft continue: customer accepts a non-good photo and moves on.
-     * Marks the upload(s); installer attention comes from CompletenessChecker + fotobadge.
+     * Soft continue: customer accepts a non-good photo.
+     * Marks the upload(s); shows brief feedback, then advances (installer attention via CompletenessChecker).
      */
     public function acceptPhotoMismatch(): void
     {
@@ -2901,7 +2931,29 @@ class IntakeWizard extends Component
         $this->clearPhotoFeedbackForComposite($composite);
         $this->forgetIntakeDerivedCaches();
         $this->showMissing = false;
-        $this->saveMessage = '';
+        $this->saveMessage = PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH;
+        $this->photoOverrideAdvancePending = true;
+
+        if ($this->returnFromPhotoFixIfNeeded()) {
+            $this->photoOverrideAdvancePending = false;
+
+            return;
+        }
+
+        // Kort feedbackmoment (tegel + banner), daarna door. Livewire-tests: advanceAfterPhotoOverride.
+        $this->js('setTimeout(() => $wire.advanceAfterPhotoOverride(), 1200)');
+    }
+
+    /**
+     * Auto-advance na “Toch doorgaan”-feedback (of direct vanuit Pest).
+     */
+    public function advanceAfterPhotoOverride(): void
+    {
+        if ($this->completed || ! $this->photoOverrideAdvancePending) {
+            return;
+        }
+
+        $this->photoOverrideAdvancePending = false;
 
         if ($this->returnFromPhotoFixIfNeeded()) {
             return;
@@ -4109,6 +4161,16 @@ class IntakeWizard extends Component
         );
 
         if ($suggestion === null) {
+            return;
+        }
+
+        // Verdieping e.d. die shareable zijn: stil overnemen + direct opslaan,
+        // geen “Overgenomen van Ruimtes N — klopt het zo?”-bevestiging (BL-153).
+        if (SharedRoomAnswers::isShareable($step['question_key'])) {
+            $this->form[$composite] = $suggestion['value'];
+            unset($this->prefillNotice[$composite]);
+            $this->persistComposite($composite);
+
             return;
         }
 
@@ -5549,6 +5611,85 @@ class IntakeWizard extends Component
         }
 
         return $this->progressHighWater;
+    }
+
+    /**
+     * Stabiele “Vraag X van Y”: ordinals alleen bij tonen (geen sprongen), total high-water
+     * daalt nooit; “van N” pas als ruimtes/known-summary bekend zijn.
+     *
+     * @param  list<array<string, mixed>>  $steps
+     * @param  array<string, mixed>|null  $step
+     * @return array{number: int, total: int, total_ready: bool}
+     */
+    private function resolveStableStepDisplay(array $steps, ?array $step, int $displayIndex): array
+    {
+        $liveTotal = count($steps);
+        $this->markStepCounterReadyIfPossible($steps);
+
+        if ($this->completed) {
+            $total = max(1, $this->stepTotalHighWater, $liveTotal);
+
+            return [
+                'number' => $total,
+                'total' => $total,
+                'total_ready' => true,
+            ];
+        }
+
+        $number = max(1, $displayIndex + 1);
+        if (is_array($step)) {
+            $key = (string) ($step['key'] ?? '');
+            if ($key !== '') {
+                if (! isset($this->stepDisplayOrdinals[$key])) {
+                    // Eerste keer: minstens huidige index+1 én opeenvolgend — geen terugval bij krimpende lijst.
+                    $candidate = max($displayIndex + 1, $this->stepOrdinalSeq + 1);
+                    $this->stepDisplayOrdinals[$key] = $candidate;
+                    $this->stepOrdinalSeq = $candidate;
+                }
+                $number = $this->stepDisplayOrdinals[$key];
+            }
+        }
+
+        // High-water: nooit lager dan eerder getoond of huidige lijstlengte.
+        $this->stepTotalHighWater = max(
+            $this->stepTotalHighWater,
+            $liveTotal,
+            $this->stepOrdinalSeq,
+            $number,
+        );
+
+        return [
+            'number' => max(1, $number),
+            'total' => max(1, $this->stepTotalHighWater),
+            'total_ready' => $this->stepCounterTotalReady,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function markStepCounterReadyIfPossible(array $steps): void
+    {
+        if ($this->stepCounterTotalReady) {
+            return;
+        }
+
+        foreach ($steps as $candidate) {
+            if (($candidate['kind'] ?? '') === 'known_summary') {
+                $this->stepCounterTotalReady = true;
+
+                return;
+            }
+
+            $instance = $candidate['section_instance_key'] ?? null;
+            if (($candidate['section_key'] ?? '') === 'rooms'
+                && is_string($instance)
+                && (str_starts_with($instance, 'room-') || $instance === SharedRoomAnswers::SCOPE_INSTANCE)) {
+                $this->stepCounterTotalReady = true;
+
+                return;
+            }
+        }
     }
 
     /**

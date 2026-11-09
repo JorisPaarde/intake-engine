@@ -123,9 +123,14 @@ test('na previous geen We bekijken meer zodra alle foto’s terminaal zijn', fun
 
     $component
         ->call('acceptPhotoMismatch')
-        ->call('previous')
+        ->assertSet('saveMessage', PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH)
         ->assertDontSee(PhotoCustomerStatus::LOOKING)
         ->assertDontSeeHtml('data-testid="upload-phase"')
+        ->assertSee(PhotoCustomerStatus::OVERRIDE_ACCEPTED)
+        // Blijft kort op dezelfde stap (feedback), daarna pas advanceAfterPhotoOverride.
+        ->assertSet('activeStepKey', $steps[$index]['key'])
+        ->call('advanceAfterPhotoOverride')
+        ->call('previous')
         ->assertSee(PhotoCustomerStatus::OVERRIDE_ACCEPTED);
 });
 
