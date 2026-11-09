@@ -775,7 +775,6 @@
                         type="button"
                         wire:click="next(@js($activeStepKey))"
                         wire:loading.attr="disabled"
-                        wire:loading.delay.shortest
                         wire:target="next,complete,previous"
                         data-testid="next-button"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
@@ -783,7 +782,7 @@
                         <span wire:loading.remove wire:target="next">
                             {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
                         </span>
-                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2" data-testid="next-loading" aria-hidden="true">
+                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2" data-testid="next-loading">
                             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                             Even geduld…
                         </span>
