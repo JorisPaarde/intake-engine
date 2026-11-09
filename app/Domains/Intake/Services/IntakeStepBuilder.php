@@ -17,6 +17,7 @@ use App\Domains\Intake\Support\PhotoFollowUpWaiver;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
+use App\Domains\Intake\Support\SharedRoomAnswers;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -49,7 +50,10 @@ use Illuminate\Support\Str;
  *     group_key?: string,
  *     group_question_keys?: list<string>,
  *     bundle_question_keys?: list<string>,
- *     sticky_photo_composite?: string|null
+ *     sticky_photo_composite?: string|null,
+ *     shared_scope?: bool,
+ *     shared_target_instances?: list<string>,
+ *     share_differs_label?: string
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -93,9 +97,24 @@ final class IntakeStepBuilder
         foreach ($version->sections->sortBy('sort_order') as $section) {
             if ($section->is_repeatable) {
                 $count = $this->repeatCount($section, $context['answers'], $context['questionTypes']);
-
+                $instanceKeys = [];
                 for ($i = 1; $i <= $count; $i++) {
-                    $instanceKey = Str::singular($section->key).'-'.$i;
+                    $instanceKeys[] = Str::singular($section->key).'-'.$i;
+                }
+
+                if ($count > 1) {
+                    $this->appendSharedRoomQuestionSteps(
+                        $steps,
+                        $intake,
+                        $section,
+                        $instanceKeys,
+                        $context,
+                        $forceShowComposites,
+                        $stickyStepKeys,
+                    );
+                }
+
+                foreach ($instanceKeys as $instanceKey) {
                     $this->appendVisibleQuestionSteps(
                         $steps,
                         $intake,
@@ -104,6 +123,7 @@ final class IntakeStepBuilder
                         $context,
                         $forceShowComposites,
                         $stickyStepKeys,
+                        sharedTargets: $instanceKeys,
                     );
                 }
 
@@ -248,7 +268,10 @@ final class IntakeStepBuilder
     }
 
     /**
+     * Één scherm per deelbare ruimtevraag (verdieping/zon/glas/…) vóór de per-ruimte-loop.
+     *
      * @param  list<IntakeStep>  $steps
+     * @param  list<string>  $instanceKeys
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
@@ -261,6 +284,99 @@ final class IntakeStepBuilder
      * @param  list<string>  $forceShowComposites
      * @param  list<string>  $stickyStepKeys
      */
+    private function appendSharedRoomQuestionSteps(
+        array &$steps,
+        Intake $intake,
+        IntakeSection $section,
+        array $instanceKeys,
+        array $context,
+        array $forceShowComposites,
+        array $stickyStepKeys,
+    ): void {
+        if (count($instanceKeys) < 2) {
+            return;
+        }
+
+        $questions = $section->questions->sortBy('sort_order')->values();
+        // Visibility voor gedeeld scherm: evalueer alsof we op de eerste ruimte zitten
+        // (regels die room-* antwoorden nodig hebben blijven werken).
+        $probeInstance = $instanceKeys[0];
+        $visibility = $this->resolveVisibilityForSection($questions, $probeInstance, $context);
+
+        foreach ($questions as $question) {
+            if (! SharedRoomAnswers::isShareable($question)) {
+                continue;
+            }
+
+            if (SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)) {
+                continue;
+            }
+
+            if (SharedRoomAnswers::allInstancesAnswered($instanceKeys, $context['answers'], $question->key)) {
+                continue;
+            }
+
+            $sharedComposite = VisibilityResolver::compositeKey($question->key, SharedRoomAnswers::SCOPE_INSTANCE);
+            $forceShow = in_array($sharedComposite, $forceShowComposites, true)
+                || in_array(
+                    VisibilityResolver::compositeKey($question->key, $probeInstance),
+                    $forceShowComposites,
+                    true,
+                );
+
+            $presentation = $this->questionPresentation(
+                $question,
+                $probeInstance,
+                $visibility,
+                $context,
+                $forceShow,
+            );
+
+            if ($presentation['reason'] !== 'visible' && ! $forceShow) {
+                continue;
+            }
+
+            $shareTitle = SharedRoomAnswers::sectionTitleForTargets($instanceKeys, $context['answers']);
+            if (is_string($question->meta['share_section_title'] ?? null)
+                && $shareTitle === SharedRoomAnswers::SECTION_TITLE) {
+                $shareTitle = (string) $question->meta['share_section_title'];
+            }
+
+            $steps[] = [
+                'key' => $section->key.'::'.SharedRoomAnswers::SCOPE_INSTANCE.'::'.$question->key,
+                'section_key' => $section->key,
+                'section_instance_key' => SharedRoomAnswers::SCOPE_INSTANCE,
+                'question_key' => $question->key,
+                'title' => $question->label,
+                'section_title' => $shareTitle,
+                'description' => 'Dit antwoord gebruiken we voor alle ruimtes, tenzij je aangeeft dat het verschilt.',
+                'help_text' => $question->help_text,
+                'is_repeatable' => true,
+                'is_required' => $presentation['required'],
+                'kind' => 'question',
+                'sticky_photo_composite' => null,
+                'shared_scope' => true,
+                'shared_target_instances' => $instanceKeys,
+                'share_differs_label' => SharedRoomAnswers::differsLabel($question),
+            ];
+        }
+    }
+
+    /**
+     * @param  list<IntakeStep>  $steps
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
+     * }  $context
+     * @param  list<string>  $forceShowComposites
+     * @param  list<string>  $stickyStepKeys
+     * @param  list<string>  $sharedTargets
+     */
     private function appendVisibleQuestionSteps(
         array &$steps,
         Intake $intake,
@@ -269,6 +385,7 @@ final class IntakeStepBuilder
         array $context,
         array $forceShowComposites,
         array $stickyStepKeys = [],
+        array $sharedTargets = [],
     ): void {
         $questions = $section->questions->sortBy('sort_order')->values();
         $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
@@ -305,6 +422,20 @@ final class IntakeStepBuilder
         };
 
         foreach ($questions as $question) {
+            // Gedeelde ruimtevraag: alleen tonen per ruimte als klant “Verschilt per ruimte” koos,
+            // of als er maar één ruimte is (sharedTargets leeg / count 1).
+            if ($sectionInstanceKey !== null
+                && SharedRoomAnswers::isShareable($question)
+                && count($sharedTargets) > 1
+                && ! SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)
+                && ! in_array(
+                    VisibilityResolver::compositeKey($question->key, $sectionInstanceKey),
+                    $forceShowComposites,
+                    true,
+                )) {
+                continue;
+            }
+
             $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
             $forceShow = in_array($composite, $forceShowComposites, true);
             $presentation = $this->questionPresentation(
@@ -421,12 +552,7 @@ final class IntakeStepBuilder
                 $groupTitle = is_string($primary->meta['wizard_group_title'] ?? null)
                     ? (string) $primary->meta['wizard_group_title']
                     : $primary->label;
-                $roomLabel = $sectionInstanceKey !== null
-                    ? $this->instanceLabel($intake, $sectionInstanceKey, $context['answers'])
-                    : null;
-                if ($roomLabel !== null) {
-                    $groupTitle = $groupTitle.' — '.$roomLabel;
-                }
+                // Ruimtelabel alleen in section_title (eyebrow), niet dubbel in de titel.
                 $groupHelp = is_string($primary->meta['wizard_group_help'] ?? null)
                     ? (string) $primary->meta['wizard_group_help']
                     : $primary->help_text;
@@ -465,15 +591,9 @@ final class IntakeStepBuilder
 
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
             $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey, $context['answers']);
+            // Ruimtelabel alleen in section_title (eyebrow), niet herhaald in de vraagtitel.
             $title = $question->label;
             $helpText = $question->help_text;
-            if ($sectionInstanceKey !== null) {
-                $roomLabel = $this->instanceLabel($intake, $sectionInstanceKey, $context['answers']);
-                if ($roomLabel !== null) {
-                    // Elke ruimtevraag toont het ruimtelabel in de kop (niet alleen foto’s).
-                    $title = $question->label.' — '.$roomLabel;
-                }
-            }
 
             if ($question->key === 'indoor_unit_position_photo') {
                 $helpText = $this->extraRoomOverviewHelp($context['answers'], $sectionInstanceKey, $helpText);
@@ -1235,8 +1355,9 @@ final class IntakeStepBuilder
     }
 
     /**
-     * room_name alleen als minstens twee ruimtes hetzelfde type hebben én deze
-     * ruimte nog geen geëxtraheerde naam heeft. Anders leidt de wizard/dossier af.
+     * room_name: dossier/wizard nummert per type (Slaapkamer 1, 2, …). Alleen tonen
+     * bij “Wijzigen” (forceShow) of wanneer er al een afwijkende klantnaam staat die
+     * bewerkt moet kunnen worden — niet standaard driemaal voor drie slaapkamers.
      *
      * @param  array<string, array<string, mixed>|null>  $answers
      */
@@ -1248,24 +1369,13 @@ final class IntakeStepBuilder
 
         $ownName = $answers[VisibilityResolver::compositeKey('room_name', $sectionInstanceKey)] ?? null;
         $ownText = is_array($ownName) ? ($ownName['text'] ?? null) : null;
-        if (is_string($ownText) && trim($ownText) !== '') {
+        if (! is_string($ownText) || trim($ownText) === '') {
             return false;
         }
 
-        $typesByInstance = RoomLabelResolver::typesByInstance($answers);
-        $ownType = $typesByInstance[$sectionInstanceKey] ?? null;
-        if ($ownType === null) {
-            return false;
-        }
-
-        $sameType = 0;
-        foreach ($typesByInstance as $type) {
-            if ($type === $ownType) {
-                $sameType++;
-            }
-        }
-
-        return $sameType >= 2;
+        // Alleen zichtbaar houden als de naam géén gegenereerde placeholder is
+        // (klant/AI gaf een eigen naam zoals “Ouders”).
+        return ! RoomLabelResolver::isGeneratedPlaceholder(trim($ownText));
     }
 
     /**

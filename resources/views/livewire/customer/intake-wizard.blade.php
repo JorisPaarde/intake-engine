@@ -575,6 +575,18 @@
                                     class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($state['required']) required @endif
                                 >
+                                @if (! empty($step['shared_scope']))
+                                    <button
+                                        type="button"
+                                        wire:click="chooseSharedDiffers"
+                                        wire:loading.attr="disabled"
+                                        wire:target="chooseSharedDiffers,next"
+                                        class="mt-3 min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
+                                        data-testid="shared-differs"
+                                    >
+                                        {{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}
+                                    </button>
+                                @endif
                                 @break
 
                             @case('single_choice')
@@ -590,6 +602,20 @@
                                             <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
                                     @endforeach
+                                    @if (! empty($step['shared_scope']))
+                                        <label
+                                            class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]"
+                                            data-testid="shared-differs"
+                                        >
+                                            <input
+                                                type="radio"
+                                                wire:model.live="form.{{ $composite }}.value"
+                                                value="{{ \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_VALUE }}"
+                                                class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                            >
+                                            <span class="text-sm font-medium">{{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}</span>
+                                        </label>
+                                    @endif
                                 </div>
                                 @break
 

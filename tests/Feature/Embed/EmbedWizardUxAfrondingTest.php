@@ -215,16 +215,17 @@ test('ruimtelabels tonen Slaapkamer N van M op elke ruimtestap', function () {
 
     expect($room2Photo)->not->toBeNull()
         ->and($room2Photo['section_title'])->toBe('Slaapkamer 2 van 3')
-        ->and($room2Photo['title'])->toContain('Slaapkamer 2 van 3');
+        ->and($room2Photo['title'])->toBe('Foto’s van de ruimte')
+        ->and($room2Photo['title'])->not->toContain('Slaapkamer 2 van 3');
 
     $room2Dims = collect($steps)->first(
         static fn (array $step): bool => ($step['group_key'] ?? null) === 'room_dimensions'
             && ($step['section_instance_key'] ?? null) === 'room-2',
     );
-    // Zonder maten blijft het scherm bestaan, wél met ruimtelabel.
+    // Zonder maten blijft het scherm bestaan; label alleen in section_title.
     if ($room2Dims !== null) {
         expect($room2Dims['section_title'])->toBe('Slaapkamer 2 van 3')
-            ->and($room2Dims['title'])->toContain('Slaapkamer 2 van 3');
+            ->and($room2Dims['title'])->not->toContain('Slaapkamer 2 van 3');
     }
 });
 
