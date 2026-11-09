@@ -51,8 +51,10 @@ use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
+use App\Domains\Intake\Support\SharedRoomAnswers;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
+use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
@@ -223,6 +225,13 @@ class IntakeWizard extends Component
     #[Locked]
     public bool $waitingForPrefill = false;
 
+    /**
+     * Embed: na eerste Volgende op request_reason wachten we op de async job,
+     * daarna landen op known-summary i.p.v. opnieuw op request_reason.
+     */
+    #[Locked]
+    public bool $resumeAfterEmbedPrefill = false;
+
     /** Unix-timestamp waarop de wizard-wacht begon. */
     #[Locked]
     public ?int $prefillWaitStartedAt = null;
@@ -236,6 +245,33 @@ class IntakeWizard extends Component
      */
     #[Locked]
     public int $progressHighWater = 0;
+
+    /**
+     * Stable “Vraag X van Y” noemer: groeit mee, daalt nooit mid-session (BL-153).
+     */
+    #[Locked]
+    public int $stepTotalHighWater = 0;
+
+    /**
+     * Of “van N” getoond mag worden (pas als ruimtes/known-summary bekend zijn).
+     */
+    #[Locked]
+    public bool $stepCounterTotalReady = false;
+
+    /**
+     * Stabiele 1-based ordinals per step-key (alleen bij tonen toegekend → geen sprongen).
+     *
+     * @var array<string, int>
+     */
+    #[Locked]
+    public array $stepDisplayOrdinals = [];
+
+    #[Locked]
+    public int $stepOrdinalSeq = 0;
+
+    /** Na “Toch doorgaan”: korte feedback, daarna advanceAfterPhotoOverride. */
+    #[Locked]
+    public bool $photoOverrideAdvancePending = false;
 
     public int $followUpStepIndex = 0;
 
@@ -330,7 +366,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -407,7 +446,13 @@ class IntakeWizard extends Component
 
         $this->waitingForPrefill = false;
         $this->prefillWaitStartedAt = null;
+        $resumeEmbed = $this->resumeAfterEmbedPrefill;
+        $this->resumeAfterEmbedPrefill = false;
         $this->beginWizardAfterPrefill($this->intake());
+
+        if ($resumeEmbed) {
+            $this->landAfterEmbedPrefillWait();
+        }
     }
 
     /**
@@ -421,6 +466,61 @@ class IntakeWizard extends Component
         }
 
         app(DispatchEmbedRequestPrefillIfNeeded::class)->handle($this->intake());
+    }
+
+    /**
+     * Na embed-prefill-wacht: niet opnieuw op request_reason blijven hangen.
+     */
+    private function landAfterEmbedPrefillWait(): void
+    {
+        $steps = $this->steps();
+        if ($steps === []) {
+            return;
+        }
+
+        foreach ($steps as $index => $step) {
+            if (($step['kind'] ?? '') === 'known_summary') {
+                $this->landOnStepIndex($steps, $index);
+
+                return;
+            }
+        }
+
+        foreach ($steps as $index => $step) {
+            if ($step['question_key'] === 'request_reason') {
+                if ($index < count($steps) - 1) {
+                    $this->landOnStepIndex($steps, $index + 1);
+                }
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * Embed: na opslaan van de openingszin async prefill afwachten i.p.v. sync AI in de Livewire-request.
+     */
+    private function armEmbedPrefillWaitIfNeeded(): bool
+    {
+        $intake = $this->intake();
+        if ($intake->source !== IntakeSource::Embed) {
+            return false;
+        }
+
+        if ((bool) config('ai.request_prefill.sync_on_create', false)) {
+            return false;
+        }
+
+        if (! DeriveIntentFromRequestJob::hasRecentPending($intake->id)) {
+            return false;
+        }
+
+        $this->waitingForPrefill = true;
+        $this->resumeAfterEmbedPrefill = true;
+        $this->prefillWaitStartedAt = now()->getTimestamp();
+        $this->saveMessage = '';
+
+        return true;
     }
 
     private function beginWizardAfterPrefill(Intake $intake): void
@@ -509,6 +609,7 @@ class IntakeWizard extends Component
                 'photoNextBlockedByAssessment' => false,
                 'stepDisplayNumber' => 0,
                 'stepDisplayTotal' => 0,
+                'stepDisplayTotalReady' => false,
                 'saveMessage' => '',
                 'isLastStep' => false,
                 'isKnownSummary' => false,
@@ -594,10 +695,33 @@ class IntakeWizard extends Component
             }
 
             if ($questionsForVisibility->isNotEmpty()) {
+                // Gedeelde ruimtevraag: evalueer zichtbaarheid alsof we op de eerste doelruimte zitten
+                // (_shared heeft geen room_type e.d. voor regels).
+                $visibilityInstance = $step['section_instance_key'];
+                if (($step['shared_scope'] ?? false) === true
+                    && is_array($step['shared_target_instances'] ?? null)
+                    && ($step['shared_target_instances'][0] ?? null) !== null) {
+                    $visibilityInstance = (string) $step['shared_target_instances'][0];
+                }
+
                 $visibility = $this->visibilityForQuestions(
                     $questionsForVisibility,
-                    $step['section_instance_key'],
+                    $visibilityInstance,
                 );
+
+                // Shared-scope: forceer zichtbaar op de _shared-composite (form key).
+                if (($step['shared_scope'] ?? false) === true && $question instanceof IntakeQuestion) {
+                    $sharedComposite = VisibilityResolver::compositeKey(
+                        $question->key,
+                        SharedRoomAnswers::SCOPE_INSTANCE,
+                    );
+                    $probeComposite = VisibilityResolver::compositeKey($question->key, $visibilityInstance);
+                    $visibility[$sharedComposite] = [
+                        'visible' => true,
+                        'required' => (bool) ($visibility[$probeComposite]['required'] ?? $step['is_required']),
+                    ];
+                }
+
                 // Only the composite IntakeStepBuilder marked sticky may be force-visible
                 // (wall_outlet after AI sets outlet=present). Group members keep resolver results.
                 $sticky = $step['sticky_photo_composite'] ?? null;
@@ -607,7 +731,11 @@ class IntakeWizard extends Component
                         'required' => (bool) ($visibility[$sticky]['required'] ?? false),
                     ];
                 }
-                $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
+                $uploadsByQuestion = $this->uploadsForStep(
+                    SharedRoomAnswers::isScopeInstance($step['section_instance_key'] ?? null)
+                        ? null
+                        : $step['section_instance_key'],
+                );
 
                 foreach ($questionsForVisibility as $visibleQuestion) {
                     $this->ensureAnswerShape($visibleQuestion, $step['section_instance_key']);
@@ -680,6 +808,7 @@ class IntakeWizard extends Component
             ? []
             : $this->distantUnresolvedPhotoIssues($steps, $step);
         $photoNextBlockedByAssessment = $this->stepHasLookingPhotos($step);
+        $stepDisplay = $this->resolveStableStepDisplay($steps, $step, $displayIndex);
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
@@ -703,9 +832,10 @@ class IntakeWizard extends Component
                 : null,
             'progressPercent' => $progressPercent,
             'progressAnswered' => $progressAnswered,
-            'progressTotal' => $stepTotal,
-            'stepDisplayNumber' => $this->completed ? $stepTotal : ($displayIndex + 1),
-            'stepDisplayTotal' => max(1, $stepTotal),
+            'progressTotal' => $stepDisplay['total'],
+            'stepDisplayNumber' => $stepDisplay['number'],
+            'stepDisplayTotal' => $stepDisplay['total'],
+            'stepDisplayTotalReady' => $stepDisplay['total_ready'],
             'progressExtraNote' => $this->progressExtraNote,
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
@@ -1222,7 +1352,7 @@ class IntakeWizard extends Component
 
         $this->resetErrorBag('follow_up');
         $this->forgetIntakeDerivedCaches();
-        $this->saveMessage = '';
+        $this->saveMessage = PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH;
     }
 
     /**
@@ -2759,8 +2889,8 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Soft continue: customer accepts a non-good photo and moves on.
-     * Marks the upload(s); installer attention comes from CompletenessChecker + fotobadge.
+     * Soft continue: customer accepts a non-good photo.
+     * Marks the upload(s); shows brief feedback, then advances (installer attention via CompletenessChecker).
      */
     public function acceptPhotoMismatch(): void
     {
@@ -2801,7 +2931,29 @@ class IntakeWizard extends Component
         $this->clearPhotoFeedbackForComposite($composite);
         $this->forgetIntakeDerivedCaches();
         $this->showMissing = false;
-        $this->saveMessage = '';
+        $this->saveMessage = PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH;
+        $this->photoOverrideAdvancePending = true;
+
+        if ($this->returnFromPhotoFixIfNeeded()) {
+            $this->photoOverrideAdvancePending = false;
+
+            return;
+        }
+
+        // Kort feedbackmoment (tegel + banner), daarna door. Livewire-tests: advanceAfterPhotoOverride.
+        $this->js('setTimeout(() => $wire.advanceAfterPhotoOverride(), 1200)');
+    }
+
+    /**
+     * Auto-advance na “Toch doorgaan”-feedback (of direct vanuit Pest).
+     */
+    public function advanceAfterPhotoOverride(): void
+    {
+        if ($this->completed || ! $this->photoOverrideAdvancePending) {
+            return;
+        }
+
+        $this->photoOverrideAdvancePending = false;
 
         if ($this->returnFromPhotoFixIfNeeded()) {
             return;
@@ -3029,7 +3181,10 @@ class IntakeWizard extends Component
      *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }|null  $step
      */
     private function saveStep(?array $step): void
@@ -3099,6 +3254,36 @@ class IntakeWizard extends Component
     public function revealAreaOnlyField(): void
     {
         $this->showAreaOnlyField = true;
+    }
+
+    /**
+     * Gedeelde ruimtevraag: klant kiest “Verschilt per ruimte” → per-ruimte-stappen.
+     */
+    public function chooseSharedDiffers(): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $step = $this->currentStep();
+        if ($step === null || ($step['shared_scope'] ?? false) !== true) {
+            return;
+        }
+
+        $questionKey = $step['question_key'];
+        if ($questionKey === '') {
+            return;
+        }
+
+        $composite = VisibilityResolver::compositeKey($questionKey, SharedRoomAnswers::SCOPE_INSTANCE);
+        $this->form[$composite] = array_merge($this->form[$composite] ?? [], [
+            'value' => SharedRoomAnswers::DIFFERS_VALUE,
+        ]);
+        $this->dirtyFormComposites[$composite] = true;
+        $this->persistComposite($composite);
+        $this->showMissing = false;
+        $this->completionMissing = [];
+        $this->next();
     }
 
     /**
@@ -3292,8 +3477,9 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Embed: eerste klantstap triggert request-prefill (BL-153); vóór save/cursor.
-        $this->maybeDispatchEmbedRequestPrefill();
+        if ($this->waitingForPrefill) {
+            return;
+        }
 
         $this->finalizePendingWizardRemoval();
         $this->clearProgressExtraNote();
@@ -3310,8 +3496,14 @@ class IntakeWizard extends Component
             && ($currentStep['kind'] ?? 'question') !== 'known_summary'
             && $this->forcedKnownCompositesOnStep($currentStep) !== [];
 
+        // Eerst opslaan (zodat request_reason in de DB staat), dán embed-prefill dispatchen.
         if ($currentStep !== null) {
             $this->saveStep($currentStep);
+        }
+
+        $this->maybeDispatchEmbedRequestPrefill();
+        if ($this->armEmbedPrefillWaitIfNeeded()) {
+            return;
         }
 
         // Recompute after save; keep navigating by the key we showed, not a shifted index.
@@ -3663,7 +3855,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>
      */
     private function steps(): array
@@ -3717,7 +3912,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>  $steps
      * @return list<array{
      *     key: string,
@@ -3741,7 +3939,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>
      */
     private function omitAtticSizeClassSteps(array $steps): array
@@ -3963,6 +4164,16 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Verdieping e.d. die shareable zijn: stil overnemen + direct opslaan,
+        // geen “Overgenomen van Ruimtes N — klopt het zo?”-bevestiging (BL-153).
+        if (SharedRoomAnswers::isShareable($step['question_key'])) {
+            $this->form[$composite] = $suggestion['value'];
+            unset($this->prefillNotice[$composite]);
+            $this->persistComposite($composite);
+
+            return;
+        }
+
         $this->form[$composite] = $suggestion['value'];
         $this->prefillNotice[$composite] = 'Overgenomen van '.$suggestion['source_label'].' — klopt het zo?';
     }
@@ -4048,8 +4259,13 @@ class IntakeWizard extends Component
             }
         }
 
-        // Embed: eerste antwoord triggert request-prefill vóór SaveIntakeAnswer (BL-153).
-        $this->maybeDispatchEmbedRequestPrefill();
+        // Gedeelde ruimtevraag: broadcast naar alle room-* óf markeer “verschilt”.
+        if (SharedRoomAnswers::isScopeInstance($instanceKey) && SharedRoomAnswers::isShareable($questionKey)) {
+            $this->persistSharedRoomAnswer($questionKey, $payload);
+            $this->maybeDispatchEmbedRequestPrefill();
+
+            return;
+        }
 
         $previousRoomType = null;
         if (in_array($questionKey, ['room_type', 'floor_level'], true) && is_string($instanceKey)) {
@@ -4060,6 +4276,7 @@ class IntakeWizard extends Component
             $previousRoomType = is_array($previous?->value) ? ($previous->value['value'] ?? null) : null;
         }
 
+        // Eerst opslaan: embed-prefill moet de openingszin kunnen lezen (BL-153 afronding).
         app(SaveIntakeAnswer::class)->handle(
             $this->intake(),
             $questionKey,
@@ -4067,6 +4284,9 @@ class IntakeWizard extends Component
             $payload,
         );
         $this->forgetIntakeDerivedCaches();
+
+        // Embed: dispatch ná save; nooit sync catalogus-AI in de Livewire-request (~20s freeze).
+        $this->maybeDispatchEmbedRequestPrefill();
 
         // Zolder → ander type: laat geen size=unknown achter als prefill op de grootteklasse.
         if (in_array($questionKey, ['room_type', 'floor_level'], true)
@@ -4080,10 +4300,119 @@ class IntakeWizard extends Component
         // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de
         // aanvraag noemt vaak al de ruimtes en of het om koelen of verwarmen gaat.
         // Known-summary staat direct na request_reason; next() landt erop zonder sprong.
+        // Embed: async job + wachtscherm (armEmbedPrefillWaitIfNeeded); geen sync handle().
         if ($instanceKey === null && $this->hasTextAnalysis($questionKey)) {
-            app(DeriveIntentFromRequest::class)->handle($this->intake());
-            $this->forgetIntakeDerivedCaches();
+            if ($this->intake()->source !== IntakeSource::Embed) {
+                app(DeriveIntentFromRequest::class)->handle($this->intake());
+                $this->forgetIntakeDerivedCaches();
+            }
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function persistSharedRoomAnswer(string $questionKey, array $payload): void
+    {
+        $intake = $this->intake();
+        $save = app(SaveIntakeAnswer::class);
+        $targets = $this->sharedTargetInstancesFromCurrentStep($questionKey);
+
+        if (SharedRoomAnswers::isDiffersPayload($payload)) {
+            // Direct opslaan: Number-normalize zou `value` weggooien.
+            IntakeAnswer::query()->updateOrCreate(
+                [
+                    'intake_id' => $intake->id,
+                    'question_key' => $questionKey,
+                    'section_instance_key' => SharedRoomAnswers::SCOPE_INSTANCE,
+                ],
+                [
+                    'value' => ['value' => SharedRoomAnswers::DIFFERS_VALUE],
+                    'prefill_source' => null,
+                    'fact_provenance' => 'stated',
+                    'fact_confidence' => 100,
+                    'fact_evidence' => null,
+                    'fact_source' => 'klantantwoord',
+                    'answered_at' => now(),
+                ],
+            );
+            $this->forgetIntakeDerivedCaches();
+
+            return;
+        }
+
+        // Zelfde antwoord voor alle ruimtes → per instance (rapport/export blijft per ruimte).
+        foreach ($targets as $roomInstance) {
+            $save->handle($intake, $questionKey, $roomInstance, $payload);
+        }
+
+        // Ruim eventueel eerdere “verschilt”-markering op _shared.
+        $intake->answers()
+            ->where('question_key', $questionKey)
+            ->where('section_instance_key', SharedRoomAnswers::SCOPE_INSTANCE)
+            ->delete();
+
+        $this->forgetIntakeDerivedCaches();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function sharedTargetInstancesFromCurrentStep(string $questionKey): array
+    {
+        $step = $this->currentStep();
+        if ($step !== null
+            && ($step['shared_scope'] ?? false) === true
+            && $step['question_key'] === $questionKey
+            && array_key_exists('shared_target_instances', $step)) {
+            $targets = [];
+            foreach ($step['shared_target_instances'] as $key) {
+                if ($key !== '') {
+                    $targets[] = $key;
+                }
+            }
+
+            if ($targets !== []) {
+                return $targets;
+            }
+        }
+
+        // Fallback: alle bekende room-* instanties uit indoor_unit_count / antwoorden.
+        $steps = $this->steps();
+        foreach ($steps as $candidate) {
+            if (($candidate['shared_scope'] ?? false) !== true
+                || $candidate['question_key'] !== $questionKey
+                || ! array_key_exists('shared_target_instances', $candidate)) {
+                continue;
+            }
+
+            $targets = [];
+            foreach ($candidate['shared_target_instances'] as $key) {
+                if ($key !== '') {
+                    $targets[] = $key;
+                }
+            }
+
+            if ($targets !== []) {
+                return $targets;
+            }
+        }
+
+        $count = 0;
+        foreach ($this->intake()->answers as $answer) {
+            if ($answer->question_key === 'indoor_unit_count'
+                && is_array($answer->value)
+                && is_numeric($answer->value['number'] ?? null)) {
+                $count = (int) $answer->value['number'];
+            }
+        }
+
+        $targets = [];
+        for ($i = 1; $i <= max(0, $count); $i++) {
+            $targets[] = 'room-'.$i;
+        }
+
+        return $targets;
     }
 
     /**
@@ -4324,7 +4653,10 @@ class IntakeWizard extends Component
      *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }|null  $step
      */
     private function stepRequiredSatisfied(?array $step): bool
@@ -4710,7 +5042,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }|null
      */
     private function currentStep(): ?array
@@ -4744,7 +5079,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>  $steps
      * @return array{
      *     key: string,
@@ -4768,7 +5106,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }|null
      */
     private function resolveDisplayedStep(array $steps): ?array
@@ -4953,7 +5294,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>  $steps
      */
     private function clampResumeWhenCursorMissing(
@@ -4998,7 +5342,10 @@ class IntakeWizard extends Component
      *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>,
-     *     sticky_photo_composite?: string|null
+     *     sticky_photo_composite?: string|null,
+     *     shared_scope?: bool,
+     *     shared_target_instances?: list<string>,
+     *     share_differs_label?: string
      * }>  $steps
      */
     private function indexOfFirstUnsatisfiedRequired(array $steps): ?int
@@ -5264,6 +5611,85 @@ class IntakeWizard extends Component
         }
 
         return $this->progressHighWater;
+    }
+
+    /**
+     * Stabiele “Vraag X van Y”: ordinals alleen bij tonen (geen sprongen), total high-water
+     * daalt nooit; “van N” pas als ruimtes/known-summary bekend zijn.
+     *
+     * @param  list<array<string, mixed>>  $steps
+     * @param  array<string, mixed>|null  $step
+     * @return array{number: int, total: int, total_ready: bool}
+     */
+    private function resolveStableStepDisplay(array $steps, ?array $step, int $displayIndex): array
+    {
+        $liveTotal = count($steps);
+        $this->markStepCounterReadyIfPossible($steps);
+
+        if ($this->completed) {
+            $total = max(1, $this->stepTotalHighWater, $liveTotal);
+
+            return [
+                'number' => $total,
+                'total' => $total,
+                'total_ready' => true,
+            ];
+        }
+
+        $number = max(1, $displayIndex + 1);
+        if (is_array($step)) {
+            $key = (string) ($step['key'] ?? '');
+            if ($key !== '') {
+                if (! isset($this->stepDisplayOrdinals[$key])) {
+                    // Eerste keer: minstens huidige index+1 én opeenvolgend — geen terugval bij krimpende lijst.
+                    $candidate = max($displayIndex + 1, $this->stepOrdinalSeq + 1);
+                    $this->stepDisplayOrdinals[$key] = $candidate;
+                    $this->stepOrdinalSeq = $candidate;
+                }
+                $number = $this->stepDisplayOrdinals[$key];
+            }
+        }
+
+        // High-water: nooit lager dan eerder getoond of huidige lijstlengte.
+        $this->stepTotalHighWater = max(
+            $this->stepTotalHighWater,
+            $liveTotal,
+            $this->stepOrdinalSeq,
+            $number,
+        );
+
+        return [
+            'number' => max(1, $number),
+            'total' => max(1, $this->stepTotalHighWater),
+            'total_ready' => $this->stepCounterTotalReady,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function markStepCounterReadyIfPossible(array $steps): void
+    {
+        if ($this->stepCounterTotalReady) {
+            return;
+        }
+
+        foreach ($steps as $candidate) {
+            if (($candidate['kind'] ?? '') === 'known_summary') {
+                $this->stepCounterTotalReady = true;
+
+                return;
+            }
+
+            $instance = $candidate['section_instance_key'] ?? null;
+            if (($candidate['section_key'] ?? '') === 'rooms'
+                && is_string($instance)
+                && (str_starts_with($instance, 'room-') || $instance === SharedRoomAnswers::SCOPE_INSTANCE)) {
+                $this->stepCounterTotalReady = true;
+
+                return;
+            }
+        }
     }
 
     /**

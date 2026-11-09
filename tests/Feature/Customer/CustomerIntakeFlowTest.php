@@ -10,6 +10,7 @@ use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Domains\Intake\Support\SharedRoomAnswers;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
@@ -45,7 +46,9 @@ test('valid customer token opens the intake wizard', function () {
         ->assertSee('Digitale Opname')
         ->assertSee('Aanvraag')
         ->assertSee('Wat is de reden van je aanvraag?')
-        ->assertSee('Vraag 1 van');
+        ->assertSee('Vraag 1')
+        // “van N” pas ná known-summary/ruimtes (stabiele teller, BL-153).
+        ->assertDontSee('Vraag 1 van');
 });
 
 test('invalid or revoked customer token is refused', function () {
@@ -509,10 +512,16 @@ test('repeatable room questions become separate steps after unit count', functio
         static fn (array $step): bool => $step['section_key'] === 'rooms',
     ));
 
+    $instances = collect($roomSteps)->pluck('section_instance_key')->unique()->values()->all();
+
     expect($roomSteps)->not->toBeEmpty()
-        ->and($roomSteps[0]['section_instance_key'])->toBe('room-1')
-        ->and(collect($roomSteps)->pluck('section_instance_key')->unique()->values()->all())
-        ->toBe(['room-1', 'room-2']);
+        ->and($roomSteps[0]['section_instance_key'])->toBe(SharedRoomAnswers::SCOPE_INSTANCE)
+        ->and($roomSteps[0]['shared_scope'] ?? false)->toBeTrue()
+        ->and($instances)->toBe([
+            SharedRoomAnswers::SCOPE_INSTANCE,
+            'room-1',
+            'room-2',
+        ]);
 });
 
 test('an unanswered multi choice starts as an empty array so one tick does not select everything', function () {

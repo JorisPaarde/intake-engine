@@ -334,11 +334,14 @@ test('P3-4: bruikbare outdoor-foto maakt around_house optioneel via OutdoorPhoto
 test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
     $intake = hertest4Intake(['status' => IntakeStatus::Sent]);
-    app(DossierManager::class)->initialize($intake);
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room'], PrefillSources::AI_TEXT);
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $html = $component->html();
     expect($html)->toMatch('/data-testid="progress-percent">\d+%/')
+        ->and($html)->toMatch('/data-testid="step-counter"/')
         ->and($html)->toMatch('/Vraag\s+\d+\s+van\s+\d+/');
 
     // Foto telt mee zodra ontvangen; assessment mag async (intake 82 soft-continue).
@@ -362,8 +365,10 @@ test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', functi
     expect($steps)->not->toBeEmpty();
     $total = count($steps);
     $percentFromSameRule = (int) round((0 / max(1, $total)) * 100);
+    $displayTotal = (int) $component->viewData('stepDisplayTotal');
     expect($percentFromSameRule)->toBe(0)
-        ->and($html)->toContain('van '.$total);
+        ->and($displayTotal)->toBeGreaterThanOrEqual($total)
+        ->and($html)->toContain('van '.$displayTotal);
 });
 
 test('earlier Oct3: pipe_route accepteert lege wand/room zonder wrong_subject', function () {

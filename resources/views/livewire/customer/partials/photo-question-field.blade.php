@@ -160,10 +160,16 @@
                     <button
                         type="button"
                         wire:click="acceptPhotoMismatch"
-                        class="flex min-h-11 items-center justify-center rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                        wire:loading.attr="disabled"
+                        wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride"
+                        class="flex min-h-11 items-center justify-center rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                         data-testid="photo-accept-mismatch"
                     >
-                        Toch doorgaan
+                        <span wire:loading.remove wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride">Toch doorgaan</span>
+                        <span wire:loading wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride" class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Bezig…
+                        </span>
                     </button>
                 </div>
             </div>
@@ -244,10 +250,18 @@
             <button
                 type="button"
                 wire:click="skipOptionalPhoto"
-                class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                wire:loading.attr="disabled"
+                wire:target="skipOptionalPhoto,next"
+                class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                 data-testid="photo-skip"
             >
-                {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
+                <span wire:loading.remove wire:target="skipOptionalPhoto">
+                    {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
+                </span>
+                <span wire:loading wire:target="skipOptionalPhoto" class="inline-flex items-center justify-center gap-2">
+                    <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                    Even geduld…
+                </span>
             </button>
         </div>
     @endif

@@ -19,7 +19,7 @@
             @endif
             <div class="min-w-0">
                 <p class="truncate text-lg font-semibold text-[#18201d]">{{ $company?->name ?? 'Digitale Opname' }}</p>
-                <p class="truncate text-sm text-[#5e6862]">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
+                <p class="text-sm leading-snug text-[#5e6862] break-words whitespace-normal">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
             </div>
         </div>
 
@@ -109,7 +109,13 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                <span data-testid="step-counter">
+                    @if ($stepDisplayTotalReady ?? false)
+                        Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                    @else
+                        Vraag {{ $stepDisplayNumber }}
+                    @endif
+                </span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -146,7 +152,13 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                <span data-testid="step-counter">
+                    @if ($stepDisplayTotalReady ?? false)
+                        Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                    @else
+                        Vraag {{ $stepDisplayNumber }}
+                    @endif
+                </span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -228,7 +240,13 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                <span data-testid="step-counter">
+                    @if ($stepDisplayTotalReady ?? false)
+                        Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+                    @else
+                        Vraag {{ $stepDisplayNumber }}
+                    @endif
+                </span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] ?? $question->label }}
@@ -461,7 +479,9 @@
                                         <button
                                             type="button"
                                             wire:click="skipOptionalPhoto"
-                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            wire:loading.attr="disabled"
+                                            wire:target="skipOptionalPhoto,next"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                                             data-testid="dimensions-skip"
                                         >
                                             Weet ik niet / sla over
@@ -542,7 +562,9 @@
                                         <button
                                             type="button"
                                             wire:click="skipOptionalPhoto"
-                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            wire:loading.attr="disabled"
+                                            wire:target="skipOptionalPhoto,next"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                                             data-testid="text-skip"
                                         >
                                             {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
@@ -571,6 +593,18 @@
                                     class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($state['required']) required @endif
                                 >
+                                @if (! empty($step['shared_scope']))
+                                    <button
+                                        type="button"
+                                        wire:click="chooseSharedDiffers"
+                                        wire:loading.attr="disabled"
+                                        wire:target="chooseSharedDiffers,next"
+                                        class="mt-3 min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
+                                        data-testid="shared-differs"
+                                    >
+                                        {{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}
+                                    </button>
+                                @endif
                                 @break
 
                             @case('single_choice')
@@ -586,6 +620,20 @@
                                             <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
                                     @endforeach
+                                    @if (! empty($step['shared_scope']))
+                                        <label
+                                            class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]"
+                                            data-testid="shared-differs"
+                                        >
+                                            <input
+                                                type="radio"
+                                                wire:model.live="form.{{ $composite }}.value"
+                                                value="{{ \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_VALUE }}"
+                                                class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                            >
+                                            <span class="text-sm font-medium">{{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}</span>
+                                        </label>
+                                    @endif
                                 </div>
                                 @break
 
@@ -680,9 +728,15 @@
                 <button
                     type="button"
                     wire:click="previous"
+                    wire:loading.attr="disabled"
+                    wire:target="previous,next,complete"
                     class="min-h-12 flex-1 rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-40"
                 >
-                    Vorige
+                    <span wire:loading.remove wire:target="previous">Vorige</span>
+                    <span wire:loading wire:target="previous" class="inline-flex items-center gap-2">
+                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                        Even geduld…
+                    </span>
                 </button>
                 @endif
 
@@ -691,10 +745,15 @@
                         type="button"
                         wire:click="complete"
                         wire:loading.attr="disabled"
+                        wire:target="complete,next,previous"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
+                        data-testid="complete-button"
                     >
                         <span wire:loading.remove wire:target="complete">Afronden</span>
-                        <span wire:loading wire:target="complete">Bezig…</span>
+                        <span wire:loading wire:target="complete" class="inline-flex items-center justify-center gap-2">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Even geduld…
+                        </span>
                     </button>
                 @elseif (! empty($photoNextBlockedByAssessment))
                     <button
@@ -715,10 +774,18 @@
                     <button
                         type="button"
                         wire:click="next(@js($activeStepKey))"
+                        wire:loading.attr="disabled"
+                        wire:target="next,complete,previous"
                         data-testid="next-button"
-                        class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
+                        class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
                     >
-                        {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
+                        <span wire:loading.remove wire:target="next">
+                            {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
+                        </span>
+                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2" data-testid="next-loading">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Even geduld…
+                        </span>
                     </button>
                 @endif
             </div>

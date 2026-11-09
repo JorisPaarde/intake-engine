@@ -100,11 +100,27 @@ export async function waitForStepChange(page: Page, previousHeading: string, tim
   );
 }
 
+export async function primaryNextButton(page: Page) {
+  // Prefer role name (stable accessible label); fall back to visible testid.
+  const byRole = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i });
+  if (await byRole.count()) {
+    return byRole.first();
+  }
+
+  const visibleNext = page.locator('[data-testid="next-button"]').locator('visible=true');
+  if (await visibleNext.count()) {
+    return visibleNext.first();
+  }
+
+  return page.locator('[data-testid="complete-button"]').locator('visible=true').first();
+}
+
 export async function clickNext(page: Page): Promise<void> {
   const before = await headingText(page);
-  const next = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i }).first();
+  const next = await primaryNextButton(page);
   const livewire = waitForLivewire(page).catch(() => undefined);
-  await next.click();
+  await next.scrollIntoViewIfNeeded().catch(() => undefined);
+  await next.click({ timeout: 20_000 });
   await livewire;
   await waitForStepChange(page, before).catch(() => undefined);
 }
@@ -188,6 +204,7 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
 
   const confirm = page.getByRole('button', { name: /^Klopt, verder$/i });
   if (await confirm.count()) {
+    await confirm.first().scrollIntoViewIfNeeded().catch(() => undefined);
     await confirm.first().click();
     await waitForStepChange(page, before).catch(() => undefined);
 
@@ -278,7 +295,7 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
     return;
   }
 
-  if (await page.getByRole('button', { name: /^Volgende$/ }).count()) {
+  if (await page.getByRole('button', { name: /^(Volgende|Klopt, verder)$/i }).count()) {
     await clickNext(page);
 
     return;

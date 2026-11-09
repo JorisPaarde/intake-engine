@@ -21,25 +21,26 @@ async function readCounter(page: import('@playwright/test').Page): Promise<strin
   return text;
 }
 
-test.describe('Wizard kamernaam autosave sticky', () => {
-  test('wizard: kamernaam-autosave verschuift vraag niet', async ({ page, request }) => {
+test.describe('Wizard preferred_indoor autosave sticky', () => {
+  test('wizard: tekst-autosave verschuift vraag niet (BL-140)', async ({ page, request }) => {
     test.setTimeout(120_000);
 
     const payload = await createScenario(request, 'room-name-autosave');
     await openCustomer(page, payload);
 
-    await expect(page.locator('h1').first()).toContainText(/Hoe heet deze ruimte/i, {
+    // Scenario landt op preferred_indoor (room_name is standaard overgeslagen).
+    await expect(page.locator('h1').first()).toContainText(/binnenunit|hangen|voorkeur/i, {
       timeout: 15_000,
     });
 
     const headingBefore = await headingText(page);
     const counterBefore = await readCounter(page);
 
-    await fillTextAndBlur(page, 'Ouders');
+    await fillTextAndBlur(page, 'Boven het bed');
     await expect(page.getByText('Opgeslagen').first()).toBeVisible({ timeout: 10_000 }).catch(() => undefined);
 
     // Sticky (BL-140): blur must not jump to stopcontact or change the counter.
-    await expect(page.locator('h1').first()).toContainText(/Hoe heet deze ruimte/i);
+    await expect(page.locator('h1').first()).toContainText(/binnenunit|hangen|voorkeur/i);
     expect(await headingText(page)).toBe(headingBefore);
     expect(await readCounter(page)).toBe(counterBefore);
     await expect(page.getByTestId('step-missing-alert')).toHaveCount(0);

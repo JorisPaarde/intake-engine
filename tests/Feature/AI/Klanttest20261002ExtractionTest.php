@@ -357,10 +357,10 @@ test('case 81: alle expliciete feiten opgeslagen met bron; stroom/condens niet u
     $summaryKeys = collect($summary['known_items'] ?? [])->pluck('question_key')->all();
 
     expect($photoSteps)->toHaveCount(2)
-        ->and($photoSteps[0]['title'])->toContain('Slaapkamer ouders')
-        ->and($photoSteps[1]['title'])->toContain('Kinderkamer')
-        ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders, 1e verdieping')
-        ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer, 1e verdieping')
+        ->and($photoSteps[0]['title'])->toBe('Foto’s van de ruimte')
+        ->and($photoSteps[1]['title'])->toBe('Foto’s van de ruimte')
+        ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders, 1e verdieping van 2')
+        ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer, 1e verdieping van 2')
         ->and($summaryKeys)->not->toContain('fusebox_clarity')
         ->and($summaryKeys)->not->toContain('drain_location')
         ->and($summaryKeys)->not->toContain('free_group_known');

@@ -274,13 +274,23 @@
         // Listen on document: livewire-resilience dispatches non-bubbling CustomEvents on document (BL-143).
         document.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
         document.addEventListener('intake:upload-retrying', (e) => onUploadRetrying(e));
-        document.addEventListener('intake:upload-empty-response', (e) => onUploadRetrying(e));
+        // empty-response triggert ook upload-retrying via livewire-resilience; niet dubbel tonen.
         document.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
         document.addEventListener('intake:upload-failed', (e) => onUploadFailed(e));
         document.addEventListener('intake:photo-prep-start', (e) => onPrepStart(e));
         document.addEventListener('intake:photo-prep-done', (e) => onPrepDone(e));
         document.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
         document.addEventListener('intake:photo-prep-skipped', (e) => onPrepSkipped(e));
+        // Warm-up: eerste signed upload-URL + CSRF/sessie vóór de klant kiest (koude eerste upload).
+        queueMicrotask(() => {
+            try {
+                if (typeof $wire.freshSignedUploadUrl === 'function') {
+                    $wire.freshSignedUploadUrl();
+                }
+            } catch (e) {
+                // Soft-fail: warm-up mag upload nooit blokkeren.
+            }
+        });
     "
     x-on:livewire-upload-start="armUpload()"
     x-on:livewire-upload-progress="onUploadProgress($event)"
@@ -324,24 +334,23 @@
             x-bind:disabled="(clientUploading && ! uploadTimedOut) || prepBusy"
         >
     </label>
+    {{-- Tijdens auto-retry alleen de retry-status (geen dubbele “Even geduld…” in progress). --}}
     <div
         wire:loading
         wire:target="{{ $wireModel }}"
         class="{{ $progressClass }}"
         data-uploading="1"
         data-testid="upload-progress"
-        x-show="! uploadTimedOut"
+        x-show="! uploadTimedOut && ! autoRetrying"
     >
         <span x-text="
-            uploadTimedOut ? '' : (
-                autoRetrying
-                    ? (retryMessage + (retryCountdown ? (' ' + retryCountdown) : ''))
-                    : (
-                        serverBusy
-                            ? (uploadProgress === 100 ? 'Bezig op de server…' : 'Uploaden…')
-                            : (uploadProgress === null || uploadProgress === 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
-                    )
-            )
+            uploadTimedOut || autoRetrying
+                ? ''
+                : (
+                    serverBusy
+                        ? (uploadProgress === 100 ? 'Bezig op de server…' : 'Uploaden…')
+                        : (uploadProgress === null || uploadProgress === 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
+                )
         "></span>
     </div>
     <div

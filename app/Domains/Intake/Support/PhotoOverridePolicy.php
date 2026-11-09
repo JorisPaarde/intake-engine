@@ -25,6 +25,9 @@ final class PhotoOverridePolicy
     /** Melding bij Volgende/versturen zonder keuze; één term “Toch doorgaan” (BL-147, UX #16.3). */
     public const OVERRIDE_MESSAGE = 'Kies: foto vervangen of toch doorgaan.';
 
+    /** Korte bevestiging na “Toch doorgaan” vóór auto-advance (BL-153). */
+    public const OVERRIDE_ACCEPTED_FLASH = 'Foto bewaard — de installateur kijkt mee.';
+
     /** Eén kop + één zin op het bedankscherm, ook na “Toch doorgaan” (BL-147, UX #16.1). */
     public const THANK_YOU_HEADING = 'Bedankt, je aanvulling is binnen';
 
