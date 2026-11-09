@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.07 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.08 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -46,7 +46,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
 | — | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | done | high | na BL-151 · PR #301 · 2026-11-09 · frame-ancestors / limiet / honeypot / dedup |
-| 1 | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | backlog | medium | na BL-152 · request-prefill bij eerste klantstap |
+| — | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | done | medium | na BL-152 · PR #302 · 2026-11-09 · zie docs/plans/embed-form.md |
 | — | BL-150 | Publieke demo leftovers: nieuwe demo bij actieve sessie, login-verlopen, geen stille aanvraagtekst | E5 | done | medium | A · bij BL-001/066/091 · Notion QA 24 sep #5/#9 + 8 okt P2 · 2026-10-09 · PR #177 |
 | — | BL-148 | Tekstinterpretatie terug naar het AI-model (geen regex/keywords in productie) | E3/E4/E9 | done | high | ADR-0016 · evaluatieset · PR #173 · 2026-10-09 |
 | — | BL-149 | Klantwizard: around_house verbergen + maten L×B+m² op één scherm | E1/E7 | done | high | Notion #14 punten 2/3 · airco v28 · rest van #171 · PR #176 |
@@ -721,9 +721,11 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-153 — Embed-formulier PR3: AI-trigger + dashboardbadge + docs
 
-- **Status:** backlog · **Prioriteit:** medium · **Epic:** E3/E4/E5 · **Band:** F · **Volgt op:** BL-152
+- **Status:** done · **Datum:** 2026-11-09 · **PR:** #302 · **Prioriteit:** medium · **Epic:** E3/E4/E5 · **Band:** F · **Volgt op:** BL-152
 - **Doel:** request-prefill bij eerste echte klantstap als die nog ontbreekt; dashboardlabel “website”; docs/plans + staging-smoke-todo.
-- **Acceptatie:** geen AI bij louter create/GET embed; wel na klantactie; badge zichtbaar voor `source=embed`.
+- **Scope:** `DispatchEmbedRequestPrefillIfNeeded` (wizard stap/foto/Volgende, idempotent via RequestIntent-ai_runs); badge **Nieuw via website** (dashboard + detail); `docs/plans/embed-form.md`; staging-testpagina `/embed-test` + `embed:prepare-staging-test` (local/staging); Pest `EmbedRequestPrefillAndBadgeTest`.
+- **Acceptatie:** geen AI bij louter create/GET embed; wel na klantactie precies één dispatch; badge zichtbaar voor `source=embed`; niet-embed ongewijzigd.
+- **Resultaat:** zie [docs/plans/embed-form.md](plans/embed-form.md); staging-URL na prepare: `https://staging.intake-engine.nl/embed-test`.
 
 ### BL-150 — Publieke demo leftovers (nieuwe demo, login-verlopen, lege aanvraag)
 

@@ -111,6 +111,11 @@
                     <span class="inline-flex rounded bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800" data-testid="intake-status-badge">
                         {{ $intake->status->label() }}
                     </span>
+                    @if ($intake->source->dashboardBadgeLabel())
+                        <span class="inline-flex rounded bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-900" data-testid="embed-source-badge">
+                            {{ $intake->source->dashboardBadgeLabel() }}
+                        </span>
+                    @endif
                     <span class="text-gray-500">Klanttaak: {{ ($customerTaskStatus ?? null)['label'] ?? 'Nog niet gestart' }}</span>
                     <span class="text-gray-500" data-testid="workflow-mode-label">Werkwijze: {{ $intake->workflow_mode->label() }}</span>
                 </div>

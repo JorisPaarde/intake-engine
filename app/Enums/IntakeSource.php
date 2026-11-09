@@ -16,4 +16,15 @@ enum IntakeSource: string
             self::Embed => 'Website',
         };
     }
+
+    /**
+     * Korte dashboard-/detailbadge voor embed-opnames (BL-153).
+     */
+    public function dashboardBadgeLabel(): ?string
+    {
+        return match ($this) {
+            self::Embed => 'Nieuw via website',
+            self::Installer => null,
+        };
+    }
 }

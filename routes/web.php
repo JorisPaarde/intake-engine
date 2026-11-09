@@ -17,6 +17,7 @@ use App\Http\Controllers\Dev\DevDashboardController;
 use App\Http\Controllers\Dev\DevHealthController;
 use App\Http\Controllers\Dev\DevIntakeController;
 use App\Http\Controllers\Embed\EmbedIntakeController;
+use App\Http\Controllers\Embed\EmbedStagingTestController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\AddressSuggestionController;
 use App\Http\Controllers\Installer\CompanySettingsController;
@@ -51,6 +52,10 @@ Route::post('/interesse', ProductInterestController::class)
     ->name('product-interest.store');
 
 Route::get('/health', HealthController::class)->name('health');
+
+// Staging/local iframe-host voor happy-path smoke (BL-153); production → 404.
+Route::get('/embed-test', EmbedStagingTestController::class)
+    ->name('embed.staging-test');
 
 // Embed is sessionless (cross-site iframe): HMAC form token i.p.v. CSRF-cookie (BL-152).
 $embedWithoutSession = [
