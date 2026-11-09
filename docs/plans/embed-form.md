@@ -2,7 +2,7 @@
 
 > **Documentversie:** 1.2 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
-**Status:** PR1–PR3 opgeleverd (BL-151/152/153). Optioneel later: publieke adres-autocomplete, WP-plugin.
+**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding na Joris-stagingtest (sync-prefill freeze, ruimtelabels, maten-overslaan). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
 ## Wat er staat
 
@@ -21,7 +21,7 @@ Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-ma
 3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, dagplafond, Origin-check).
 4. Nieuw: `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + backup-mail → 303 `/o/{token}` (`target=_top`).
 5. Bestaande open opname (zelfde company + e-mail): opnieuw mailen + neutrale bevestiging in iframe (geen token-lek); telt niet mee voor dagplafond.
-6. Eerste echte klantstap of foto in de wizard: precies één `DeriveIntentFromRequestJob` als die nog ontbreekt. Mount/GET alleen doet dat niet. Niet-embed-opnames blijven create-time prefill houden.
+6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden.
 
 ## Snippet
 

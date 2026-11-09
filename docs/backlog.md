@@ -736,6 +736,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** `DispatchEmbedRequestPrefillIfNeeded` (wizard stap/foto/Volgende, idempotent via RequestIntent-ai_runs); badge **Nieuw via website** (dashboard + detail); `docs/plans/embed-form.md`; staging-testpagina `/embed-test` + `embed:prepare-staging-test` (local/staging); Pest `EmbedRequestPrefillAndBadgeTest`.
 - **Acceptatie:** geen AI bij louter create/GET embed; wel na klantactie precies één dispatch; badge zichtbaar voor `source=embed`; niet-embed ongewijzigd.
 - **Resultaat:** zie [docs/plans/embed-form.md](plans/embed-form.md); staging-URL: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh`) draait `embed:prepare-staging-test` automatisch (fail-soft; nooit op production).
+- **Afronding na Joris-stagingtest (2026-11-09):** root cause “knoppen doen niets” = sync `DeriveIntentFromRequest` in `persistComposite` bij `request_reason` (~20 s Livewire POST, geen `wire:loading`). Fix: embed async + wachtscherm; knopfeedback; ruimtelabel `Slaapkamer N van M`; L×B stated → geen matenscherm. Pest `EmbedWizardUxAfrondingTest`.
 
 ### BL-150 — Publieke demo leftovers (nieuwe demo, login-verlopen, lege aanvraag)
 

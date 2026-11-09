@@ -53,6 +53,7 @@ use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
+use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
@@ -222,6 +223,13 @@ class IntakeWizard extends Component
      */
     #[Locked]
     public bool $waitingForPrefill = false;
+
+    /**
+     * Embed: na eerste Volgende op request_reason wachten we op de async job,
+     * daarna landen op known-summary i.p.v. opnieuw op request_reason.
+     */
+    #[Locked]
+    public bool $resumeAfterEmbedPrefill = false;
 
     /** Unix-timestamp waarop de wizard-wacht begon. */
     #[Locked]
@@ -407,7 +415,13 @@ class IntakeWizard extends Component
 
         $this->waitingForPrefill = false;
         $this->prefillWaitStartedAt = null;
+        $resumeEmbed = $this->resumeAfterEmbedPrefill;
+        $this->resumeAfterEmbedPrefill = false;
         $this->beginWizardAfterPrefill($this->intake());
+
+        if ($resumeEmbed) {
+            $this->landAfterEmbedPrefillWait();
+        }
     }
 
     /**
@@ -421,6 +435,61 @@ class IntakeWizard extends Component
         }
 
         app(DispatchEmbedRequestPrefillIfNeeded::class)->handle($this->intake());
+    }
+
+    /**
+     * Na embed-prefill-wacht: niet opnieuw op request_reason blijven hangen.
+     */
+    private function landAfterEmbedPrefillWait(): void
+    {
+        $steps = $this->steps();
+        if ($steps === []) {
+            return;
+        }
+
+        foreach ($steps as $index => $step) {
+            if (($step['kind'] ?? '') === 'known_summary') {
+                $this->landOnStepIndex($steps, $index);
+
+                return;
+            }
+        }
+
+        foreach ($steps as $index => $step) {
+            if ($step['question_key'] === 'request_reason') {
+                if ($index < count($steps) - 1) {
+                    $this->landOnStepIndex($steps, $index + 1);
+                }
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * Embed: na opslaan van de openingszin async prefill afwachten i.p.v. sync AI in de Livewire-request.
+     */
+    private function armEmbedPrefillWaitIfNeeded(): bool
+    {
+        $intake = $this->intake();
+        if ($intake->source !== IntakeSource::Embed) {
+            return false;
+        }
+
+        if ((bool) config('ai.request_prefill.sync_on_create', false)) {
+            return false;
+        }
+
+        if (! DeriveIntentFromRequestJob::hasRecentPending($intake->id)) {
+            return false;
+        }
+
+        $this->waitingForPrefill = true;
+        $this->resumeAfterEmbedPrefill = true;
+        $this->prefillWaitStartedAt = now()->getTimestamp();
+        $this->saveMessage = '';
+
+        return true;
     }
 
     private function beginWizardAfterPrefill(Intake $intake): void
@@ -3292,8 +3361,9 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Embed: eerste klantstap triggert request-prefill (BL-153); vóór save/cursor.
-        $this->maybeDispatchEmbedRequestPrefill();
+        if ($this->waitingForPrefill) {
+            return;
+        }
 
         $this->finalizePendingWizardRemoval();
         $this->clearProgressExtraNote();
@@ -3310,8 +3380,14 @@ class IntakeWizard extends Component
             && ($currentStep['kind'] ?? 'question') !== 'known_summary'
             && $this->forcedKnownCompositesOnStep($currentStep) !== [];
 
+        // Eerst opslaan (zodat request_reason in de DB staat), dán embed-prefill dispatchen.
         if ($currentStep !== null) {
             $this->saveStep($currentStep);
+        }
+
+        $this->maybeDispatchEmbedRequestPrefill();
+        if ($this->armEmbedPrefillWaitIfNeeded()) {
+            return;
         }
 
         // Recompute after save; keep navigating by the key we showed, not a shifted index.
@@ -4048,9 +4124,6 @@ class IntakeWizard extends Component
             }
         }
 
-        // Embed: eerste antwoord triggert request-prefill vóór SaveIntakeAnswer (BL-153).
-        $this->maybeDispatchEmbedRequestPrefill();
-
         $previousRoomType = null;
         if (in_array($questionKey, ['room_type', 'floor_level'], true) && is_string($instanceKey)) {
             $previous = $this->intake()->answers()
@@ -4060,6 +4133,7 @@ class IntakeWizard extends Component
             $previousRoomType = is_array($previous?->value) ? ($previous->value['value'] ?? null) : null;
         }
 
+        // Eerst opslaan: embed-prefill moet de openingszin kunnen lezen (BL-153 afronding).
         app(SaveIntakeAnswer::class)->handle(
             $this->intake(),
             $questionKey,
@@ -4067,6 +4141,9 @@ class IntakeWizard extends Component
             $payload,
         );
         $this->forgetIntakeDerivedCaches();
+
+        // Embed: dispatch ná save; nooit sync catalogus-AI in de Livewire-request (~20s freeze).
+        $this->maybeDispatchEmbedRequestPrefill();
 
         // Zolder → ander type: laat geen size=unknown achter als prefill op de grootteklasse.
         if (in_array($questionKey, ['room_type', 'floor_level'], true)
@@ -4080,9 +4157,12 @@ class IntakeWizard extends Component
         // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de
         // aanvraag noemt vaak al de ruimtes en of het om koelen of verwarmen gaat.
         // Known-summary staat direct na request_reason; next() landt erop zonder sprong.
+        // Embed: async job + wachtscherm (armEmbedPrefillWaitIfNeeded); geen sync handle().
         if ($instanceKey === null && $this->hasTextAnalysis($questionKey)) {
-            app(DeriveIntentFromRequest::class)->handle($this->intake());
-            $this->forgetIntakeDerivedCaches();
+            if ($this->intake()->source !== IntakeSource::Embed) {
+                app(DeriveIntentFromRequest::class)->handle($this->intake());
+                $this->forgetIntakeDerivedCaches();
+            }
         }
     }
 

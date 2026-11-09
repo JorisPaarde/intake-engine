@@ -461,7 +461,9 @@
                                         <button
                                             type="button"
                                             wire:click="skipOptionalPhoto"
-                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            wire:loading.attr="disabled"
+                                            wire:target="skipOptionalPhoto,next"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                                             data-testid="dimensions-skip"
                                         >
                                             Weet ik niet / sla over
@@ -542,7 +544,9 @@
                                         <button
                                             type="button"
                                             wire:click="skipOptionalPhoto"
-                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            wire:loading.attr="disabled"
+                                            wire:target="skipOptionalPhoto,next"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
                                             data-testid="text-skip"
                                         >
                                             {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
@@ -680,9 +684,15 @@
                 <button
                     type="button"
                     wire:click="previous"
+                    wire:loading.attr="disabled"
+                    wire:target="previous,next,complete"
                     class="min-h-12 flex-1 rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-40"
                 >
-                    Vorige
+                    <span wire:loading.remove wire:target="previous">Vorige</span>
+                    <span wire:loading wire:target="previous" class="inline-flex items-center gap-2">
+                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                        Even geduld…
+                    </span>
                 </button>
                 @endif
 
@@ -691,10 +701,15 @@
                         type="button"
                         wire:click="complete"
                         wire:loading.attr="disabled"
+                        wire:target="complete,next,previous"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
+                        data-testid="complete-button"
                     >
                         <span wire:loading.remove wire:target="complete">Afronden</span>
-                        <span wire:loading wire:target="complete">Bezig…</span>
+                        <span wire:loading wire:target="complete" class="inline-flex items-center justify-center gap-2">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Even geduld…
+                        </span>
                     </button>
                 @elseif (! empty($photoNextBlockedByAssessment))
                     <button
@@ -715,10 +730,18 @@
                     <button
                         type="button"
                         wire:click="next(@js($activeStepKey))"
+                        wire:loading.attr="disabled"
+                        wire:target="next,complete,previous"
                         data-testid="next-button"
-                        class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
+                        class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
                     >
-                        {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
+                        <span wire:loading.remove wire:target="next">
+                            {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
+                        </span>
+                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2" data-testid="next-loading">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Even geduld…
+                        </span>
                     </button>
                 @endif
             </div>

@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.49 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.50 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -217,7 +217,7 @@ Vervolghoogtes (zolder/nok/knieschot) komen uit prompt `follow-up-text-v1` via `
 
 Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
 
-**Embed-opnames (BL-153):** CreateIntake via `/embed/{key}` dispatch’t géén request-prefill. `DispatchEmbedRequestPrefillIfNeeded` doet dat precies één keer bij de eerste klantstap, foto of Volgende in de wizard (idempotent via bestaande `RequestIntent`-`ai_runs`, inclusief queue-placeholder). Mount/GET alleen triggert geen externe call. Installateursaanmaak blijft create-time prefill.
+**Embed-opnames (BL-153):** CreateIntake via `/embed/{key}` dispatch’t géén request-prefill. `DispatchEmbedRequestPrefillIfNeeded` doet dat precies één keer bij de eerste klantstap, foto of Volgende in de wizard (idempotent via bestaande `RequestIntent`-`ai_runs`, inclusief queue-placeholder) — **ná** `SaveIntakeAnswer`, nooit sync `DeriveIntentFromRequest` in de Livewire-request (dat bevroor Volgende ~20 s zonder knopfeedback). Pending → wizard-wachtscherm; daarna known-summary. Mount/GET alleen triggert geen externe call. Installateursaanmaak blijft create-time prefill.
 
 De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. De klantlink-herstelpass zet externe calls uit (`allowExternal: false`); met tekst-AI uit draait dan de lokale heuristiek, met tekst-AI aan blijft de mount een no-op.
 

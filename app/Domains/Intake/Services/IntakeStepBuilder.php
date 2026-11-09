@@ -277,7 +277,7 @@ final class IntakeStepBuilder
         /** @var list<array{question: IntakeQuestion, required: bool}> $pendingClosing */
         $pendingClosing = [];
 
-        $flushClosing = function () use (&$steps, &$pendingClosing, $intake, $section, $sectionInstanceKey): void {
+        $flushClosing = function () use (&$steps, &$pendingClosing, $intake, $section, $sectionInstanceKey, $context): void {
             if ($pendingClosing === []) {
                 return;
             }
@@ -293,7 +293,7 @@ final class IntakeStepBuilder
                 'section_instance_key' => $sectionInstanceKey,
                 'question_key' => '_closing_wishes',
                 'title' => 'Merk, planning en opmerkingen',
-                'section_title' => $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey),
+                'section_title' => $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey, $context['answers']),
                 'description' => 'Optioneel. Zonder voorkeur kiest de installateur wat het beste past.',
                 'help_text' => 'Dit houdt de opname niet tegen. Sla over wat je niet weet.',
                 'is_repeatable' => false,
@@ -401,11 +401,12 @@ final class IntakeStepBuilder
 
                 $areaPresent = $this->roomAreaPresent($context, $sectionInstanceKey);
                 $areaTrusted = $areaPresent && $this->roomAreaTrusted($context, $sectionInstanceKey);
+                $lxwTrusted = $this->roomLengthWidthTrusted($context, $sectionInstanceKey);
 
-                // Trusted m² (stated/request_text ≥ drempel) → geen L×B-scherm (tenzij sticky/Wijzigen).
+                // Trusted m² óf letterlijk opgegeven L×B (aanvraag) → geen herhaalvraag.
                 // Onzekere AI-m² houdt het scherm zichtbaar maar optioneel (BL-124).
                 if ($wizardGroup === 'room_dimensions'
-                    && $areaTrusted
+                    && ($areaTrusted || $lxwTrusted)
                     && ! $anyMemberForced
                     && ! $stickyKeep) {
                     $emittedGroups[$wizardGroup] = true;
@@ -416,10 +417,16 @@ final class IntakeStepBuilder
                 $emittedGroups[$wizardGroup] = true;
                 $primary = $visibleMembers[0];
                 $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
-                $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey);
+                $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey, $context['answers']);
                 $groupTitle = is_string($primary->meta['wizard_group_title'] ?? null)
                     ? (string) $primary->meta['wizard_group_title']
                     : $primary->label;
+                $roomLabel = $sectionInstanceKey !== null
+                    ? $this->instanceLabel($intake, $sectionInstanceKey, $context['answers'])
+                    : null;
+                if ($roomLabel !== null) {
+                    $groupTitle = $groupTitle.' — '.$roomLabel;
+                }
                 $groupHelp = is_string($primary->meta['wizard_group_help'] ?? null)
                     ? (string) $primary->meta['wizard_group_help']
                     : $primary->help_text;
@@ -457,12 +464,13 @@ final class IntakeStepBuilder
             }
 
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
-            $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey);
+            $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey, $context['answers']);
             $title = $question->label;
             $helpText = $question->help_text;
-            if ($sectionInstanceKey !== null && in_array($question->key, ['room_photos', 'indoor_unit_position_photo'], true)) {
-                $roomLabel = $this->instanceLabel($intake, $sectionInstanceKey);
+            if ($sectionInstanceKey !== null) {
+                $roomLabel = $this->instanceLabel($intake, $sectionInstanceKey, $context['answers']);
                 if ($roomLabel !== null) {
+                    // Elke ruimtevraag toont het ruimtelabel in de kop (niet alleen foto’s).
                     $title = $question->label.' — '.$roomLabel;
                 }
             }
@@ -618,6 +626,56 @@ final class IntakeStepBuilder
             $fact,
             is_array($value) ? $value : null,
         );
+    }
+
+    /**
+     * Letterlijk opgegeven L én B (aanvraag/request_text of klant) → geen matenscherm opnieuw.
+     *
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
+     *     allQuestions?: Collection<string, IntakeQuestion>
+     * }  $context
+     */
+    private function roomLengthWidthTrusted(array $context, ?string $sectionInstanceKey): bool
+    {
+        if ($sectionInstanceKey === null) {
+            return false;
+        }
+
+        foreach (['room_length_m', 'room_width_m'] as $key) {
+            $composite = VisibilityResolver::compositeKey($key, $sectionInstanceKey);
+            $value = $context['answers'][$composite] ?? null;
+            $number = is_array($value) ? ($value['number'] ?? null) : null;
+            if (! is_numeric($number) || (float) $number <= 0) {
+                return false;
+            }
+
+            $source = $context['answerSources'][$composite] ?? null;
+            // Klant zelf ingevuld (geen prefill_source) telt als bekend.
+            if ($source === null) {
+                continue;
+            }
+
+            $question = ($context['allQuestions'] ?? collect())->get($key);
+            $skipSources = is_array($question?->meta['skip_when_prefilled_by'] ?? null)
+                ? $question->meta['skip_when_prefilled_by']
+                : [PrefillSources::REQUEST_TEXT, PrefillSources::AI_TEXT, PrefillSources::AI_PHOTO, PrefillSources::AI_LEGACY];
+            $fact = $context['answerFacts'][$composite] ?? null;
+
+            if (! PrefillSources::maySkipAsPrefill(
+                $source,
+                $skipSources,
+                $key,
+                $fact,
+                $value,
+            )) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -925,7 +983,7 @@ final class IntakeStepBuilder
                 continue;
             }
 
-            $instanceLabel = $this->instanceLabel($intake, $answer->section_instance_key);
+            $instanceLabel = $this->instanceLabel($intake, $answer->section_instance_key, $answers);
             $label = $question->label;
             if ($instanceLabel !== null) {
                 $label = $instanceLabel.' — '.$label;
@@ -998,21 +1056,102 @@ final class IntakeStepBuilder
     }
 
     /**
-     * Alleen AircoRoom.name; anders null (sectietitel als fallback).
+     * Ruimtelabel voor de klant: "Slaapkamer 2 van 3" (nummering per type + totaal).
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
      */
-    private function instanceLabel(Intake $intake, ?string $sectionInstanceKey): ?string
+    private function instanceLabel(Intake $intake, ?string $sectionInstanceKey, array $answers = []): ?string
     {
         if ($sectionInstanceKey === null) {
             return null;
         }
 
+        $base = $this->rawRoomName($intake, $sectionInstanceKey, $answers);
+        if ($base === null) {
+            return null;
+        }
+
+        $total = $this->roomInstanceTotal($intake, $answers);
+        if ($total <= 1) {
+            return $base;
+        }
+
+        $index = $this->roomInstanceIndex($sectionInstanceKey, $intake, $answers);
+        if ($index === null) {
+            return $base;
+        }
+
+        // Al "… van N" → niet verdubbelen.
+        if (preg_match('/ van \d+$/u', $base) === 1) {
+            return $base;
+        }
+
+        return $base.' van '.$total;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function rawRoomName(Intake $intake, string $sectionInstanceKey, array $answers): ?string
+    {
         $intake->loadMissing('aircoRooms');
         $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
         if ($room !== null && trim($room->name) !== '') {
             return trim($room->name);
         }
 
+        $types = RoomLabelResolver::typesByInstance($answers);
+        if ($types === []) {
+            return null;
+        }
+
+        $typeCounts = [];
+        foreach ($types as $instance => $type) {
+            $label = RoomLabelResolver::label(is_string($type) ? $type : null, $typeCounts);
+            if ($instance === $sectionInstanceKey) {
+                return $label;
+            }
+        }
+
         return null;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function roomInstanceTotal(Intake $intake, array $answers): int
+    {
+        $intake->loadMissing('aircoRooms');
+        $fromRooms = $intake->aircoRooms->count();
+        if ($fromRooms > 0) {
+            return $fromRooms;
+        }
+
+        $types = RoomLabelResolver::typesByInstance($answers);
+
+        return max(count($types), 0);
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function roomInstanceIndex(string $sectionInstanceKey, Intake $intake, array $answers): ?int
+    {
+        $intake->loadMissing('aircoRooms');
+        if ($intake->aircoRooms->isNotEmpty()) {
+            $ordered = $intake->aircoRooms->sortBy('key')->values();
+            foreach ($ordered as $i => $room) {
+                if ($room->key === $sectionInstanceKey) {
+                    return $i + 1;
+                }
+            }
+        }
+
+        $types = RoomLabelResolver::typesByInstance($answers);
+        $keys = array_keys($types);
+        $pos = array_search($sectionInstanceKey, $keys, true);
+
+        return $pos === false ? null : $pos + 1;
     }
 
     /**
@@ -1129,16 +1268,20 @@ final class IntakeStepBuilder
         return $sameType >= 2;
     }
 
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
     private function sectionTitleForInstance(
         Intake $intake,
         IntakeSection $section,
         ?string $sectionInstanceKey,
+        array $answers = [],
     ): string {
         if ($sectionInstanceKey === null) {
             return $section->title;
         }
 
-        $label = $this->instanceLabel($intake, $sectionInstanceKey);
+        $label = $this->instanceLabel($intake, $sectionInstanceKey, $answers);
 
         return $label ?? ($section->title.' '.Str::afterLast($sectionInstanceKey, '-'));
     }

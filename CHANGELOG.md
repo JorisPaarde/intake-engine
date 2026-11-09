@@ -7,6 +7,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Fixed
 
 - **Embed BAG-verrijking (BL-154):** placeholder-plaats `Onbekend` blokkeerde PDOK-`matchesIntake` (stad hoeft niet te matchen bij postcode+huisnummer). Embed lost straat/plaats nu vóór create via PDOK suggest; onbekend adres (bijv. `2037GR 1`) → 422 “We konden dit adres niet vinden…” i.p.v. stil `Onbekend`. Klantwizard- en maiteksten over “bekende woninggegevens” alleen als er BAG/EP-feiten zijn; dan toont de wizard ook bouwjaar/woningtype. Pest: `EmbedAddressEnrichmentTest` (`2037GR 273`). Staging/local live-smoke: `php artisan embed:smoke-bag-address`.
+- **Embed/klantwizard afronding (BL-153):** Volgende op `request_reason` draaide sync `DeriveIntentFromRequest` in de Livewire-request (~20 s op staging, knop leek dood). Embed slaat die sync over; dispatch ná save + wachtscherm (`Even geduld…`); `wire:loading` op Volgende/Vorige/Afronden/skip. Ruimtelabel `Slaapkamer N van M` op elke ruimtestap; letterlijk opgegeven L×B (request_text stated) slaat het matenscherm over. Pest: `EmbedWizardUxAfrondingTest`.
 
 ### Changed
 

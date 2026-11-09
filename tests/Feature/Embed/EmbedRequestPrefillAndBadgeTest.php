@@ -195,10 +195,12 @@ test('next on embed intake also triggers a single request-prefill dispatch', fun
     $intake = Intake::query()->where('customer_email', 'embed.next@example.com')->firstOrFail();
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->call('next');
+        ->call('next')
+        ->assertSet('waitingForPrefill', true);
 
     Queue::assertPushed(DeriveIntentFromRequestJob::class, 1);
 
+    // Remount: pending placeholder → wachtscherm op mount; geen tweede dispatch.
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->call('next');
 
