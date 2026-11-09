@@ -1,6 +1,6 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Status:** PR1–PR3 opgeleverd (BL-151/152/153). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
@@ -55,3 +55,16 @@ Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-de
 3. Invullen → top-window op `/o/{token}` → eerste vraag beantwoorden
 4. Inloggen als `embed-staging-test@example.com` / `password` → badge **Nieuw via website**
 5. Negatief (optioneel): verkeerd domein, honeypot, limiet — zie `docs/functional-test-status.md`
+
+### Vaste BAG-check (live PDOK — niet in CI)
+
+CI mag geen echte PDOK aanroepen. Op staging/local:
+
+```bash
+php artisan embed:prepare-staging-test
+php artisan embed:smoke-bag-address
+```
+
+Vaste case **2037GR 273** (Haarlem, Bernadottelaan): na embed-create moeten straat, plaats, bouwjaar en woningtype gevuld zijn (geen `Onbekend`). Onbekend adres **2037GR 1** moet een nette validatiemelding geven (`We konden dit adres niet vinden…`) zonder opname. Optioneel `--keep` om de testopname te bewaren voor een 390 px browsercheck van de klantwizard-header.
+
+Browser (aanvulling op `/embed-test`): postcode `2037GR`, huisnummer `273` → header toont `Bernadottelaan 273` + `Haarlem`; bouwjaar-/woningtypevragen vervallen. Herhaal met huisnummer `1` → formulierfout, geen redirect.

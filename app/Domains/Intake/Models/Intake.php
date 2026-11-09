@@ -298,4 +298,61 @@ class Intake extends Model
             trim(($this->address_postal_code ?? '').' '.($this->address_city ?? '')),
         ])->filter()->implode(', ');
     }
+
+    /**
+     * True when BAG/EP (or similar) already contributed housing attributes we can
+     * show as "bekende woninggegevens" — not merely an address_verification status.
+     */
+    public function hasKnownHousingFacts(): bool
+    {
+        return $this->externalFacts()
+            ->whereIn('fact_key', [
+                'building_year',
+                'floor_area_m2',
+                'usage_purposes',
+                'energy_label',
+                'energy_demand',
+                'building_type_inference',
+                'building_height_m',
+                'roof_type',
+                'floor_count',
+            ])
+            ->exists();
+    }
+
+    /**
+     * Short customer-facing lines for already-known housing attributes (label → value).
+     *
+     * @return list<array{label: string, value: string}>
+     */
+    public function knownHousingFactLines(): array
+    {
+        $this->loadMissing(['answers', 'templateVersion.sections.questions.options']);
+
+        $lines = [];
+
+        $yearAnswer = $this->answers->firstWhere('question_key', 'build_year');
+        $yearNumber = is_array($yearAnswer?->value) ? ($yearAnswer->value['number'] ?? null) : null;
+        if (is_numeric($yearNumber)) {
+            $lines[] = ['label' => 'Bouwjaar', 'value' => (string) (int) $yearNumber];
+        }
+
+        $typeAnswer = $this->answers->firstWhere('question_key', 'building_type');
+        $typeValue = is_array($typeAnswer?->value) ? ($typeAnswer->value['value'] ?? null) : null;
+        if (is_string($typeValue) && $typeValue !== '') {
+            $optionLabel = $this->templateVersion?->sections
+                ->flatMap(static fn ($section) => $section->questions)
+                ->firstWhere('key', 'building_type')
+                ?->options
+                ->firstWhere('value', $typeValue)
+                ?->label;
+
+            $lines[] = [
+                'label' => 'Woningtype',
+                'value' => is_string($optionLabel) && $optionLabel !== '' ? $optionLabel : $typeValue,
+            ];
+        }
+
+        return $lines;
+    }
 }

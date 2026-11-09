@@ -24,9 +24,26 @@
         </div>
 
         <div class="mt-4">
-            <p class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]">
-                Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende woninggegevens. Jij laat alleen zien wat we nog nodig hebben.
-            </p>
+            <div class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]">
+                @if ($intake->hasKnownHousingFacts())
+                    <p>Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende woninggegevens. Jij laat alleen zien wat we nog nodig hebben.</p>
+                    @php
+                        $knownHousingLines = $intake->knownHousingFactLines();
+                    @endphp
+                    @if ($knownHousingLines !== [])
+                        <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
+                            @foreach ($knownHousingLines as $knownLine)
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="text-[#5e6862]">{{ $knownLine['label'] }}</dt>
+                                    <dd class="font-semibold text-[#18201d]">{{ $knownLine['value'] }}</dd>
+                                </div>
+                            @endforeach
+                        </dl>
+                    @endif
+                @else
+                    <p>Met jouw hulp kunnen we sneller je airco plaatsen. Beantwoord de vragen hieronder — dat kan ook op je telefoon. Je kunt later gewoon verdergaan.</p>
+                @endif
+            </div>
             <div class="flex items-center justify-between text-sm text-[#5e6862]">
                 <span>Voortgang</span>
                 <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>

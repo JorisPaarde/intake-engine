@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.09 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.10 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,6 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | in_progress | high | na BL-152/153 · staging bug Joris · parallel #304 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
 | — | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | done | high | na BL-151 · PR #301 · 2026-11-09 · frame-ancestors / limiet / honeypot / dedup |
 | — | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | done | medium | na BL-152 · PR #302 · 2026-11-09 · zie docs/plans/embed-form.md |
@@ -701,6 +702,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
+
+### BL-154 — Embed BAG-verrijking (stil Onbekend / 2037GR 273)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E2 · **Band:** A · **Volgt op:** BL-152/153
+- **Aanleiding:** staging embed (`/embed-test`) met `2037GR` liet header `… 2037GR Onbekend` zien; bouwjaar/type/BAG-velden leeg; vragen bleven staan. Oorzaak: placeholder-plaats `Onbekend` blokkeerde `matchesIntake` (stad ≠ Haarlem) waardoor PDOK/BAG fail-soft `not_found` werd; onbekend huisnummer `1` werd stil geaccepteerd.
+- **Doel:** embed lost straat/plaats via PDOK suggest vóór create; onbekend adres → nette 422; structured match negeert placeholder-stad; wizard/mail-copy over “bekende woninggegevens” alleen mét BAG-feiten; vaste smoke `2037GR 273`.
+- **Scope:** `StartEmbedIntake` + `PdokAddressService::matchesIntake` + voorwaardelijke klantcopy; Pest `EmbedAddressEnrichmentTest`; `php artisan embed:smoke-bag-address` (live PDOK, local/staging). Minimale overlap met parallel PR #304 (alleen kleine blade-copy).
+- **Acceptatie:** Pest: embed `2037GR 273` → Bernadottelaan/Haarlem + bouwjaar + woningtype, vragen skippen; `2037GR 1` → 422 NL zonder intake. Staging-smoke-command groen. 390 px screenshot met straat/plaats/bouwjaar/type.
+- **Testadressen:** bekend `2037GR 273` (Bernadottelaan, Haarlem); onbekend `2037GR 1`.
 
 ### BL-151 — Embed-formulier PR1: datamodel + bedrijfsinstellingen
 

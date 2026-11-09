@@ -395,6 +395,13 @@ final class PdokAddressService
             return false;
         }
 
+        // Structured postcode + house number uniquely identify a Dutch address.
+        // Do not require city: embed creates with a temporary placeholder city, and a
+        // mistyped city must not block BAG enrichment when postal/number already match.
+        if ($intake->address_postal_code !== null && $intake->address_house_number !== null) {
+            return true;
+        }
+
         return $intake->address_city === null
             || $this->normalize((string) ($document['woonplaatsnaam'] ?? '')) === $this->normalize($intake->address_city);
     }

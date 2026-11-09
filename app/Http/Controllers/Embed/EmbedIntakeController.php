@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\MessageBag as SupportMessageBag;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class EmbedIntakeController extends Controller
@@ -103,6 +104,14 @@ final class EmbedIntakeController extends Controller
 
         try {
             $result = $startEmbedIntake->handle($company, $data, $refererHost);
+        } catch (ValidationException $exception) {
+            return $this->formResponse(
+                $company,
+                $public_key,
+                status: 422,
+                fieldErrors: $exception->validator->errors(),
+                oldInput: $normalized,
+            );
         } catch (HttpException $exception) {
             if ($exception->getStatusCode() === 429) {
                 return $this->formResponse(
