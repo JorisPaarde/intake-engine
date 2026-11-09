@@ -241,7 +241,8 @@
         "Tests\\Unit\\Intake\\InstallerDisplayLabelsTest": 0.0014,
         "Tests\\Unit\\Intake\\PhotoObservationRelevanceTest": 0.0013,
         "Tests\\Unit\\Intake\\WorkspacePrimaryActionResolverTest": 0.1913,
-        "Tests\\Unit\\ReportClaimsScorerOnceTest": 0.0026
+        "Tests\\Unit\\ReportClaimsScorerOnceTest": 0.0026,
+        "Tests\\Feature\\Customer\\RoomEyebrowLabelTest": 0.3
     },
     "checksum": "0cf3ceb534d47e53e8e762c280a61a84",
     "updated_at": "2026-11-09T18:32:46+01:00"

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.10 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.11 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,6 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | in_progress | high | na BL-153 · staging 390 Joris · 3 slaapkamers 2037GR 273 |
 | — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | in_progress | high | na BL-152/153 · staging bug Joris · parallel #304 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
 | — | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | done | high | na BL-151 · PR #301 · 2026-11-09 · frame-ancestors / limiet / honeypot / dedup |
@@ -702,6 +703,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
+
+### BL-155 — Klantwizard ruimte-eyebrow + aaneengesloten teller
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** A · **Volgt op:** BL-153
+- **Aanleiding:** staging 390 (3 slaapkamers, 2037GR 273): eyebrow `SLAAPKAMER 1, KELDER / SOUTERRAIN VAN 3 · VRAAG …`; teller sprong 25→27 (26 ontbrak) terwijl totaal 29 bleef.
+- **Doel:** eyebrow `Slaapkamer N van M` zonder verdieping ertussen; “Kelder / souterrain” bleek uit `floor_level`-antwoord (dossier `appendFloorLabel`), niet uit bedroom-default — eyebrow gebruikt type-label i.p.v. dossiernaam. Teller pruned ordinals van weggevallen stappen (aaneengesloten); totaal mag omlaag met de live lijst.
+- **Scope:** `IntakeStepBuilder::rawRoomName` + `IntakeWizard::resolveStableStepDisplay`/prune; Pest `RoomEyebrowLabelTest` + `StableStepCounterTest`.
+- **Acceptatie:** Pest groen; E2E groen; geen tag/prod.
 
 ### BL-154 — Embed BAG-verrijking (stil Onbekend / 2037GR 273)
 

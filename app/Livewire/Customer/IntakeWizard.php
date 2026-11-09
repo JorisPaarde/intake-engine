@@ -247,7 +247,7 @@ class IntakeWizard extends Component
     public int $progressHighWater = 0;
 
     /**
-     * Stable “Vraag X van Y” noemer: groeit mee, daalt nooit mid-session (BL-153).
+     * Stable “Vraag X van Y” noemer: volgt live lijstlengte (mag omlaag bij krimpen).
      */
     #[Locked]
     public int $stepTotalHighWater = 0;
@@ -5614,8 +5614,9 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Stabiele “Vraag X van Y”: ordinals alleen bij tonen (geen sprongen), total high-water
-     * daalt nooit; “van N” pas als ruimtes/known-summary bekend zijn.
+     * Stabiele “Vraag X van Y”: ordinals alleen bij tonen, aaneengesloten (geen gaten als
+     * een tussenstap wegvalt); totaal volgt de live lijst (mag stabiel omlaag).
+     * “van N” pas als ruimtes/known-summary bekend zijn.
      *
      * @param  list<array<string, mixed>>  $steps
      * @param  array<string, mixed>|null  $step
@@ -5625,9 +5626,10 @@ class IntakeWizard extends Component
     {
         $liveTotal = count($steps);
         $this->markStepCounterReadyIfPossible($steps);
+        $this->pruneStepDisplayOrdinals($steps);
 
         if ($this->completed) {
-            $total = max(1, $this->stepTotalHighWater, $liveTotal);
+            $total = max(1, $liveTotal, $this->stepOrdinalSeq);
 
             return [
                 'number' => $total,
@@ -5641,8 +5643,9 @@ class IntakeWizard extends Component
             $key = (string) ($step['key'] ?? '');
             if ($key !== '') {
                 if (! isset($this->stepDisplayOrdinals[$key])) {
-                    // Eerste keer: minstens huidige index+1 én opeenvolgend — geen terugval bij krimpende lijst.
-                    $candidate = max($displayIndex + 1, $this->stepOrdinalSeq + 1);
+                    // Opeenvolgend na prune: geen max(displayIndex+1) — dat sprong over
+                    // weggevallen tussenstappen (25 → 27 terwijl 26 nooit zichtbaar was).
+                    $candidate = $this->stepOrdinalSeq + 1;
                     $this->stepDisplayOrdinals[$key] = $candidate;
                     $this->stepOrdinalSeq = $candidate;
                 }
@@ -5650,19 +5653,42 @@ class IntakeWizard extends Component
             }
         }
 
-        // High-water: nooit lager dan eerder getoond of huidige lijstlengte.
-        $this->stepTotalHighWater = max(
-            $this->stepTotalHighWater,
-            $liveTotal,
-            $this->stepOrdinalSeq,
-            $number,
-        );
+        // Totaal mag mee omlaag als de live lijst krimpt (niet star high-water).
+        $this->stepTotalHighWater = max($liveTotal, $this->stepOrdinalSeq, $number);
 
         return [
             'number' => max(1, $number),
             'total' => max(1, $this->stepTotalHighWater),
             'total_ready' => $this->stepCounterTotalReady,
         ];
+    }
+
+    /**
+     * Gooi ordinals weg voor stappen die niet meer in de live lijst staan, zodat het
+     * volgende nummer het gat kan hergebruiken (25 → 26 i.p.v. 25 → 27).
+     *
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function pruneStepDisplayOrdinals(array $steps): void
+    {
+        if ($this->stepDisplayOrdinals === []) {
+            $this->stepOrdinalSeq = 0;
+
+            return;
+        }
+
+        $liveKeys = [];
+        foreach ($steps as $candidate) {
+            $key = $candidate['key'] ?? null;
+            if (is_string($key) && $key !== '') {
+                $liveKeys[$key] = true;
+            }
+        }
+
+        $this->stepDisplayOrdinals = array_intersect_key($this->stepDisplayOrdinals, $liveKeys);
+        $this->stepOrdinalSeq = $this->stepDisplayOrdinals === []
+            ? 0
+            : (int) max($this->stepDisplayOrdinals);
     }
 
     /**
