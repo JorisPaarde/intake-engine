@@ -35,6 +35,7 @@ test('report_claims case runner runs with FakeAiClient and scores both layers', 
         dump([
             'error' => $result['error'] ?? null,
             'rejections' => $result['rejections'] ?? null,
+            'id' => $result['id'] ?? null,
         ]);
     }
 
