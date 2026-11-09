@@ -19,7 +19,7 @@
             @endif
             <div class="min-w-0">
                 <p class="truncate text-lg font-semibold text-[#18201d]">{{ $company?->name ?? 'Digitale Opname' }}</p>
-                <p class="truncate text-sm text-[#5e6862]">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
+                <p class="text-sm leading-snug text-[#5e6862] break-words whitespace-normal">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
             </div>
         </div>
 

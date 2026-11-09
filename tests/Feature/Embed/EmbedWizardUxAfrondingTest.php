@@ -19,6 +19,8 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -31,7 +33,57 @@ beforeEach(function () {
         'ai.request_prefill.wizard_wait_seconds' => 20,
         'ai.text_inference.enabled' => false,
         'ai.provider' => 'fake',
+        'services.pdok.enabled' => true,
+        'services.pdok.search_base_url' => 'https://api.pdok.test/search',
+        'services.pdok.bag_base_url' => 'https://api.pdok.test/bag',
+        'services.pdok.timeout_seconds' => 1,
+        'services.pdok.aerial_enabled' => false,
+        'services.bag_api.enabled' => false,
     ]);
+
+    // Embed lost straat/plaats via PDOK suggest vóór create (BL-154).
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), '/suggest') || str_contains($request->url(), '/lookup')) {
+            return Http::response([
+                'response' => ['docs' => [[
+                    'id' => 'adr-embed-ux-1234ab-12',
+                    'weergavenaam' => 'Voorbeeldstraat 12, 1234AB Voorbeeldstad',
+                    'straatnaam' => 'Voorbeeldstraat',
+                    'huisnummer' => 12,
+                    'postcode' => '1234AB',
+                    'woonplaatsnaam' => 'Voorbeeldstad',
+                    'gemeentenaam' => 'Voorbeeldstad',
+                    'provincienaam' => 'Noord-Holland',
+                    'adresseerbaarobject_id' => '0363010012111931',
+                ]]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => [
+                        'identificatie' => '0363010012111931',
+                        'oppervlakte' => 100,
+                        'gebruiksdoel' => 'woonfunctie',
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-ux'],
+                    ],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.9, 52.3]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items/pand-ux')) {
+            return Http::response([
+                'properties' => [
+                    'identificatie' => '0363100012111931',
+                    'bouwjaar' => 1990,
+                ],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
 });
 
 /**
@@ -64,8 +116,8 @@ function embedUxPayload(string $key, array $overrides = []): array
         'customer_name' => 'UX Embed Klant',
         'customer_email' => 'embed.ux@example.com',
         'customer_phone' => '0612345678',
-        'address_postal_code' => '3011AD',
-        'address_house_number' => 1,
+        'address_postal_code' => '1234AB',
+        'address_house_number' => 12,
         'address_house_number_addition' => null,
         'privacy_consent' => '1',
         'website' => '',
