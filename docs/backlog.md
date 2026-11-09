@@ -45,8 +45,8 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
-| 1 | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | in_progress | high | na BL-151 · frame-ancestors / limiet / honeypot / dedup |
-| 2 | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | backlog | medium | na BL-152 · request-prefill bij eerste klantstap |
+| — | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | done | high | na BL-151 · PR #301 · 2026-11-09 · frame-ancestors / limiet / honeypot / dedup |
+| 1 | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | backlog | medium | na BL-152 · request-prefill bij eerste klantstap |
 | — | BL-150 | Publieke demo leftovers: nieuwe demo bij actieve sessie, login-verlopen, geen stille aanvraagtekst | E5 | done | medium | A · bij BL-001/066/091 · Notion QA 24 sep #5/#9 + 8 okt P2 · 2026-10-09 · PR #177 |
 | — | BL-148 | Tekstinterpretatie terug naar het AI-model (geen regex/keywords in productie) | E3/E4/E9 | done | high | ADR-0016 · evaluatieset · PR #173 · 2026-10-09 |
 | — | BL-149 | Klantwizard: around_house verbergen + maten L×B+m² op één scherm | E1/E7 | done | high | Notion #14 punten 2/3 · airco v28 · rest van #171 · PR #176 |
@@ -713,10 +713,11 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-152 — Embed-formulier PR2: publieke GET/POST + beveiliging
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E2/E5 · **Band:** A · **Volgt op:** BL-151
+- **Status:** done · **Datum:** 2026-11-09 · **PR:** #301 · **Prioriteit:** high · **Epic:** E1/E2/E5 · **Band:** A · **Volgt op:** BL-151
 - **Doel:** iframe-formulier op IE; same-origin POST; redirect top-window naar `/o/{token}`; CreateIntake zonder AI; Origin/Referer-allowlist; honeypot; dagplafond; dedup open intake per e-mail; backup-mail.
 - **Scope:** `GET/POST /embed/{public_key}`; CSP `frame-ancestors`; `StartEmbedIntake` (CreateIntake + EnrichIntakeAddress, geen `DeriveIntentFromRequestJob`); throttle `embed-start`; Pest `EmbedIntakeFormTest`. **Buiten scope:** AI bij eerste klantstap + dashboardbadge (BL-153).
 - **Acceptatie:** Pest voor honeypot/origin/limiet/geen AI-dispatch; CSP `frame-ancestors` alleen allowlist + `'self'`.
+- **Resultaat:** publieke embed-route + beveiliging + CreateIntake zonder AI; staging-smoke blijft `todo` in `docs/functional-test-status.md`.
 
 ### BL-153 — Embed-formulier PR3: AI-trigger + dashboardbadge + docs
 
