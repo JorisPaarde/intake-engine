@@ -31,6 +31,13 @@ test('report_claims case runner runs with FakeAiClient and scores both layers', 
 
     $result = app(ReportClaimsCaseRunner::class)->run($fixture, 1);
 
+    if (($result['status'] ?? null) !== 'ok') {
+        dump([
+            'error' => $result['error'] ?? null,
+            'rejections' => $result['rejections'] ?? null,
+        ]);
+    }
+
     expect($result['kind'])->toBe('report_claims')
         ->and($result['status'])->toBe('ok')
         ->and($result['runnable'])->toBeTrue()
