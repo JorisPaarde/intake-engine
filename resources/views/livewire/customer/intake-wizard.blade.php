@@ -781,6 +781,7 @@
                         wire:target="next,complete,previous"
                         x-bind:disabled="localBusy"
                         data-testid="next-button"
+                        aria-label="{{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
                     >
                         <span wire:loading.remove wire:target="next" x-show="! localBusy">
@@ -793,11 +794,12 @@
                             x-show="localBusy"
                             class="inline-flex items-center justify-center gap-2"
                             data-testid="next-loading"
+                            aria-hidden="true"
                         >
                             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                             Even geduld…
                         </span>
-                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2">
+                        <span wire:loading wire:target="next" class="inline-flex items-center justify-center gap-2" aria-hidden="true">
                             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                             Even geduld…
                         </span>

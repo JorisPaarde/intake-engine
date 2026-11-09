@@ -100,9 +100,23 @@ export async function waitForStepChange(page: Page, previousHeading: string, tim
   );
 }
 
+export async function primaryNextButton(page: Page) {
+  const byTestId = page.getByTestId('next-button');
+  if (await byTestId.count()) {
+    return byTestId.first();
+  }
+
+  const complete = page.getByTestId('complete-button');
+  if (await complete.count()) {
+    return complete.first();
+  }
+
+  return page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i }).first();
+}
+
 export async function clickNext(page: Page): Promise<void> {
   const before = await headingText(page);
-  const next = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i }).first();
+  const next = await primaryNextButton(page);
   const livewire = waitForLivewire(page).catch(() => undefined);
   await next.click();
   await livewire;
@@ -186,7 +200,10 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
     return;
   }
 
-  const confirm = page.getByRole('button', { name: /^Klopt, verder$/i });
+  const confirmByTestId = page.getByTestId('next-button').filter({ hasText: /Klopt,\s*verder/i });
+  const confirm = (await confirmByTestId.count())
+    ? confirmByTestId
+    : page.getByRole('button', { name: /^Klopt, verder$/i });
   if (await confirm.count()) {
     await confirm.first().click();
     await waitForStepChange(page, before).catch(() => undefined);
@@ -271,14 +288,15 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
     await livewire;
   }
 
-  if (await page.getByRole('button', { name: /^Afronden$/ }).count()) {
-    await page.getByRole('button', { name: /^Afronden$/ }).click();
+  if (await page.getByTestId('complete-button').or(page.getByRole('button', { name: /^Afronden$/ })).count()) {
+    const finish = page.getByTestId('complete-button').or(page.getByRole('button', { name: /^Afronden$/ })).first();
+    await finish.click();
     await waitForStepChange(page, before).catch(() => undefined);
 
     return;
   }
 
-  if (await page.getByRole('button', { name: /^Volgende$/ }).count()) {
+  if (await page.getByTestId('next-button').or(page.getByRole('button', { name: /^(Volgende|Klopt, verder)$/i })).count()) {
     await clickNext(page);
 
     return;

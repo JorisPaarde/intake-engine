@@ -46,7 +46,9 @@ test('valid customer token opens the intake wizard', function () {
         ->assertSee('Digitale Opname')
         ->assertSee('Aanvraag')
         ->assertSee('Wat is de reden van je aanvraag?')
-        ->assertSee('Vraag 1 van');
+        ->assertSee('Vraag 1')
+        // “van N” pas ná known-summary/ruimtes (stabiele teller, BL-153).
+        ->assertDontSee('Vraag 1 van');
 });
 
 test('invalid or revoked customer token is refused', function () {

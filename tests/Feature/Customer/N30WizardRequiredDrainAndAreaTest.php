@@ -386,7 +386,8 @@ test('N30: tweede derive naar AI-unknown terwijl cursor op noise_sensitive → V
         ->and($accessIndexAfter)->not->toBeFalse()
         ->and($afterIndex)->toBe((int) $accessIndexAfter)
         ->and($afterIndex)->toBeLessThan((int) $ownershipIndex)
-        ->and($component->viewData('stepDisplayNumber'))->toBe($afterIndex + 1);
+        // Stabiele ordinals (BL-153) zijn sticky; niet gelijkstellen aan index+1 na catch-up.
+        ->and((int) $component->viewData('stepDisplayNumber'))->toBeGreaterThan(0);
 });
 
 test('N30: AI-unknown outdoor_accessibility laat de stap niet vervallen', function () {
