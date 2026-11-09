@@ -4,27 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
-
 /**
- * Validation rules for the public embed POST. Sessionless: the controller validates
- * with these rules and re-renders the form (no redirect / session flash).
+ * Embed form rules/messages (sessionless). Not a FormRequest — validation is done
+ * in EmbedIntakeController so failures re-render the form with 422 instead of
+ * redirecting back through a session flash.
  */
-final class StoreEmbedIntakeRequest extends FormRequest
+final class StoreEmbedIntakeRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    /**
-     * @return array<string, list<string>>
-     */
-    public function rules(): array
-    {
-        return self::ruleSet();
-    }
-
     /**
      * @return array<string, list<string>>
      */
@@ -45,14 +31,6 @@ final class StoreEmbedIntakeRequest extends FormRequest
     /**
      * @return array<string, string>
      */
-    public function attributes(): array
-    {
-        return self::attributeLabels();
-    }
-
-    /**
-     * @return array<string, string>
-     */
     public static function attributeLabels(): array
     {
         return [
@@ -64,14 +42,6 @@ final class StoreEmbedIntakeRequest extends FormRequest
             'address_house_number_addition' => 'toevoeging',
             'privacy_consent' => 'privacyvinkje',
         ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return self::messageSet();
     }
 
     /**

@@ -16,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\MessageBag as SupportMessageBag;
-use Illuminate\Support\ViewErrorBag;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class EmbedIntakeController extends Controller
@@ -77,7 +76,7 @@ final class EmbedIntakeController extends Controller
                 $company,
                 $public_key,
                 status: 422,
-                errors: $validator->errors(),
+                fieldErrors: $validator->errors(),
                 oldInput: $normalized,
             );
         }
@@ -111,6 +110,7 @@ final class EmbedIntakeController extends Controller
                     $public_key,
                     status: 429,
                     errorMessage: $exception->getMessage(),
+                    oldInput: $normalized,
                 );
             }
 
@@ -151,22 +151,16 @@ final class EmbedIntakeController extends Controller
         string $publicKey,
         int $status = 200,
         ?string $errorMessage = null,
-        MessageBag|ViewErrorBag|null $errors = null,
+        ?MessageBag $fieldErrors = null,
         array $oldInput = [],
     ): Response {
-        $errorBag = $errors ?? new SupportMessageBag;
-
-        $viewErrors = $errors instanceof ViewErrorBag
-            ? $errors
-            : (new ViewErrorBag)->put('default', $errorBag);
-
         $html = view('embed.form', [
             'company' => $company,
             'publicKey' => $publicKey,
             'errorMessage' => $errorMessage,
             'embedFormToken' => $this->formToken->issue($publicKey),
             'oldInput' => $oldInput,
-            'errors' => $viewErrors,
+            'fieldErrors' => $fieldErrors ?? new SupportMessageBag,
         ])->render();
 
         return $this->framedHtml($company, $html, $status);

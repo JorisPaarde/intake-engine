@@ -336,3 +336,26 @@ test('post with expired form token returns 419', function () {
 
     expect(Intake::query()->count())->toBe(0);
 });
+
+test('validation failure without session returns 422 with messages and preserved input', function () {
+    Mail::fake();
+    $ctx = embedCompanyReady();
+
+    $response = postEmbed($ctx['key'], [
+        'customer_name' => 'Sara Klant',
+        'customer_email' => 'sara.klant@example.com',
+        'address_postal_code' => '123',
+        'address_house_number' => 10,
+        'privacy_consent' => '1',
+    ]);
+
+    $response->assertStatus(422)
+        ->assertSee('Vul een geldige postcode in', false)
+        ->assertSee('value="Sara Klant"', false)
+        ->assertSee('name="embed_form_token"', false)
+        ->assertSee('aria-describedby="address_postal_code-error"', false)
+        ->assertDontSee('Location:', false);
+
+    expect($response->headers->get('Location'))->toBeNull()
+        ->and(Intake::query()->count())->toBe(0);
+});

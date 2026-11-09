@@ -8,6 +8,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Embed-dedup lekte klantlink (BL-152):** bij bestaande open opname geen redirect meer naar `/o/{token}`; opnieuw `SendCustomerIntakeLink` + neutrale bevestiging in het iframe (geen token/URL in response). Dedup telt niet mee voor het dagplafond.
 - **Embed CSRF in third-party iframe (BL-152):** sessieloze routes; HMAC-formuliertoken (APP_KEY, max 2 uur) i.p.v. `@csrf`/sessiecookie; ongeldig/verlopen → 419 NL.
+- **Embed validatiefouten zonder sessie (BL-152):** geen FormRequest-redirect/flash; controller rendert het formulier met 422, veldmeldingen + `oldInput` als viewdata, verse `embed_form_token`, `aria-describedby` per veld.
 
 ### Added
 

@@ -15,6 +15,9 @@
             --embed-primary: {{ $company->themeTokens()['primary'] }};
             --embed-on-primary: {{ $company->themeTokens()['on_primary'] }};
             --embed-soft: #f7f8f6;
+            --embed-danger: #8a1f1f;
+            --embed-danger-border: #f0c2c2;
+            --embed-danger-bg: #fff1f1;
         }
         * { box-sizing: border-box; }
         body {
@@ -42,7 +45,7 @@
             font-size: 0.875rem;
         }
         .alert-warn { border: 1px solid #f5d38a; background: #fff8e8; color: #7a4e00; }
-        .alert-error { border: 1px solid #f0c2c2; background: #fff1f1; color: #8a1f1f; }
+        .alert-error { border: 1px solid var(--embed-danger-border); background: var(--embed-danger-bg); color: var(--embed-danger); }
         .alert-error ul { margin: 0; padding-left: 1.1rem; }
         form { margin-top: 1.25rem; display: grid; gap: 1rem; }
         label { display: block; font-size: 0.875rem; font-weight: 600; }
@@ -61,9 +64,17 @@
             color: var(--embed-text);
             background: #fff;
         }
+        input[aria-invalid="true"] {
+            border-color: var(--embed-danger);
+        }
         input:focus {
             outline: 2px solid color-mix(in srgb, var(--embed-primary) 35%, white);
             border-color: var(--embed-primary);
+        }
+        .field-error {
+            margin: 0.35rem 0 0;
+            font-size: 0.8125rem;
+            color: var(--embed-danger);
         }
         .row { display: grid; gap: 1rem; }
         @media (min-width: 640px) {
@@ -75,6 +86,7 @@
             border-radius: 0.75rem;
             padding: 0.85rem 1rem;
         }
+        .consent.is-invalid { border-color: var(--embed-danger); }
         .consent label {
             display: flex;
             gap: 0.75rem;
@@ -109,8 +121,14 @@
 </head>
 <body>
     @php
-        $old = $oldInput ?? [];
-        $oldValue = static fn (string $key, mixed $default = ''): mixed => $old[$key] ?? $default;
+        /** @var \Illuminate\Contracts\Support\MessageBag $fieldErrors */
+        $fieldErrors = $fieldErrors ?? new \Illuminate\Support\MessageBag;
+        $old = is_array($oldInput ?? null) ? $oldInput : [];
+        $oldValue = static function (string $key, mixed $default = '') use ($old): mixed {
+            return array_key_exists($key, $old) && $old[$key] !== null ? $old[$key] : $default;
+        };
+        $hasError = static fn (string $key): bool => $fieldErrors->has($key);
+        $errorId = static fn (string $key): string => $key.'-error';
     @endphp
     <main>
         <div class="card">
@@ -118,16 +136,16 @@
             <h1>Start je opname</h1>
             <p class="lead">Vul je gegevens in. Daarna ga je door naar de opname.</p>
 
-            @if ($errorMessage)
+            @if (! empty($errorMessage))
                 <div class="alert alert-warn" role="alert" data-testid="embed-error">
                     {{ $errorMessage }}
                 </div>
             @endif
 
-            @if ($errors->any())
-                <div class="alert alert-error" role="alert">
+            @if ($fieldErrors->any())
+                <div class="alert alert-error" role="alert" data-testid="embed-validation-summary">
                     <ul>
-                        @foreach ($errors->all() as $error)
+                        @foreach ($fieldErrors->all() as $error)
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
@@ -149,42 +167,123 @@
 
                 <div>
                     <label for="customer_name">Naam</label>
-                    <input id="customer_name" name="customer_name" type="text" required maxlength="120" value="{{ $oldValue('customer_name') }}" autocomplete="name">
+                    <input
+                        id="customer_name"
+                        name="customer_name"
+                        type="text"
+                        required
+                        maxlength="120"
+                        value="{{ $oldValue('customer_name') }}"
+                        autocomplete="name"
+                        @if ($hasError('customer_name')) aria-invalid="true" aria-describedby="{{ $errorId('customer_name') }}" @endif
+                    >
+                    @if ($hasError('customer_name'))
+                        <p id="{{ $errorId('customer_name') }}" class="field-error">{{ $fieldErrors->first('customer_name') }}</p>
+                    @endif
                 </div>
 
                 <div>
                     <label for="customer_email">E-mailadres</label>
-                    <input id="customer_email" name="customer_email" type="email" required maxlength="254" value="{{ $oldValue('customer_email') }}" autocomplete="email">
+                    <input
+                        id="customer_email"
+                        name="customer_email"
+                        type="email"
+                        required
+                        maxlength="254"
+                        value="{{ $oldValue('customer_email') }}"
+                        autocomplete="email"
+                        @if ($hasError('customer_email')) aria-invalid="true" aria-describedby="{{ $errorId('customer_email') }}" @endif
+                    >
+                    @if ($hasError('customer_email'))
+                        <p id="{{ $errorId('customer_email') }}" class="field-error">{{ $fieldErrors->first('customer_email') }}</p>
+                    @endif
                 </div>
 
                 <div>
                     <label for="customer_phone">Telefoonnummer <span class="hint">(optioneel)</span></label>
-                    <input id="customer_phone" name="customer_phone" type="tel" maxlength="40" value="{{ $oldValue('customer_phone') }}" autocomplete="tel">
+                    <input
+                        id="customer_phone"
+                        name="customer_phone"
+                        type="tel"
+                        maxlength="40"
+                        value="{{ $oldValue('customer_phone') }}"
+                        autocomplete="tel"
+                        @if ($hasError('customer_phone')) aria-invalid="true" aria-describedby="{{ $errorId('customer_phone') }}" @endif
+                    >
+                    @if ($hasError('customer_phone'))
+                        <p id="{{ $errorId('customer_phone') }}" class="field-error">{{ $fieldErrors->first('customer_phone') }}</p>
+                    @endif
                 </div>
 
                 <div class="row">
                     <div>
                         <label for="address_postal_code">Postcode</label>
-                        <input id="address_postal_code" name="address_postal_code" type="text" required maxlength="7" value="{{ $oldValue('address_postal_code') }}" autocomplete="postal-code" placeholder="1234 AB">
+                        <input
+                            id="address_postal_code"
+                            name="address_postal_code"
+                            type="text"
+                            required
+                            maxlength="7"
+                            value="{{ $oldValue('address_postal_code') }}"
+                            autocomplete="postal-code"
+                            placeholder="1234 AB"
+                            @if ($hasError('address_postal_code')) aria-invalid="true" aria-describedby="{{ $errorId('address_postal_code') }}" @endif
+                        >
+                        @if ($hasError('address_postal_code'))
+                            <p id="{{ $errorId('address_postal_code') }}" class="field-error" data-testid="embed-postal-error">{{ $fieldErrors->first('address_postal_code') }}</p>
+                        @endif
                     </div>
                     <div>
                         <label for="address_house_number">Huisnummer</label>
-                        <input id="address_house_number" name="address_house_number" type="number" required min="1" max="999999" value="{{ $oldValue('address_house_number') }}">
+                        <input
+                            id="address_house_number"
+                            name="address_house_number"
+                            type="number"
+                            required
+                            min="1"
+                            max="999999"
+                            value="{{ $oldValue('address_house_number') }}"
+                            @if ($hasError('address_house_number')) aria-invalid="true" aria-describedby="{{ $errorId('address_house_number') }}" @endif
+                        >
+                        @if ($hasError('address_house_number'))
+                            <p id="{{ $errorId('address_house_number') }}" class="field-error">{{ $fieldErrors->first('address_house_number') }}</p>
+                        @endif
                     </div>
                     <div>
                         <label for="address_house_number_addition">Toevoeging <span class="hint">(optioneel)</span></label>
-                        <input id="address_house_number_addition" name="address_house_number_addition" type="text" maxlength="20" value="{{ $oldValue('address_house_number_addition') }}">
+                        <input
+                            id="address_house_number_addition"
+                            name="address_house_number_addition"
+                            type="text"
+                            maxlength="20"
+                            value="{{ $oldValue('address_house_number_addition') }}"
+                            @if ($hasError('address_house_number_addition')) aria-invalid="true" aria-describedby="{{ $errorId('address_house_number_addition') }}" @endif
+                        >
+                        @if ($hasError('address_house_number_addition'))
+                            <p id="{{ $errorId('address_house_number_addition') }}" class="field-error">{{ $fieldErrors->first('address_house_number_addition') }}</p>
+                        @endif
                     </div>
                 </div>
 
-                <div class="consent">
+                <div @class(['consent', 'is-invalid' => $hasError('privacy_consent')])>
                     <label for="privacy_consent">
-                        <input id="privacy_consent" name="privacy_consent" type="checkbox" value="1" required @checked((string) $oldValue('privacy_consent') === '1')>
+                        <input
+                            id="privacy_consent"
+                            name="privacy_consent"
+                            type="checkbox"
+                            value="1"
+                            required
+                            @checked((string) $oldValue('privacy_consent') === '1')
+                            @if ($hasError('privacy_consent')) aria-invalid="true" aria-describedby="{{ $errorId('privacy_consent') }}" @endif
+                        >
                         <span>
                             Ik geef {{ $company->name }} toestemming om mijn gegevens te gebruiken voor deze opname.
                             {{ $company->name }} is verwerkingsverantwoordelijke.
                         </span>
                     </label>
+                    @if ($hasError('privacy_consent'))
+                        <p id="{{ $errorId('privacy_consent') }}" class="field-error">{{ $fieldErrors->first('privacy_consent') }}</p>
+                    @endif
                 </div>
 
                 <button type="submit" data-testid="embed-submit">Start opname</button>
