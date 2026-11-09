@@ -1,6 +1,6 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.0 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.1 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Status:** PR1–PR3 opgeleverd (BL-151/152/153). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
@@ -37,7 +37,7 @@ Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-ma
 ></iframe>
 ```
 
-Op staging voor smoke: `https://staging.intake-engine.nl/embed-test` (na `php artisan embed:prepare-staging-test`). Die pagina host dezelfde iframe op de app-host (`'self'`).
+Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe op de app-host (`'self'`).
 
 ## Beveiliging (kort)
 
@@ -50,7 +50,7 @@ Op staging voor smoke: `https://staging.intake-engine.nl/embed-test` (na `php ar
 
 ## Staging smoke
 
-1. Op staging: `php artisan embed:prepare-staging-test`
+1. Na staging-deploy is `/embed-test` klaar (prepare zit in `deploy/activate.sh`). Alleen bij ontbrekende company: `php artisan embed:prepare-staging-test`.
 2. Open `https://staging.intake-engine.nl/embed-test`
 3. Invullen → top-window op `/o/{token}` → eerste vraag beantwoorden
 4. Inloggen als `embed-staging-test@example.com` / `password` → badge **Nieuw via website**

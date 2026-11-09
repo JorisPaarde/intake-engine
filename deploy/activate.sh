@@ -71,6 +71,10 @@ echo "==> storage:link + migraties + template-reference"
 if [ "$EXPECTED_ENV" = "staging" ]; then
     # Staging krijgt alleen de demo-installateur-login, geen vaste demo-intakes.
     "$PHP_BIN" artisan db:seed --class=DemoInstallerSeeder --force
+    # Embed-smoke (/embed-test): idempotente testcompany + user. Fail-soft — deploy blijft groen.
+    if ! "$PHP_BIN" artisan embed:prepare-staging-test; then
+        echo "WAARSCHUWING: embed:prepare-staging-test mislukt; /embed-test werkt mogelijk niet tot handmatige retry."
+    fi
 fi
 
 echo "==> Caches verversen"

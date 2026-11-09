@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.32 · **Laatste update:** 2026-10-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.33 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -21,7 +21,7 @@ Afgestemd op de huidige host:
 | staging | `https://staging.intake-engine.nl/` | push naar `main` of handmatige dispatch | `staging` | `/home/intakeengine/apps/intake-engine-staging` | `intakeengine_staging` |
 | production | `https://intake-engine.nl/` | tag `v*` of bewuste handmatige dispatch | `production` | `/home/intakeengine/apps/intake-engine-production` | `intakeengine_production` |
 
-Beide workflows bouwen in GitHub Actions (Composer `--no-dev` + Vite-assets), rsyncen naar hun eigen `releases/<sha>` en roepen `deploy/activate.sh` aan. Het script controleert het verwachte `APP_ENV`, koppelt alleen de eigen shared `.env`/storage, verwijdert eventuele runtimecache uit een gekopieerde release, draait migraties + `IntakeTemplateSeeder`, seedt op staging optioneel de demo-installateur-login, cachet config/routes/views en wisselt de `current`-symlink atomisch. Per omgeving blijven de laatste drie releases bewaard.
+Beide workflows bouwen in GitHub Actions (Composer `--no-dev` + Vite-assets), rsyncen naar hun eigen `releases/<sha>` en roepen `deploy/activate.sh` aan. Het script controleert het verwachte `APP_ENV`, koppelt alleen de eigen shared `.env`/storage, verwijdert eventuele runtimecache uit een gekopieerde release, draait migraties + `IntakeTemplateSeeder`, seedt op staging optioneel de demo-installateur-login én `embed:prepare-staging-test` (fail-soft; nooit op production), cachet config/routes/views en wisselt de `current`-symlink atomisch. Per omgeving blijven de laatste drie releases bewaard.
 
 PR-CI (`ci.yml`) heeft naast **Pint, PHPStan & Pest** de job **E2E (Playwright)** (BL-139): Laravel + SQLite + `AI_PROVIDER=fake`, Chromium-klantflow in `tests/e2e`. Zie [tests/e2e/README.md](../tests/e2e/README.md).
 
@@ -169,9 +169,10 @@ Geen supervisor op cPanel. `queue:restart` in de deploy zorgt dat workers na een
 2. shared `.env`/storage koppelen en stale runtimecache verwijderen;
 3. `migrate --force`;
 4. `db:seed --class=IntakeTemplateSeeder --force` — publiceert/bevestigt de airco-template (idempotent; bestaande gepubliceerde versie wordt niet overschreven);
-5. caches opbouwen, `current` atomisch wisselen, queue herstarten en oude releases tot drie opruimen.
+5. alleen bij `expected_env=staging`: `DemoInstallerSeeder` + `embed:prepare-staging-test` (idempotente testcompany voor `/embed-test`; mislukking logt een waarschuwing en breekt de deploy niet);
+6. caches opbouwen, `current` atomisch wisselen, queue herstarten en oude releases tot drie opruimen.
 
-**Niet** in deploy: `DatabaseSeeder` / `DemoIntakeSeeder` (demo-users en demo-intakes blijven handmatig of alleen lokaal).
+**Niet** in deploy: `DatabaseSeeder` / `DemoIntakeSeeder` (demo-users en demo-intakes blijven handmatig of alleen lokaal). Production krijgt nooit `embed:prepare-staging-test`.
 
 Templatewijzigingen: bump de versie in `database/data/templates/airco/` en laat de seeder een nieuwe published version aanmaken — in-place edits van een gepubliceerde versie gebeuren niet.
 

@@ -243,9 +243,16 @@ test('embed staging test page works after prepare command and is blocked in prod
         ->assertSee('data-testid="embed-staging-test-frame"', false)
         ->assertSee('/embed/'.EmbedStagingTest::PUBLIC_KEY, false);
 
-    // Idempotent prepare.
+    // Idempotent prepare: tweede artisan-run + action mogen geen dubbele company/user maken.
+    $this->artisan('embed:prepare-staging-test', ['--host' => 'staging.intake-engine.nl'])
+        ->assertSuccessful();
     app(PrepareEmbedStagingTest::class)->handle('staging.intake-engine.nl');
-    expect(Company::query()->where('embed_public_key', EmbedStagingTest::PUBLIC_KEY)->count())->toBe(1);
+
+    expect(Company::query()->where('embed_public_key', EmbedStagingTest::PUBLIC_KEY)->count())->toBe(1)
+        ->and(User::query()->where('email', EmbedStagingTest::USER_EMAIL)->count())->toBe(1);
+
+    $company = Company::query()->where('embed_public_key', EmbedStagingTest::PUBLIC_KEY)->firstOrFail();
+    expect($company->embedAllowedOrigins())->toContain('staging.intake-engine.nl');
 
     $this->app->detectEnvironment(static fn (): string => 'production');
     $this->get(route('embed.staging-test'))->assertNotFound();
