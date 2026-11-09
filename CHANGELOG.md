@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Staging-deploy bereidt embed-test voor (BL-153):** `deploy/activate.sh` draait na migraties `embed:prepare-staging-test` alleen bij `expected_env=staging` (idempotent; fail-soft waarschuwing, nooit op production), zodat `/embed-test` na elke staging-deploy werkt.
+
 ### Added
 
 - **Embed-formulier PR3 (BL-153):** request-prefill/intent bij de eerste klantstap of foto in de wizard voor `source=embed` (idempotent; niet op mount/GET; niet-embed ongewijzigd); dashboard- en detailbadge **Nieuw via website**; staging-testpagina `/embed-test` + `php artisan embed:prepare-staging-test` (local/staging); plan `docs/plans/embed-form.md`. Pest: `EmbedRequestPrefillAndBadgeTest`.

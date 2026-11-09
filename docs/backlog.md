@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.08 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.09 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -725,7 +725,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** request-prefill bij eerste echte klantstap als die nog ontbreekt; dashboardlabel “website”; docs/plans + staging-smoke-todo.
 - **Scope:** `DispatchEmbedRequestPrefillIfNeeded` (wizard stap/foto/Volgende, idempotent via RequestIntent-ai_runs); badge **Nieuw via website** (dashboard + detail); `docs/plans/embed-form.md`; staging-testpagina `/embed-test` + `embed:prepare-staging-test` (local/staging); Pest `EmbedRequestPrefillAndBadgeTest`.
 - **Acceptatie:** geen AI bij louter create/GET embed; wel na klantactie precies één dispatch; badge zichtbaar voor `source=embed`; niet-embed ongewijzigd.
-- **Resultaat:** zie [docs/plans/embed-form.md](plans/embed-form.md); staging-URL na prepare: `https://staging.intake-engine.nl/embed-test`.
+- **Resultaat:** zie [docs/plans/embed-form.md](plans/embed-form.md); staging-URL: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh`) draait `embed:prepare-staging-test` automatisch (fail-soft; nooit op production).
 
 ### BL-150 — Publieke demo leftovers (nieuwe demo, login-verlopen, lege aanvraag)
 
