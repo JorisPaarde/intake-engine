@@ -7,6 +7,7 @@ namespace Database\Factories;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Enums\ContributionMode;
+use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -30,6 +31,7 @@ class IntakeFactory extends Factory
             'uuid' => (string) Str::uuid(),
             'intake_template_version_id' => IntakeTemplateVersion::factory(),
             'created_by' => User::factory(),
+            'source' => IntakeSource::Installer,
             'status' => IntakeStatus::Sent,
             'workflow_mode' => ContributionMode::Customer,
             'customer_name' => fake()->name(),

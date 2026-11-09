@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\Branding\Services\CompanyLogoColorExtractor;
 use App\Domains\Branding\Services\CompanyLogoValidator;
+use App\Domains\Intake\Services\CompanyEmbedSettings;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use Illuminate\Http\RedirectResponse;
@@ -20,10 +21,13 @@ use Throwable;
 
 final class CompanySettingsController extends Controller
 {
-    public function edit(Request $request): View
+    public function edit(Request $request, CompanyEmbedSettings $embedSettings): View
     {
+        $company = $request->user()?->company()->firstOrFail();
+
         return view('installer.company-settings.edit', [
-            'company' => $request->user()?->company()->firstOrFail(),
+            'company' => $company,
+            'embedSnippet' => $embedSettings->iframeSnippet($company),
         ]);
     }
 
@@ -123,5 +127,54 @@ final class CompanySettingsController extends Controller
         return redirect()
             ->route('company.settings.edit')
             ->with('status', 'Bedrijfsinstellingen opgeslagen.');
+    }
+
+    public function generateEmbedKey(Request $request, CompanyEmbedSettings $embedSettings): RedirectResponse
+    {
+        $company = $this->companyFor($request);
+        $embedSettings->generateKey($company);
+
+        return redirect()
+            ->route('company.settings.edit')
+            ->with('status', 'Sleutel aangemaakt. Plak de snippet op je website.');
+    }
+
+    public function rotateEmbedKey(Request $request, CompanyEmbedSettings $embedSettings): RedirectResponse
+    {
+        $company = $this->companyFor($request);
+        $embedSettings->rotateKey($company);
+
+        return redirect()
+            ->route('company.settings.edit')
+            ->with('status', 'Nieuwe sleutel aangemaakt. Vervang de oude snippet op je website.');
+    }
+
+    public function updateEmbed(Request $request, CompanyEmbedSettings $embedSettings): RedirectResponse
+    {
+        $company = $this->companyFor($request);
+
+        $request->validate([
+            'embed_daily_limit' => ['required', 'integer', 'min:1', 'max:500'],
+            'embed_allowed_origins' => ['nullable', 'string', 'max:5000'],
+            'embed_enabled' => ['sometimes', 'boolean'],
+        ]);
+
+        $embedSettings->update($company, [
+            'embed_enabled' => $request->boolean('embed_enabled'),
+            'embed_daily_limit' => $request->integer('embed_daily_limit'),
+            'embed_allowed_origins' => $request->input('embed_allowed_origins'),
+        ]);
+
+        return redirect()
+            ->route('company.settings.edit')
+            ->with('status', 'Websiteformulier opgeslagen.');
+    }
+
+    private function companyFor(Request $request): Company
+    {
+        $company = $request->user()?->company()->firstOrFail();
+        abort_unless($company instanceof Company, 403);
+
+        return $company;
     }
 }

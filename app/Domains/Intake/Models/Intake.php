@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Models;
 
 use App\Domains\AI\Models\AiRun;
 use App\Enums\ContributionMode;
+use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
 use App\Models\Company;
 use App\Models\User;
@@ -23,6 +24,7 @@ use Illuminate\Support\Str;
  * @property string $uuid
  * @property IntakeStatus $status
  * @property ContributionMode $workflow_mode
+ * @property IntakeSource $source
  * @property string $access_token
  * @property bool $customer_access_enabled
  * @property Carbon|null $token_expires_at
@@ -49,6 +51,7 @@ class Intake extends Model
         'intake_template_version_id',
         'company_id',
         'created_by',
+        'source',
         'status',
         'workflow_mode',
         'customer_name',
@@ -84,6 +87,7 @@ class Intake extends Model
         return [
             'status' => IntakeStatus::class,
             'workflow_mode' => ContributionMode::class,
+            'source' => IntakeSource::class,
             'customer_access_enabled' => 'boolean',
             'token_expires_at' => 'datetime',
             'token_revoked_at' => 'datetime',
@@ -108,6 +112,10 @@ class Intake extends Model
         static::creating(function (Intake $intake): void {
             if (! isset($intake->attributes['uuid'])) {
                 $intake->uuid = (string) Str::uuid();
+            }
+
+            if (! isset($intake->attributes['source'])) {
+                $intake->source = IntakeSource::Installer;
             }
 
             if (! isset($intake->attributes['company_id']) && isset($intake->attributes['created_by'])) {

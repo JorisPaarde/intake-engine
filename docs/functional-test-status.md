@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.14 · **Laatste update:** 2026-10-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.15 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Embed-formulier settings (BL-151) | todo | - | Bedrijfsinstellingen: sleutel maken → snippet met `/embed/{key}`; domeinen zonder wildcard/pad; dagplafond wijzigen; aan/uit; sleutel vernieuwen vervangt snippet; andere company onzichtbaar. Publieke iframe volgt in BL-152. |
 | Publieke demo leftovers (BL-150) | todo | - | Homepage tijdens sessie: **Verder in demo** + **Nieuwe demo starten** (bevestigen → schone demo, oude weg). Gast `/dashboard` of oude intake-URL → `/login` met **Je sessie is verlopen** + **Nieuwe demo starten**. Create: **Beschrijf wat de klant wil** leeg (placeholder mag); na opslaan zonder tekst geen “Dit hebben we al uit je aanvraag” / Slaapkamer 1+2. |
 | Tekstinterpretatie op het model (BL-148) | todo | - | Met tekst-AI aan: openingszin “twee slaapkamers op zolder koelen” zonder catalogusfill → geen lokale cooling/floor; eigendom alleen via model-fill; hoogteantwoord “nok 2,6 knie 1,2” → voorstel piek/knie, `height_m` blijft leeg. |
 | Klantwizard overbodige vragen punten 2/3 (BL-149, airco v28) | todo | - | Na bruikbare gevel-/tuinfoto geen “rondom het huis”-stap en teller één lager; zonder buitenfoto vervolgvraag “We zien de buitenkant nog niet goed” + Foto maken / sla over. Matenscherm: L+B naast elkaar, live “Oppervlak: … m²”, link “Weet je alleen het oppervlak in m²?”; na L+B is de volgende stap geen m². |
