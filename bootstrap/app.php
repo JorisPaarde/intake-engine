@@ -37,8 +37,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Browser E2E helpers (only registered when E2E_HELPERS=true) need CSRF-free POSTs.
+        // Embed POST uses a signed HMAC form token (no session cookie in third-party iframes).
         $middleware->validateCsrfTokens(except: [
             '__e2e__/*',
+            'embed/*',
         ]);
 
         // Log Laravel-produced 5xx (incl. abort(503)) and abrupt PHP endings.

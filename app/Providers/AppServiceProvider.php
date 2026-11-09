@@ -79,6 +79,17 @@ class AppServiceProvider extends ServiceProvider
                 ->by(hash('sha256', (string) $request->ip()));
         });
 
+        // Embed start: per IP én per publieke sleutel (BL-152).
+        RateLimiter::for('embed-start', function (Request $request) {
+            $perHour = max(1, (int) config('intake.embed.throttle_per_hour', 30));
+            $publicKey = (string) $request->route('public_key', 'unknown');
+
+            return [
+                Limit::perHour($perHour)->by('embed-ip:'.hash('sha256', (string) $request->ip())),
+                Limit::perHour($perHour)->by('embed-key:'.hash('sha256', $publicKey)),
+            ];
+        });
+
         RateLimiter::for('dev-ai-input-test', function (Request $request) {
             $perMinute = max(1, (int) config('devadmin.ai_input_test.throttle_per_minute', 10));
             $userId = $request->user()?->id;

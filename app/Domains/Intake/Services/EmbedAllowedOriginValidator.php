@@ -4,10 +4,86 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Models\Company;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 final class EmbedAllowedOriginValidator
 {
+    /**
+     * Host from Origin (preferred) or Referer.
+     *
+     * Same-origin iframe POSTs send the app host as Origin — that host is always
+     * accepted. Framing abuse is stopped by CSP frame-ancestors on the allowlist,
+     * not by this Origin check. Rejecting a missing/foreign Origin still blocks
+     * casual cross-origin form posts from non-allowlisted hosts.
+     */
+    public function requestHostIsAllowed(Request $request, Company $company): bool
+    {
+        $host = $this->hostFromRequest($request);
+
+        if ($host === null) {
+            return false;
+        }
+
+        $appHost = strtolower($request->getHost());
+
+        if ($host === $appHost) {
+            return true;
+        }
+
+        return $company->allowsEmbedOriginHost($host);
+    }
+
+    public function hostFromRequest(Request $request): ?string
+    {
+        $origin = $request->headers->get('Origin');
+
+        if (is_string($origin) && $origin !== '' && strcasecmp($origin, 'null') !== 0) {
+            $host = $this->hostFromUrl($origin);
+
+            if ($host !== null) {
+                return $host;
+            }
+        }
+
+        $referer = $request->headers->get('Referer');
+
+        if (is_string($referer) && $referer !== '') {
+            return $this->hostFromUrl($referer);
+        }
+
+        return null;
+    }
+
+    /**
+     * CSP frame-ancestors sources: https://host for each allowlisted hostname, plus 'self'.
+     * No wildcards.
+     *
+     * @return list<string>
+     */
+    public function frameAncestorsSources(Company $company): array
+    {
+        $sources = ["'self'"];
+
+        foreach ($company->embedAllowedOrigins() as $host) {
+            $sources[] = 'https://'.$host;
+        }
+
+        return array_values(array_unique($sources));
+    }
+
+    public function hostFromUrl(string $url): ?string
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        if (! is_string($host) || $host === '') {
+            return null;
+        }
+
+        return strtolower($host);
+    }
+
     /**
      * Parse and validate a list of hostnames (one per line or comma-separated).
      * Hostnames only: no scheme, path, port, or wildcards. www-variants must be listed explicitly.

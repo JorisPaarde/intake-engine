@@ -4,8 +4,15 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Embed-dedup lekte klantlink (BL-152):** bij bestaande open opname geen redirect meer naar `/o/{token}`; opnieuw `SendCustomerIntakeLink` + neutrale bevestiging in het iframe (geen token/URL in response). Dedup telt niet mee voor het dagplafond.
+- **Embed CSRF in third-party iframe (BL-152):** sessieloze routes; HMAC-formuliertoken (APP_KEY, max 2 uur) i.p.v. `@csrf`/sessiecookie; ongeldig/verlopen → 419 NL.
+- **Embed validatiefouten zonder sessie (BL-152):** geen FormRequest-redirect/flash; controller rendert het formulier met 422, veldmeldingen + `oldInput` als viewdata, verse `embed_form_token`, `aria-describedby` per veld.
+
 ### Added
 
+- **Embed-formulier PR2 (BL-152):** publieke `GET/POST /embed/{public_key}` met minimaal klantformulier (je/jij, AVG-vinkje, honeypot); CSP `frame-ancestors` alleen allowlist-hostnames (`https://host`) + `'self'`; Origin/Referer-check (app-host altijd ok; framing via frame-ancestors); throttle `embed-start` (IP + sleutel); dagplafond → 429 NL; dedup open opname per company+e-mail (mail opnieuw, geen token-lek); `CreateIntake` met `source=embed`, `created_by` = oudste company-user, activity `actor_type=embed` (+ optioneel `embed_referer_host`); wél `EnrichIntakeAddress`, géén AI-job; backup-mail `SendCustomerIntakeLink`; nieuwe opname: form `target="_top"` + 303 naar `/o/{token}`. Pest: `EmbedIntakeFormTest`.
 - **Embed-formulier PR1 (BL-151):** datamodel op `companies` (`embed_public_key`, `embed_allowed_origins`, `embed_enabled`, `embed_daily_limit` default 20) en `intakes.source` (`installer`|`embed`, bestaande rijen → `installer`). Bedrijfsinstellingen: sleutel maken/vernieuwen, domeinen (hostname-validatie, geen wildcards), dagplafond, aan/uit, kopieerbare iframe-snippet naar `/embed/{public_key}` (publieke route volgt in PR2). Pest: `CompanyEmbedSettingsTest`.
 
 ### Fixed

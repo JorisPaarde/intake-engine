@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeAccessTokenGenerator;
 use App\Enums\ContributionMode;
+use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Enums\TemplateVersionStatus;
@@ -43,6 +44,9 @@ final class CreateIntake
      *     is_demo?: bool,
      *     token_ttl_hours?: int,
      *     workflow_mode?: ContributionMode|string,
+     *     source?: IntakeSource|string,
+     *     activity_actor_type?: string,
+     *     activity_properties?: array<string, mixed>,
      *     prefill?: array<string, mixed>
      * }  $data
      */
@@ -55,10 +59,31 @@ final class CreateIntake
         $workflowMode = $workflowMode instanceof ContributionMode
             ? $workflowMode
             : ContributionMode::from((string) $workflowMode);
+        $source = $data['source'] ?? IntakeSource::Installer;
+        $source = $source instanceof IntakeSource
+            ? $source
+            : IntakeSource::from((string) $source);
+        $activityActorType = is_string($data['activity_actor_type'] ?? null)
+            && $data['activity_actor_type'] !== ''
+            ? $data['activity_actor_type']
+            : 'user';
+        /** @var array<string, mixed> $extraActivityProperties */
+        $extraActivityProperties = is_array($data['activity_properties'] ?? null)
+            ? $data['activity_properties']
+            : [];
 
         $version = $this->resolvePublishedVersion($templateKey);
 
-        $intake = DB::transaction(function () use ($creator, $data, $version, $isDemo, $workflowMode): Intake {
+        $intake = DB::transaction(function () use (
+            $creator,
+            $data,
+            $version,
+            $isDemo,
+            $workflowMode,
+            $source,
+            $activityActorType,
+            $extraActivityProperties,
+        ): Intake {
             $ttlHours = isset($data['token_ttl_hours']) ? (int) $data['token_ttl_hours'] : null;
             $expiresAt = $ttlHours !== null
                 ? now()->addHours(max(1, $ttlHours))
@@ -69,6 +94,7 @@ final class CreateIntake
                 'intake_template_version_id' => $version->id,
                 'company_id' => $creator->company_id,
                 'created_by' => $creator->id,
+                'source' => $source,
                 'status' => $workflowMode === ContributionMode::Installer
                     ? IntakeStatus::Draft
                     : IntakeStatus::Sent,
@@ -91,13 +117,16 @@ final class CreateIntake
 
             IntakeActivityEvent::query()->create([
                 'intake_id' => $intake->id,
-                'actor_type' => 'user',
-                'actor_id' => $creator->id,
+                'actor_type' => $activityActorType,
+                'actor_id' => $activityActorType === 'user' ? $creator->id : null,
                 'event' => 'intake_created',
+                // Keys/hosts only — never e-mail or token (ADR-0002).
                 'properties' => [
                     'template_key' => $version->template->key,
                     'template_version' => $version->version,
                     'workflow_mode' => $workflowMode->value,
+                    'source' => $source->value,
+                    ...$extraActivityProperties,
                 ],
                 'created_at' => now(),
             ]);

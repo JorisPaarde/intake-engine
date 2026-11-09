@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.23 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.24 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 ## Ontwerpprincipes
@@ -528,7 +528,7 @@ PDF is een afgeleid artefact (Dompdf, async); HTML heeft voorrang.
 |-------|------|
 | `id` | bigint PK |
 | `intake_id` | FK, cascade |
-| `actor_type` | string (`user` / `customer` / `system`) |
+| `actor_type` | string (`user` / `customer` / `system` / `embed`) |
 | `actor_id` | nullable |
 | `event` | string |
 | `properties` | json nullable (geen ruwe tokens, geen bestandsbytes) |
