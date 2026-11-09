@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\EnrichIntakeAddress;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
 use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Actions\LoadDemoSurveyScenario;
@@ -955,6 +956,69 @@ test('a structured address can use Kadaster attributes and is rewritten to the B
         ->and($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1962])
         // Een woonfunctie mag het bouwtype juist níét invullen.
         ->and($intake->answers()->where('question_key', 'building_type')->exists())->toBeFalse();
+});
+
+test('placeholder city Onbekend does not block BAG match on structured postal identity', function () {
+    config()->set('services.bag_api.enabled', false);
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), '/free')) {
+            return Http::response(['response' => ['docs' => [[
+                'id' => 'adr-47f56cda8f286d7ec9475e170e375ba6',
+                'weergavenaam' => 'Bernadottelaan 273, 2037GR Haarlem',
+                'straatnaam' => 'Bernadottelaan',
+                'huisnummer' => 273,
+                'postcode' => '2037GR',
+                'woonplaatsnaam' => 'Haarlem',
+                'gemeentenaam' => 'Haarlem',
+                'provincienaam' => 'Noord-Holland',
+                'adresseerbaarobject_id' => '0392010000005891',
+            ]]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => [
+                        'identificatie' => '0392010000005891',
+                        'oppervlakte' => 149,
+                        'gebruiksdoel' => 'woonfunctie',
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-onbekend'],
+                    ],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.66584971, 52.35367818]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items/pand-onbekend')) {
+            return Http::response([
+                'properties' => [
+                    'identificatie' => '0392100000003543',
+                    'bouwjaar' => 1966,
+                ],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'customer_name' => 'Embed Placeholder',
+        'customer_email' => 'placeholder.city@example.com',
+        'address_line' => '2037GR 273',
+        'address_postal_code' => '2037GR',
+        'address_house_number' => 273,
+        'address_city' => 'Onbekend',
+    ]);
+
+    app(EnrichIntakeAddress::class)->handle($intake);
+    $intake->refresh();
+
+    expect($intake->address_line)->toBe('Bernadottelaan 273')
+        ->and($intake->address_city)->toBe('Haarlem')
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->firstOrFail()->value)
+        ->toBe(['number' => 1966]);
 });
 
 test('2037 GR and house number 273 reach BAG without the optional Kadaster API', function () {

@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.18 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.19 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Embed BAG-verrijking 2037GR 273 (BL-154) | todo | - | Staging: `php artisan embed:smoke-bag-address` groen; daarna `/embed-test` met **2037GR / 273** → klantheader `Bernadottelaan 273, … Haarlem` (geen Onbekend); bouwjaar + woningtype niet gevraagd; screenshot ~390 px. Negatief: huisnummer **1** → nette melding, geen wizard. |
 | Embed-formulier AI + badge + smoke (BL-153) | todo | - | Staging: na deploy is prepare al gedraaid; open **https://staging.intake-engine.nl/embed-test** (bij 404: `php artisan embed:prepare-staging-test`) → invullen → `/o/{token}` → eerste vraag/foto → precies één request-intent (geen dubbel na refresh); dashboard/detail badge **Nieuw via website**; login `embed-staging-test@example.com` / `password`. Geen live OpenRouter-testronde nodig voor deze smoke. |
 | Embed-formulier publiek (BL-152) | todo | - | Staging: iframe op allowlist-host of `/embed-test` → invullen → top-window landt op `/o/{token}`; installateur ziet `source=embed`; honeypot/verkeerd domein/uitgeschakelde sleutel/dagplafond; na alleen create géén request-intent `ai_runs`; backup-mail fail-soft. |
 | Embed-formulier settings (BL-151) | todo | - | Bedrijfsinstellingen: sleutel maken → snippet met `/embed/{key}`; domeinen zonder wildcard/pad; dagplafond wijzigen; aan/uit; sleutel vernieuwen vervangt snippet; andere company onzichtbaar. Publieke iframe volgt in BL-152. |

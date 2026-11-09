@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Embed BAG-verrijking (BL-154):** placeholder-plaats `Onbekend` blokkeerde PDOK-`matchesIntake` (stad hoeft niet te matchen bij postcode+huisnummer). Embed lost straat/plaats nu vóór create via PDOK suggest; onbekend adres (bijv. `2037GR 1`) → 422 “We konden dit adres niet vinden…” i.p.v. stil `Onbekend`. Klantwizard- en maiteksten over “bekende woninggegevens” alleen als er BAG/EP-feiten zijn; dan toont de wizard ook bouwjaar/woningtype. Pest: `EmbedAddressEnrichmentTest` (`2037GR 273`). Staging/local live-smoke: `php artisan embed:smoke-bag-address`.
+
 ### Changed
 
 - **Staging-deploy bereidt embed-test voor (BL-153):** `deploy/activate.sh` draait na migraties `embed:prepare-staging-test` alleen bij `expected_env=staging` (idempotent; fail-soft waarschuwing, nooit op production), zodat `/embed-test` na elke staging-deploy werkt.

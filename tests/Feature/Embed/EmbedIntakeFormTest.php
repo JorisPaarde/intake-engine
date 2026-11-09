@@ -13,7 +13,9 @@ use App\Enums\IntakeStatus;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
@@ -21,6 +23,70 @@ use Illuminate\Support\Facades\RateLimiter;
 beforeEach(function () {
     $this->withoutVite();
     $this->seed(IntakeTemplateSeeder::class);
+
+    config()->set('services.pdok.enabled', true);
+    config()->set('services.pdok.search_base_url', 'https://api.pdok.test/search');
+    config()->set('services.pdok.bag_base_url', 'https://api.pdok.test/bag');
+    config()->set('services.pdok.timeout_seconds', 1);
+    config()->set('services.pdok.aerial_enabled', false);
+    config()->set('services.bag_api.enabled', false);
+
+    // Default embed payload (1234AB / 10) must resolve via PDOK suggest before create.
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), '/suggest')) {
+            return Http::response([
+                'response' => ['docs' => [[
+                    'id' => 'adr-embed-default-1234ab-10',
+                    'weergavenaam' => 'Voorbeeldstraat 10, 1234AB Voorbeeldstad',
+                    'straatnaam' => 'Voorbeeldstraat',
+                    'huisnummer' => 10,
+                    'postcode' => '1234AB',
+                    'woonplaatsnaam' => 'Voorbeeldstad',
+                ]]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/lookup')) {
+            return Http::response([
+                'response' => ['docs' => [[
+                    'id' => 'adr-embed-default-1234ab-10',
+                    'weergavenaam' => 'Voorbeeldstraat 10, 1234AB Voorbeeldstad',
+                    'straatnaam' => 'Voorbeeldstraat',
+                    'huisnummer' => 10,
+                    'postcode' => '1234AB',
+                    'woonplaatsnaam' => 'Voorbeeldstad',
+                    'gemeentenaam' => 'Voorbeeldstad',
+                    'provincienaam' => 'Noord-Holland',
+                    'adresseerbaarobject_id' => '0363010012111931',
+                ]]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => [
+                        'identificatie' => '0363010012111931',
+                        'oppervlakte' => 90,
+                        'gebruiksdoel' => 'woonfunctie',
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-embed-default'],
+                    ],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.9, 52.3]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items/pand-embed-default')) {
+            return Http::response([
+                'properties' => [
+                    'identificatie' => '0363100012111931',
+                    'bouwjaar' => 1980,
+                ],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
 });
 
 /**

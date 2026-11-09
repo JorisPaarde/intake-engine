@@ -1,6 +1,6 @@
 # Browser-testflow (agent-speelboek)
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Status:** dit is het **enige** stapsgewijze speelboek voor visuele browser-QA. [docs/functional-test-status.md](functional-test-status.md) is de uitslagentabel (wat écht gezien is), geen stappenlijst. Pest/Livewire/HTTP-tests tellen **niet** als uitvoering van dit document.
 
@@ -257,6 +257,28 @@ Alleen op staging, na A of in een verse demo.
 - [ ] Uitgelogde gebruiker: `/login` is een loginpagina, geen demo-dashboard.
 - [ ] Na **Demo beëindigen** opnieuw een oude demo-URL plakken (werkplek-URL uit A7 indien nog in history): nette **beeindigd**-pagina of veilige landing, geen 500, geen andermans dossier.
 - [ ] **Niet** naar `intake-engine.nl` (productie) gaan “om te vergelijken” in dezelfde sessie.
+
+---
+
+## Flow E — Embed BAG-check (BL-154)
+
+Doel: iframe-formulier vult echte BAG-gegevens; onbekend adres faalt netjes.
+
+CLI eerst (live PDOK; niet in CI):
+
+```bash
+php artisan embed:prepare-staging-test
+php artisan embed:smoke-bag-address
+```
+
+Browser (~390×844):
+
+- [ ] Open `https://staging.intake-engine.nl/embed-test`.
+- [ ] Vul **2037GR** / **273** (+ fictieve naam/e-mail) → door naar `/o/{token}`.
+- [ ] Header toont **Bernadottelaan 273** en **Haarlem** (geen `Onbekend`).
+- [ ] Bouwjaar- en woningtypevraag komen **niet** (of zijn al bekend); banner mag “bekende woninggegevens” noemen.
+- Screenshot: `E-embed-bag-2037GR-273-390.png`
+- [ ] Opnieuw embed-test met huisnummer **1** → formulierfout “adres niet vinden”, geen wizard met `Onbekend`.
 
 ---
 
