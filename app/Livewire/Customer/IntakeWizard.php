@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Actions\DispatchEmbedRequestPrefillIfNeeded;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
@@ -407,6 +408,19 @@ class IntakeWizard extends Component
         $this->waitingForPrefill = false;
         $this->prefillWaitStartedAt = null;
         $this->beginWizardAfterPrefill($this->intake());
+    }
+
+    /**
+     * Embed-opnames: request-prefill pas bij eerste klantactie (stap/foto), niet op mount/GET.
+     * Idempotent; niet-embed = no-op (BL-153).
+     */
+    private function maybeDispatchEmbedRequestPrefill(): void
+    {
+        if ($this->followUpMode || $this->completed) {
+            return;
+        }
+
+        app(DispatchEmbedRequestPrefillIfNeeded::class)->handle($this->intake());
     }
 
     private function beginWizardAfterPrefill(Intake $intake): void
@@ -2207,6 +2221,9 @@ class IntakeWizard extends Component
      */
     private function uploadPhotosForComposite(string $composite, array $files): void
     {
+        // Embed: eerste foto triggert request-prefill als die nog ontbreekt (BL-153).
+        $this->maybeDispatchEmbedRequestPrefill();
+
         $this->finalizePendingWizardRemoval();
         // N3: keuzes op hetzelfde groepscherm eerst vastzetten vóór foto-refresh.
         $this->persistCurrentGroupNonPhotoFields();
@@ -3275,6 +3292,9 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Embed: eerste klantstap triggert request-prefill (BL-153); vóór save/cursor.
+        $this->maybeDispatchEmbedRequestPrefill();
+
         $this->finalizePendingWizardRemoval();
         $this->clearProgressExtraNote();
 
@@ -4027,6 +4047,9 @@ class IntakeWizard extends Component
                 return;
             }
         }
+
+        // Embed: eerste antwoord triggert request-prefill vóór SaveIntakeAnswer (BL-153).
+        $this->maybeDispatchEmbedRequestPrefill();
 
         $previousRoomType = null;
         if (in_array($questionKey, ['room_type', 'floor_level'], true) && is_string($instanceKey)) {

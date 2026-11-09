@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Embed-formulier PR3 (BL-153):** request-prefill/intent bij de eerste klantstap of foto in de wizard voor `source=embed` (idempotent; niet op mount/GET; niet-embed ongewijzigd); dashboard- en detailbadge **Nieuw via website**; staging-testpagina `/embed-test` + `php artisan embed:prepare-staging-test` (local/staging); plan `docs/plans/embed-form.md`. Pest: `EmbedRequestPrefillAndBadgeTest`.
+
 ### Fixed
 
 - **Embed-dedup lekte klantlink (BL-152):** bij bestaande open opname geen redirect meer naar `/o/{token}`; opnieuw `SendCustomerIntakeLink` + neutrale bevestiging in het iframe (geen token/URL in response). Dedup telt niet mee voor het dagplafond.

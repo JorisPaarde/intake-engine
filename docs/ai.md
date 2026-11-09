@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.48 · **Laatste update:** 2026-10-12 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.49 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -216,6 +216,8 @@ Vervolghoogtes (zolder/nok/knieschot) komen uit prompt `follow-up-text-v1` via `
 `RequestPrefillOutcomeClassifier` verwerkt catalogusoutput **soft**: te lange top-level `evidence` (>500) of fill-evidence (>300) wordt ingekort met normalisatie + `validation_errors` in de AI-trace; één kapotte fill (ongeldige confidence, scalar `value`, onbekende key) wordt rejected met reden terwijl andere fills doorgaan. Alleen een ontbrekende `fills`-array blijft een harde `ValidationException`. Prefill-apply vangt per-veld writefouten af zodat één mislukte opslag de rest niet terugdraait; harde fouten gebruiken `AiValidationFailureFormatter` in `ai_runs.error_message`.
 
 Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
+
+**Embed-opnames (BL-153):** CreateIntake via `/embed/{key}` dispatch’t géén request-prefill. `DispatchEmbedRequestPrefillIfNeeded` doet dat precies één keer bij de eerste klantstap, foto of Volgende in de wizard (idempotent via bestaande `RequestIntent`-`ai_runs`, inclusief queue-placeholder). Mount/GET alleen triggert geen externe call. Installateursaanmaak blijft create-time prefill.
 
 De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. De klantlink-herstelpass zet externe calls uit (`allowExternal: false`); met tekst-AI uit draait dan de lokale heuristiek, met tekst-AI aan blijft de mount een no-op.
 
