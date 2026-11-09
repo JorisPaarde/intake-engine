@@ -101,24 +101,26 @@ export async function waitForStepChange(page: Page, previousHeading: string, tim
 }
 
 export async function primaryNextButton(page: Page) {
-  const byTestId = page.getByTestId('next-button');
-  if (await byTestId.count()) {
-    return byTestId.first();
+  // Prefer role name (stable accessible label); fall back to visible testid.
+  const byRole = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i });
+  if (await byRole.count()) {
+    return byRole.first();
   }
 
-  const complete = page.getByTestId('complete-button');
-  if (await complete.count()) {
-    return complete.first();
+  const visibleNext = page.locator('[data-testid="next-button"]').locator('visible=true');
+  if (await visibleNext.count()) {
+    return visibleNext.first();
   }
 
-  return page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i }).first();
+  return page.locator('[data-testid="complete-button"]').locator('visible=true').first();
 }
 
 export async function clickNext(page: Page): Promise<void> {
   const before = await headingText(page);
   const next = await primaryNextButton(page);
   const livewire = waitForLivewire(page).catch(() => undefined);
-  await next.click();
+  await next.scrollIntoViewIfNeeded().catch(() => undefined);
+  await next.click({ timeout: 20_000 });
   await livewire;
   await waitForStepChange(page, before).catch(() => undefined);
 }
@@ -200,11 +202,9 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
     return;
   }
 
-  const confirmByTestId = page.getByTestId('next-button').filter({ hasText: /Klopt,\s*verder/i });
-  const confirm = (await confirmByTestId.count())
-    ? confirmByTestId
-    : page.getByRole('button', { name: /^Klopt, verder$/i });
+  const confirm = page.getByRole('button', { name: /^Klopt, verder$/i });
   if (await confirm.count()) {
+    await confirm.first().scrollIntoViewIfNeeded().catch(() => undefined);
     await confirm.first().click();
     await waitForStepChange(page, before).catch(() => undefined);
 
@@ -288,15 +288,14 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
     await livewire;
   }
 
-  if (await page.getByTestId('complete-button').or(page.getByRole('button', { name: /^Afronden$/ })).count()) {
-    const finish = page.getByTestId('complete-button').or(page.getByRole('button', { name: /^Afronden$/ })).first();
-    await finish.click();
+  if (await page.getByRole('button', { name: /^Afronden$/ }).count()) {
+    await page.getByRole('button', { name: /^Afronden$/ }).click();
     await waitForStepChange(page, before).catch(() => undefined);
 
     return;
   }
 
-  if (await page.getByTestId('next-button').or(page.getByRole('button', { name: /^(Volgende|Klopt, verder)$/i })).count()) {
+  if (await page.getByRole('button', { name: /^(Volgende|Klopt, verder)$/i }).count()) {
     await clickNext(page);
 
     return;
