@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 2.4 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.5 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de runtime, dossierkern en eerste airco-domeinlaag hieronder zijn **geïmplementeerd**. Zie [product-model.md](product-model.md) en ADR-0011/0012.
 
@@ -140,7 +140,7 @@ Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private 
 - Klant: token-middleware, scope = één intake; bedrijf en branding worden uitsluitend via die intake geladen.
 - `companies` is de tenantbron (ADR-0010, vervangt ADR-0006).
 - Publieke productinteresse: alleen create-route, servervalidatie, honeypot en rate-limit; geen publieke lees-/wijzigroute, geen tenant- of dossierkoppeling en geen IP-opslag.
-- Publiek embed-formulier (`/embed/{public_key}`, BL-152): alleen deze route mag in een iframe (`Content-Security-Policy: frame-ancestors` op geregistreerde `https://host`-waarden + `'self'`; niet de rapportpreview-CSP hergebruiken). POST: honeypot, Origin/Referer ∈ allowlist of app-host, throttle per IP én sleutel, dagplafond per company; CreateIntake met `source=embed` zonder AI-job; redirect 303 uit het iframe naar `/o/{token}`.
+- Publiek embed-formulier (`/embed/{public_key}`, BL-152): alleen deze route mag in een iframe (`Content-Security-Policy: frame-ancestors` op geregistreerde `https://host`-waarden + `'self'`; niet de rapportpreview-CSP hergebruiken). **Framing-misbruik stopt frame-ancestors**, niet de Origin-check: same-origin iframe-POSTs sturen de app-host als Origin (altijd toegestaan); ontbrekende/vreemde Origin wordt wel geweigerd. Sessieloos: HMAC-formuliertoken (APP_KEY, max 2 uur) i.p.v. CSRF-sessiecookie. Verder: honeypot, throttle per IP én sleutel, dagplafond; CreateIntake met `source=embed` zonder AI-job; nieuwe opname → 303 `/o/{token}` (`target=_top`); bestaande open opname → opnieuw mailen + neutrale bevestiging (geen token/URL in de response).
 
 ### Tenantinvarianten voor implementerende agents
 

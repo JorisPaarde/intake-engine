@@ -40,6 +40,10 @@ final class StartEmbedIntake
         $existing = $this->findReusableOpenIntake($company, $email);
 
         if ($existing !== null) {
+            // Dedup: mail opnieuw, géén redirect naar /o/{token} (geen token-lek).
+            // Telt niet mee voor het dagplafond.
+            $this->sendCustomerIntakeLink->handle($existing, $creator);
+
             return ['intake' => $existing, 'created' => false];
         }
 

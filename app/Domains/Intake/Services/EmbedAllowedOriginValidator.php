@@ -11,8 +11,12 @@ use Illuminate\Validation\ValidationException;
 final class EmbedAllowedOriginValidator
 {
     /**
-     * Host from Origin (preferred) or Referer. Same-origin form POSTs use the app host;
-     * that host is accepted alongside the company allowlist so the iframe form works.
+     * Host from Origin (preferred) or Referer.
+     *
+     * Same-origin iframe POSTs send the app host as Origin — that host is always
+     * accepted. Framing abuse is stopped by CSP frame-ancestors on the allowlist,
+     * not by this Origin check. Rejecting a missing/foreign Origin still blocks
+     * casual cross-origin form posts from non-allowlisted hosts.
      */
     public function requestHostIsAllowed(Request $request, Company $company): bool
     {

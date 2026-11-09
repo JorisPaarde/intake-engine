@@ -108,6 +108,10 @@
     </style>
 </head>
 <body>
+    @php
+        $old = $oldInput ?? [];
+        $oldValue = static fn (string $key, mixed $default = ''): mixed => $old[$key] ?? $default;
+    @endphp
     <main>
         <div class="card">
             <p class="eyebrow">{{ $company->name }}</p>
@@ -136,46 +140,46 @@
                 target="_top"
                 novalidate
             >
-                @csrf
+                <input type="hidden" name="embed_form_token" value="{{ $embedFormToken }}">
 
                 <div class="hp" aria-hidden="true">
                     <label for="website">Website</label>
-                    <input id="website" type="text" name="website" value="{{ old('website') }}" tabindex="-1" autocomplete="off">
+                    <input id="website" type="text" name="website" value="" tabindex="-1" autocomplete="off">
                 </div>
 
                 <div>
                     <label for="customer_name">Naam</label>
-                    <input id="customer_name" name="customer_name" type="text" required maxlength="120" value="{{ old('customer_name') }}" autocomplete="name">
+                    <input id="customer_name" name="customer_name" type="text" required maxlength="120" value="{{ $oldValue('customer_name') }}" autocomplete="name">
                 </div>
 
                 <div>
                     <label for="customer_email">E-mailadres</label>
-                    <input id="customer_email" name="customer_email" type="email" required maxlength="254" value="{{ old('customer_email') }}" autocomplete="email">
+                    <input id="customer_email" name="customer_email" type="email" required maxlength="254" value="{{ $oldValue('customer_email') }}" autocomplete="email">
                 </div>
 
                 <div>
                     <label for="customer_phone">Telefoonnummer <span class="hint">(optioneel)</span></label>
-                    <input id="customer_phone" name="customer_phone" type="tel" maxlength="40" value="{{ old('customer_phone') }}" autocomplete="tel">
+                    <input id="customer_phone" name="customer_phone" type="tel" maxlength="40" value="{{ $oldValue('customer_phone') }}" autocomplete="tel">
                 </div>
 
                 <div class="row">
                     <div>
                         <label for="address_postal_code">Postcode</label>
-                        <input id="address_postal_code" name="address_postal_code" type="text" required maxlength="7" value="{{ old('address_postal_code') }}" autocomplete="postal-code" placeholder="1234 AB">
+                        <input id="address_postal_code" name="address_postal_code" type="text" required maxlength="7" value="{{ $oldValue('address_postal_code') }}" autocomplete="postal-code" placeholder="1234 AB">
                     </div>
                     <div>
                         <label for="address_house_number">Huisnummer</label>
-                        <input id="address_house_number" name="address_house_number" type="number" required min="1" max="999999" value="{{ old('address_house_number') }}">
+                        <input id="address_house_number" name="address_house_number" type="number" required min="1" max="999999" value="{{ $oldValue('address_house_number') }}">
                     </div>
                     <div>
                         <label for="address_house_number_addition">Toevoeging <span class="hint">(optioneel)</span></label>
-                        <input id="address_house_number_addition" name="address_house_number_addition" type="text" maxlength="20" value="{{ old('address_house_number_addition') }}">
+                        <input id="address_house_number_addition" name="address_house_number_addition" type="text" maxlength="20" value="{{ $oldValue('address_house_number_addition') }}">
                     </div>
                 </div>
 
                 <div class="consent">
                     <label for="privacy_consent">
-                        <input id="privacy_consent" name="privacy_consent" type="checkbox" value="1" required @checked(old('privacy_consent'))>
+                        <input id="privacy_consent" name="privacy_consent" type="checkbox" value="1" required @checked((string) $oldValue('privacy_consent') === '1')>
                         <span>
                             Ik geef {{ $company->name }} toestemming om mijn gegevens te gebruiken voor deze opname.
                             {{ $company->name }} is verwerkingsverantwoordelijke.

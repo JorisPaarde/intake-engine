@@ -7,6 +7,7 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Mail\CustomerIntakeLinkMail;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
+use App\Domains\Intake\Services\EmbedFormToken;
 use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
 use App\Models\Company;
@@ -48,9 +49,13 @@ function embedCompanyReady(array $companyOverrides = []): array
 /**
  * @return array<string, mixed>
  */
-function embedPayload(array $overrides = []): array
+function embedPayload(string $key, array $overrides = []): array
 {
-    return array_merge([
+    $hasTokenOverride = array_key_exists(EmbedFormToken::FIELD, $overrides);
+    $tokenOverride = $hasTokenOverride ? $overrides[EmbedFormToken::FIELD] : null;
+    unset($overrides[EmbedFormToken::FIELD]);
+
+    $payload = array_merge([
         'customer_name' => 'Sara Klant',
         'customer_email' => 'sara.klant@example.com',
         'customer_phone' => '0612345678',
@@ -60,6 +65,16 @@ function embedPayload(array $overrides = []): array
         'privacy_consent' => '1',
         'website' => '',
     ], $overrides);
+
+    if ($hasTokenOverride) {
+        if ($tokenOverride !== null) {
+            $payload[EmbedFormToken::FIELD] = $tokenOverride;
+        }
+    } else {
+        $payload[EmbedFormToken::FIELD] = app(EmbedFormToken::class)->issue($key);
+    }
+
+    return $payload;
 }
 
 function postEmbed(string $key, array $payload = [], array $headers = [])
@@ -70,11 +85,10 @@ function postEmbed(string $key, array $payload = [], array $headers = [])
     ];
 
     return test()->withHeaders(array_merge($defaultHeaders, $headers))
-        ->from(route('embed.show', ['public_key' => $key]))
-        ->post(route('embed.store', ['public_key' => $key]), embedPayload($payload));
+        ->post(route('embed.store', ['public_key' => $key]), embedPayload($key, $payload));
 }
 
-test('embed form shows for enabled key with frame-ancestors header', function () {
+test('embed form shows for enabled key with frame-ancestors header and signed token', function () {
     $ctx = embedCompanyReady();
 
     $response = $this->get(route('embed.show', ['public_key' => $ctx['key']]));
@@ -84,6 +98,9 @@ test('embed form shows for enabled key with frame-ancestors header', function ()
         ->assertSee('Voorbeeld Koeling', false)
         ->assertSee('verwerkingsverantwoordelijke', false)
         ->assertSee('name="website"', false)
+        ->assertSee('name="embed_form_token"', false)
+        ->assertDontSee('@csrf', false)
+        ->assertDontSee('name="_token"', false)
         ->assertSee('target="_top"', false)
         ->assertHeader('Content-Security-Policy');
 
@@ -152,7 +169,8 @@ test('honeypot filled silently skips intake creation', function () {
     $ctx = embedCompanyReady();
 
     postEmbed($ctx['key'], ['website' => 'https://spam.example'])
-        ->assertRedirect(url('/'));
+        ->assertOk()
+        ->assertSee('We hebben je de link naar je opname gemaild.', false);
 
     expect(Intake::query()->count())->toBe(0);
     Mail::assertNothingSent();
@@ -172,8 +190,7 @@ test('wrong origin is rejected', function () {
 test('missing origin and referer is rejected', function () {
     $ctx = embedCompanyReady();
 
-    // Geen from()/Referer: anders telt de app-host als toegestaan (iframe same-origin).
-    $this->post(route('embed.store', ['public_key' => $ctx['key']]), embedPayload())
+    $this->post(route('embed.store', ['public_key' => $ctx['key']]), embedPayload($ctx['key']))
         ->assertForbidden();
 
     expect(Intake::query()->count())->toBe(0);
@@ -211,23 +228,47 @@ test('daily limit returns 429 with dutch message', function () {
     expect(Intake::query()->count())->toBe(1);
 });
 
-test('dedup reuses open intake for same company email', function () {
+test('dedup resends mail and shows confirmation without leaking token', function () {
     Mail::fake();
     Queue::fake();
     $ctx = embedCompanyReady();
 
     postEmbed($ctx['key'])->assertStatus(303);
     $first = Intake::query()->where('customer_email', 'sara.klant@example.com')->firstOrFail();
+    $token = $first->access_token;
+
+    Mail::fake();
 
     $response = postEmbed($ctx['key'], [
         'customer_name' => 'Andere Naam',
         'customer_email' => 'Sara.Klant@example.com',
     ]);
 
-    $response->assertRedirect($first->customerUrl())->assertStatus(303);
+    $response->assertOk()
+        ->assertSee('We hebben je de link naar je opname gemaild.', false)
+        ->assertDontSee('/o/', false)
+        ->assertDontSee($token, false);
 
-    expect(Intake::query()->whereRaw('lower(customer_email) = ?', ['sara.klant@example.com'])->count())->toBe(1)
+    expect($response->headers->get('Location'))->toBeNull()
+        ->and(Intake::query()->whereRaw('lower(customer_email) = ?', ['sara.klant@example.com'])->count())->toBe(1)
         ->and(Intake::query()->count())->toBe(1);
+
+    Mail::assertSent(CustomerIntakeLinkMail::class, function (CustomerIntakeLinkMail $mail): bool {
+        return $mail->hasTo('sara.klant@example.com');
+    });
+});
+
+test('dedup does not count against daily limit', function () {
+    Mail::fake();
+    Queue::fake();
+    $ctx = embedCompanyReady(['embed_daily_limit' => 1]);
+
+    postEmbed($ctx['key'], ['customer_email' => 'limiet@example.com'])->assertStatus(303);
+    postEmbed($ctx['key'], ['customer_email' => 'limiet@example.com'])
+        ->assertOk()
+        ->assertSee('We hebben je de link naar je opname gemaild.', false);
+
+    expect(Intake::query()->count())->toBe(1);
 });
 
 test('embed start is rate limited per ip', function () {
@@ -242,4 +283,56 @@ test('embed start is rate limited per ip', function () {
     postEmbed($ctx['key'], ['customer_email' => 'een@example.com'])->assertStatus(303);
     postEmbed($ctx['key'], ['customer_email' => 'twee@example.com'])->assertStatus(303);
     postEmbed($ctx['key'], ['customer_email' => 'drie@example.com'])->assertTooManyRequests();
+});
+
+test('post without session cookie but with valid form token succeeds', function () {
+    Mail::fake();
+    Queue::fake();
+    $ctx = embedCompanyReady();
+
+    $this->withHeaders([
+        'Origin' => 'https://www.example.nl',
+        'Referer' => 'https://www.example.nl/airco',
+    ])
+        ->post(route('embed.store', ['public_key' => $ctx['key']]), embedPayload($ctx['key'], [
+            'customer_email' => 'stateless@example.com',
+        ]))
+        ->assertStatus(303);
+
+    expect(Intake::query()->where('customer_email', 'stateless@example.com')->count())->toBe(1);
+});
+
+test('post without form token returns 419 with dutch message', function () {
+    $ctx = embedCompanyReady();
+
+    postEmbed($ctx['key'], [EmbedFormToken::FIELD => null])
+        ->assertStatus(419)
+        ->assertSee('Je formulier is verlopen of ongeldig', false);
+
+    expect(Intake::query()->count())->toBe(0);
+});
+
+test('post with tampered form token returns 419', function () {
+    $ctx = embedCompanyReady();
+    $token = app(EmbedFormToken::class)->issue($ctx['key']);
+    $tampered = $token.'x';
+
+    postEmbed($ctx['key'], [EmbedFormToken::FIELD => $tampered])
+        ->assertStatus(419)
+        ->assertSee('Je formulier is verlopen of ongeldig', false);
+
+    expect(Intake::query()->count())->toBe(0);
+});
+
+test('post with expired form token returns 419', function () {
+    $ctx = embedCompanyReady();
+    $token = app(EmbedFormToken::class)->issue($ctx['key']);
+
+    $this->travel(EmbedFormToken::MAX_AGE_SECONDS + 60)->seconds();
+
+    postEmbed($ctx['key'], [EmbedFormToken::FIELD => $token])
+        ->assertStatus(419)
+        ->assertSee('Je formulier is verlopen of ongeldig', false);
+
+    expect(Intake::query()->count())->toBe(0);
 });

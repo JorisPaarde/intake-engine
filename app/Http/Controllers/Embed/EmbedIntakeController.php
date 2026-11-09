@@ -6,17 +6,24 @@ namespace App\Http\Controllers\Embed;
 
 use App\Domains\Intake\Actions\StartEmbedIntake;
 use App\Domains\Intake\Services\EmbedAllowedOriginValidator;
+use App\Domains\Intake\Services\EmbedFormToken;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmbedIntakeRequest;
 use App\Models\Company;
+use Illuminate\Contracts\Support\MessageBag;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\MessageBag as SupportMessageBag;
+use Illuminate\Support\ViewErrorBag;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class EmbedIntakeController extends Controller
 {
     public function __construct(
         private readonly EmbedAllowedOriginValidator $originValidator,
+        private readonly EmbedFormToken $formToken,
     ) {}
 
     public function show(string $public_key): Response
@@ -27,36 +34,76 @@ final class EmbedIntakeController extends Controller
     }
 
     public function store(
-        StoreEmbedIntakeRequest $request,
+        Request $request,
         string $public_key,
         StartEmbedIntake $startEmbedIntake,
     ): RedirectResponse|Response {
         $company = $this->resolveEmbedCompany($public_key);
 
+        try {
+            $this->formToken->assertValid($public_key, $request->input(EmbedFormToken::FIELD));
+        } catch (HttpException $exception) {
+            if ($exception->getStatusCode() === 419) {
+                return $this->formResponse(
+                    $company,
+                    $public_key,
+                    status: 419,
+                    errorMessage: $exception->getMessage(),
+                );
+            }
+
+            throw $exception;
+        }
+
         if ($request->filled('website')) {
             // Honeypot: pretend success without creating an intake (ProductInterest-patroon).
-            return redirect()->to(url('/'), 303);
+            return $this->confirmationResponse($company);
         }
 
         if (! $this->originValidator->requestHostIsAllowed($request, $company)) {
             abort(403, 'Dit formulier mag alleen vanaf de toegestane website worden gebruikt.');
         }
 
+        $normalized = StoreEmbedIntakeRequest::normalize($request->all());
+        $validator = Validator::make(
+            $normalized,
+            StoreEmbedIntakeRequest::ruleSet(),
+            StoreEmbedIntakeRequest::messageSet(),
+            StoreEmbedIntakeRequest::attributeLabels(),
+        );
+
+        if ($validator->fails()) {
+            return $this->formResponse(
+                $company,
+                $public_key,
+                status: 422,
+                errors: $validator->errors(),
+                oldInput: $normalized,
+            );
+        }
+
+        /** @var array{
+         *     customer_name: string,
+         *     customer_email: string,
+         *     customer_phone?: string|null,
+         *     address_postal_code: string,
+         *     address_house_number: int|string,
+         *     address_house_number_addition?: string|null
+         * } $data
+         */
+        $data = $validator->safe()->only([
+            'customer_name',
+            'customer_email',
+            'customer_phone',
+            'address_postal_code',
+            'address_house_number',
+            'address_house_number_addition',
+        ]);
+
         $refererHost = $this->originValidator->hostFromRequest($request);
 
         try {
-            $result = $startEmbedIntake->handle(
-                $company,
-                $request->safe()->only([
-                    'customer_name',
-                    'customer_email',
-                    'customer_phone',
-                    'address_postal_code',
-                    'address_house_number',
-                    'address_house_number_addition',
-                ]),
-                $refererHost,
-            );
+            $result = $startEmbedIntake->handle($company, $data, $refererHost);
         } catch (HttpException $exception) {
             if ($exception->getStatusCode() === 429) {
                 return $this->formResponse(
@@ -68,6 +115,11 @@ final class EmbedIntakeController extends Controller
             }
 
             throw $exception;
+        }
+
+        if (! $result['created']) {
+            // Dedup: neutrale bevestiging in iframe — geen Location /o/{token}.
+            return $this->confirmationResponse($company);
         }
 
         return redirect()->away($result['intake']->customerUrl(), 303);
@@ -91,18 +143,46 @@ final class EmbedIntakeController extends Controller
         return $company;
     }
 
+    /**
+     * @param  array<string, mixed>  $oldInput
+     */
     private function formResponse(
         Company $company,
         string $publicKey,
         int $status = 200,
         ?string $errorMessage = null,
+        MessageBag|ViewErrorBag|null $errors = null,
+        array $oldInput = [],
     ): Response {
+        $errorBag = $errors ?? new SupportMessageBag;
+
+        $viewErrors = $errors instanceof ViewErrorBag
+            ? $errors
+            : (new ViewErrorBag)->put('default', $errorBag);
+
         $html = view('embed.form', [
             'company' => $company,
             'publicKey' => $publicKey,
             'errorMessage' => $errorMessage,
+            'embedFormToken' => $this->formToken->issue($publicKey),
+            'oldInput' => $oldInput,
+            'errors' => $viewErrors,
         ])->render();
 
+        return $this->framedHtml($company, $html, $status);
+    }
+
+    private function confirmationResponse(Company $company): Response
+    {
+        $html = view('embed.confirmation', [
+            'company' => $company,
+        ])->render();
+
+        return $this->framedHtml($company, $html, 200);
+    }
+
+    private function framedHtml(Company $company, string $html, int $status): Response
+    {
         $ancestors = implode(' ', $this->originValidator->frameAncestorsSources($company));
 
         return response($html, $status)

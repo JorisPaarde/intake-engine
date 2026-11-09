@@ -30,8 +30,13 @@ use App\Http\Controllers\ProductInterestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SitemapController;
 use App\Livewire\Customer\IntakeWizard;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::get('/', function (Request $request, PublicDemoSession $publicDemoSession) {
     return view('welcome', [
@@ -47,11 +52,22 @@ Route::post('/interesse', ProductInterestController::class)
 
 Route::get('/health', HealthController::class)->name('health');
 
+// Embed is sessionless (cross-site iframe): HMAC form token i.p.v. CSRF-cookie (BL-152).
+$embedWithoutSession = [
+    EncryptCookies::class,
+    AddQueuedCookiesToResponse::class,
+    StartSession::class,
+    ShareErrorsFromSession::class,
+    PreventRequestForgery::class,
+];
+
 Route::get('/embed/{public_key}', [EmbedIntakeController::class, 'show'])
     ->where('public_key', '[A-Za-z0-9_-]+')
+    ->withoutMiddleware($embedWithoutSession)
     ->name('embed.show');
 Route::post('/embed/{public_key}', [EmbedIntakeController::class, 'store'])
     ->where('public_key', '[A-Za-z0-9_-]+')
+    ->withoutMiddleware($embedWithoutSession)
     ->middleware('throttle:embed-start')
     ->name('embed.store');
 

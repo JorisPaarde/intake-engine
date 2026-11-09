@@ -6,6 +6,10 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validation rules for the public embed POST. Sessionless: the controller validates
+ * with these rules and re-renders the form (no redirect / session flash).
+ */
 final class StoreEmbedIntakeRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,6 +21,14 @@ final class StoreEmbedIntakeRequest extends FormRequest
      * @return array<string, list<string>>
      */
     public function rules(): array
+    {
+        return self::ruleSet();
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public static function ruleSet(): array
     {
         return [
             'customer_name' => ['required', 'string', 'max:120'],
@@ -35,6 +47,14 @@ final class StoreEmbedIntakeRequest extends FormRequest
      */
     public function attributes(): array
     {
+        return self::attributeLabels();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function attributeLabels(): array
+    {
         return [
             'customer_name' => 'naam',
             'customer_email' => 'e-mailadres',
@@ -51,6 +71,14 @@ final class StoreEmbedIntakeRequest extends FormRequest
      */
     public function messages(): array
     {
+        return self::messageSet();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function messageSet(): array
+    {
         return [
             'customer_name.required' => 'Vul je naam in.',
             'customer_email.required' => 'Vul je e-mailadres in.',
@@ -63,9 +91,13 @@ final class StoreEmbedIntakeRequest extends FormRequest
         ];
     }
 
-    protected function prepareForValidation(): void
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public static function normalize(array $input): array
     {
-        $normalized = [];
+        $normalized = $input;
 
         foreach ([
             'customer_name',
@@ -75,12 +107,12 @@ final class StoreEmbedIntakeRequest extends FormRequest
             'address_house_number_addition',
             'website',
         ] as $key) {
-            $value = $this->input($key);
-
-            if (is_string($value)) {
-                $value = trim($value);
-                $normalized[$key] = $value === '' ? null : $value;
+            if (! array_key_exists($key, $normalized) || ! is_string($normalized[$key])) {
+                continue;
             }
+
+            $value = trim($normalized[$key]);
+            $normalized[$key] = $value === '' ? null : $value;
         }
 
         if (isset($normalized['address_postal_code'])) {
@@ -99,6 +131,6 @@ final class StoreEmbedIntakeRequest extends FormRequest
             $normalized['customer_email'] = strtolower((string) $normalized['customer_email']);
         }
 
-        $this->merge($normalized);
+        return $normalized;
     }
 }
