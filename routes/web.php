@@ -16,6 +16,7 @@ use App\Http\Controllers\Dev\DevAiTraceController;
 use App\Http\Controllers\Dev\DevDashboardController;
 use App\Http\Controllers\Dev\DevHealthController;
 use App\Http\Controllers\Dev\DevIntakeController;
+use App\Http\Controllers\Embed\EmbedIntakeController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\AddressSuggestionController;
 use App\Http\Controllers\Installer\CompanySettingsController;
@@ -45,6 +46,14 @@ Route::post('/interesse', ProductInterestController::class)
     ->name('product-interest.store');
 
 Route::get('/health', HealthController::class)->name('health');
+
+Route::get('/embed/{public_key}', [EmbedIntakeController::class, 'show'])
+    ->where('public_key', '[A-Za-z0-9_-]+')
+    ->name('embed.show');
+Route::post('/embed/{public_key}', [EmbedIntakeController::class, 'store'])
+    ->where('public_key', '[A-Za-z0-9_-]+')
+    ->middleware('throttle:embed-start')
+    ->name('embed.store');
 
 Route::post('/demo/start', StartDemoController::class)
     ->middleware(['throttle:demo-start'])

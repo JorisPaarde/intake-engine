@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.06 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.07 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,9 +44,9 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | in_progress | high | A · geen publieke route · volgt BL-152/153 |
-| 2 | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | backlog | high | na BL-151 · frame-ancestors / limiet / honeypot / dedup |
-| 3 | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | backlog | medium | na BL-152 · request-prefill bij eerste klantstap |
+| — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
+| 1 | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | in_progress | high | na BL-151 · frame-ancestors / limiet / honeypot / dedup |
+| 2 | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | backlog | medium | na BL-152 · request-prefill bij eerste klantstap |
 | — | BL-150 | Publieke demo leftovers: nieuwe demo bij actieve sessie, login-verlopen, geen stille aanvraagtekst | E5 | done | medium | A · bij BL-001/066/091 · Notion QA 24 sep #5/#9 + 8 okt P2 · 2026-10-09 · PR #177 |
 | — | BL-148 | Tekstinterpretatie terug naar het AI-model (geen regex/keywords in productie) | E3/E4/E9 | done | high | ADR-0016 · evaluatieset · PR #173 · 2026-10-09 |
 | — | BL-149 | Klantwizard: around_house verbergen + maten L×B+m² op één scherm | E1/E7 | done | high | Notion #14 punten 2/3 · airco v28 · rest van #171 · PR #176 |
@@ -704,16 +704,18 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-151 — Embed-formulier PR1: datamodel + bedrijfsinstellingen
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E5 · **Band:** A · **Volgt op:** —
+- **Status:** done · **Datum:** 2026-11-09 · **PR:** #300 · **Prioriteit:** high · **Epic:** E1/E5 · **Band:** A · **Volgt op:** —
 - **Doel:** installateur kan op bedrijfsinstellingen een publieke sleutel, toegestane hostnames, dagplafond en iframe-snippet beheren; schema klaar voor publieke embed (PR2).
 - **Scope:** migratie `companies.embed_*` + `intakes.source`; settings-UI (genereren/roteren/domeinen/limiet/aan-uit/snippet); Pest settings. **Buiten scope:** publieke `/embed/{key}`-routes (BL-152), AI-trigger/dashboardbadge (BL-153).
 - **Vaste keuzes:** `created_by` bij embed = oudste company-user; dagplafond default 20 (instelbaar); adres v1 = postcode+huisnummer (+toevoeging); `frame-ancestors` strikt op geregistreerde hostnames; backup-mail met klantlink aan (in PR2).
 - **Acceptatie:** settings alleen eigen company; hostname-validatie weigert wildcards/paden/schemes; snippet wijst naar `/embed/{public_key}`; `composer check` groen.
+- **Resultaat:** gemerged in main (`a45a3f5`); publieke routes volgen in BL-152.
 
 ### BL-152 — Embed-formulier PR2: publieke GET/POST + beveiliging
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E1/E2/E5 · **Band:** A · **Volgt op:** BL-151
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E2/E5 · **Band:** A · **Volgt op:** BL-151
 - **Doel:** iframe-formulier op IE; same-origin POST; redirect top-window naar `/o/{token}`; CreateIntake zonder AI; Origin/Referer-allowlist; honeypot; dagplafond; dedup open intake per e-mail; backup-mail.
+- **Scope:** `GET/POST /embed/{public_key}`; CSP `frame-ancestors`; `StartEmbedIntake` (CreateIntake + EnrichIntakeAddress, geen `DeriveIntentFromRequestJob`); throttle `embed-start`; Pest `EmbedIntakeFormTest`. **Buiten scope:** AI bij eerste klantstap + dashboardbadge (BL-153).
 - **Acceptatie:** Pest voor honeypot/origin/limiet/geen AI-dispatch; CSP `frame-ancestors` alleen allowlist + `'self'`.
 
 ### BL-153 — Embed-formulier PR3: AI-trigger + dashboardbadge + docs

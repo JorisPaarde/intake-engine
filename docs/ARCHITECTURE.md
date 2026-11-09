@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 2.3 · **Laatste update:** 2026-09-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.4 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de runtime, dossierkern en eerste airco-domeinlaag hieronder zijn **geïmplementeerd**. Zie [product-model.md](product-model.md) en ADR-0011/0012.
 
@@ -140,6 +140,7 @@ Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private 
 - Klant: token-middleware, scope = één intake; bedrijf en branding worden uitsluitend via die intake geladen.
 - `companies` is de tenantbron (ADR-0010, vervangt ADR-0006).
 - Publieke productinteresse: alleen create-route, servervalidatie, honeypot en rate-limit; geen publieke lees-/wijzigroute, geen tenant- of dossierkoppeling en geen IP-opslag.
+- Publiek embed-formulier (`/embed/{public_key}`, BL-152): alleen deze route mag in een iframe (`Content-Security-Policy: frame-ancestors` op geregistreerde `https://host`-waarden + `'self'`; niet de rapportpreview-CSP hergebruiken). POST: honeypot, Origin/Referer ∈ allowlist of app-host, throttle per IP én sleutel, dagplafond per company; CreateIntake met `source=embed` zonder AI-job; redirect 303 uit het iframe naar `/o/{token}`.
 
 ### Tenantinvarianten voor implementerende agents
 

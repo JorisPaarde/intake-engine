@@ -110,6 +110,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public embed form (BL-152)
+    |--------------------------------------------------------------------------
+    |
+    | Throttle is per IP and per public key (see AppServiceProvider embed-start).
+    | Daily ceiling stays on companies.embed_daily_limit.
+    |
+    */
+
+    'embed' => [
+        'throttle_per_hour' => (int) env('EMBED_THROTTLE_PER_HOUR', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Photo uploads
     |--------------------------------------------------------------------------
     */

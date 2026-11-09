@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Embed-formulier PR2 (BL-152):** publieke `GET/POST /embed/{public_key}` met minimaal klantformulier (je/jij, AVG-vinkje, honeypot); CSP `frame-ancestors` alleen allowlist-hostnames (`https://host`) + `'self'`; Origin/Referer-check; throttle `embed-start` (IP + sleutel); dagplafond → 429 NL; dedup open opname per company+e-mail; `CreateIntake` met `source=embed`, `created_by` = oudste company-user, activity `actor_type=embed` (+ optioneel `embed_referer_host`); wél `EnrichIntakeAddress`, géén AI-job; backup-mail `SendCustomerIntakeLink`; form `target="_top"` + 303 naar `/o/{token}`. Pest: `EmbedIntakeFormTest`.
 - **Embed-formulier PR1 (BL-151):** datamodel op `companies` (`embed_public_key`, `embed_allowed_origins`, `embed_enabled`, `embed_daily_limit` default 20) en `intakes.source` (`installer`|`embed`, bestaande rijen → `installer`). Bedrijfsinstellingen: sleutel maken/vernieuwen, domeinen (hostname-validatie, geen wildcards), dagplafond, aan/uit, kopieerbare iframe-snippet naar `/embed/{public_key}` (publieke route volgt in PR2). Pest: `CompanyEmbedSettingsTest`.
 
 ### Fixed
