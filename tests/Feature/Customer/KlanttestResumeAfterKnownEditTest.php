@@ -91,9 +91,12 @@ test('Wijzigen then refresh lands on known-summary, not past cooling_heating', f
         ->and($photosIndex)->toBeInt()
         ->and($photosIndex)->toBeGreaterThan($coolingIndex);
 
-    // Prove the old fallback: hidden floor cursor → first rooms step (past cooling).
+    // Prove the old fallback: hidden floor cursor → eerste rooms-stap (nu vaak gedeeld of foto).
+    $firstRoomsIndex = collect($before)->search(fn (array $s): bool => ($s['section_key'] ?? '') === 'rooms');
+    expect($firstRoomsIndex)->toBeInt();
     $legacyResume = app(IntakeStepBuilder::class)->indexForCursor($before, 'rooms', 'floor_level', 'room-2');
-    expect($legacyResume)->toBe($photosIndex);
+    expect($legacyResume)->toBe($firstRoomsIndex)
+        ->and($legacyResume)->toBeGreaterThan($coolingIndex);
     expect(app(IntakeStepBuilder::class)->indexForExactCursor($before, 'rooms', 'floor_level', 'room-2'))
         ->toBeNull();
 

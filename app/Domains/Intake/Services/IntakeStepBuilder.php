@@ -1355,27 +1355,17 @@ final class IntakeStepBuilder
     }
 
     /**
-     * room_name: dossier/wizard nummert per type (Slaapkamer 1, 2, …). Alleen tonen
-     * bij “Wijzigen” (forceShow) of wanneer er al een afwijkende klantnaam staat die
-     * bewerkt moet kunnen worden — niet standaard driemaal voor drie slaapkamers.
+     * room_name: dossier/wizard nummert per type (Slaapkamer 1, 2, …).
+     * Niet standaard vragen — eigen namen via known-summary “Wijzigen” (forceShow).
+     * Sticky-BL-140 dekt tekst-autosave via preferred_indoor_location.
      *
      * @param  array<string, array<string, mixed>|null>  $answers
      */
     private function shouldAskRoomName(array $answers, ?string $sectionInstanceKey): bool
     {
-        if ($sectionInstanceKey === null) {
-            return false;
-        }
+        unset($answers, $sectionInstanceKey);
 
-        $ownName = $answers[VisibilityResolver::compositeKey('room_name', $sectionInstanceKey)] ?? null;
-        $ownText = is_array($ownName) ? ($ownName['text'] ?? null) : null;
-        if (! is_string($ownText) || trim($ownText) === '') {
-            return false;
-        }
-
-        // Alleen zichtbaar houden als de naam géén gegenereerde placeholder is
-        // (klant/AI gaf een eigen naam zoals “Ouders”).
-        return ! RoomLabelResolver::isGeneratedPlaceholder(trim($ownText));
+        return false;
     }
 
     /**

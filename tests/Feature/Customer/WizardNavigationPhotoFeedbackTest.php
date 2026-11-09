@@ -70,8 +70,8 @@ function makeWizardNavIntake(array $overrides = []): Intake
 }
 
 /**
- * Twee slaapkamers + bekende maten/type zodat room_name zichtbaar is en tussenliggende
- * vragen overgeslagen worden — daarna volgt wall_outlet_photo wanneer outlets ontbreken.
+ * Twee slaapkamers + bekende maten/type; preferred_indoor open voor sticky-autosave (BL-140).
+ * room_name blijft verborgen (gegenereerde Slaapkamer N). Daarna wall_outlet bij needs_photo.
  */
 function seedTwoBedroomRoomNameFlow(Intake $intake, string $outletStatus = 'needs_photo'): void
 {
@@ -161,24 +161,22 @@ function uploadAndPollPhotoAssessment(Testable $component, string $composite, Up
         ->assertSet('uploadPhase', '');
 }
 
-test('kamernaam-autosave houdt actieve vraag vast; Volgende valideert niet de opvolger', function () {
+test('preferred_indoor-autosave houdt actieve vraag vast; Volgende valideert niet de opvolger', function () {
     $intake = makeWizardNavIntake();
     seedTwoBedroomRoomNameFlow($intake, 'needs_photo');
 
-    // preferred_indoor al beantwoord → na room_name volgt direct de verplichte stopcontactfoto.
-    foreach (['room-1', 'room-2'] as $instance) {
-        app(SaveIntakeAnswer::class)->handle(
-            $intake,
-            'preferred_indoor_location',
-            $instance,
-            ['text' => 'Boven de deur'],
-            PrefillSources::AI_TEXT,
-        );
-    }
+    // room-2 preferred al beantwoord; room-1 open voor sticky tekst-autosave.
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'preferred_indoor_location',
+        'room-2',
+        ['text' => 'Boven de deur'],
+        PrefillSources::AI_TEXT,
+    );
 
     $intake->update([
         'current_section_key' => 'rooms',
-        'current_question_key' => 'room_name',
+        'current_question_key' => 'preferred_indoor_location',
         'current_section_instance_key' => 'room-1',
     ]);
 
@@ -196,7 +194,7 @@ test('kamernaam-autosave houdt actieve vraag vast; Volgende valideert niet de op
     ]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('activeStepKey', 'rooms::room-1::room_name');
+        ->assertSet('activeStepKey', 'rooms::room-1::preferred_indoor_location');
 
     $totalBefore = count($component->viewData('steps'));
     $displayBefore = $component->viewData('stepDisplayNumber');
@@ -205,10 +203,10 @@ test('kamernaam-autosave houdt actieve vraag vast; Volgende valideert niet de op
         ->toContain('rooms::room-1::wall_outlet_photo');
 
     // Echte klantflow: blur/autosave via Livewire set (niet buitenband save).
-    $component->set('form.room-1__room_name.text', 'Ouders');
+    $component->set('form.room-1__preferred_indoor_location.text', 'Boven het bed');
 
     // Sticky: geen sprong naar stopcontact, totaal/nummer stabiel tot Volgende.
-    expect($component->get('activeStepKey'))->toBe('rooms::room-1::room_name')
+    expect($component->get('activeStepKey'))->toBe('rooms::room-1::preferred_indoor_location')
         ->and(count($component->viewData('steps')))->toBe($totalBefore)
         ->and($component->viewData('stepDisplayNumber'))->toBe($displayBefore)
         ->and($component->get('showMissing'))->toBeFalse();
@@ -216,8 +214,6 @@ test('kamernaam-autosave houdt actieve vraag vast; Volgende valideert niet de op
     $component->call('next')
         ->assertSet('showMissing', false)
         ->assertSet('activeStepKey', 'rooms::room-1::wall_outlet_photo');
-
-    expect(count($component->viewData('steps')))->toBe($totalBefore - 1);
 
     uploadAndPollPhotoAssessment(
         $component,
@@ -235,7 +231,7 @@ test('kamernaam-autosave houdt actieve vraag vast; Volgende valideert niet de op
         });
 });
 
-test('room_name opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen index-drift', function () {
+test('preferred_indoor opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen index-drift', function () {
     $intake = makeWizardNavIntake();
     seedTwoBedroomRoomNameFlow($intake, 'needs_photo');
 
@@ -243,12 +239,12 @@ test('room_name opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen
     $stepsBefore = app(IntakeStepBuilder::class)->build($intake->fresh(), $version);
     $keysBefore = array_column($stepsBefore, 'key');
 
-    expect($keysBefore)->toContain('rooms::room-1::room_name')
+    expect($keysBefore)->toContain('rooms::room-1::preferred_indoor_location')
         ->and($keysBefore)->toContain('rooms::room-1::wall_outlet_photo');
 
     $intake->update([
         'current_section_key' => 'rooms',
-        'current_question_key' => 'room_name',
+        'current_question_key' => 'preferred_indoor_location',
         'current_section_instance_key' => 'room-1',
     ]);
 
@@ -266,17 +262,17 @@ test('room_name opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen
     ]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('activeStepKey', 'rooms::room-1::room_name');
+        ->assertSet('activeStepKey', 'rooms::room-1::preferred_indoor_location');
 
     $totalBefore = count($component->viewData('steps'));
     $knownBefore = $component->get('knownStepKeys');
     expect($totalBefore)->toBeGreaterThan(1)
-        ->and($knownBefore)->toContain('rooms::room-1::room_name')
+        ->and($knownBefore)->toContain('rooms::room-1::preferred_indoor_location')
         ->and($knownBefore)->toContain('rooms::room-1::wall_outlet_photo');
 
-    // Autosave via Livewire (blur): sticky houdt room_name vast; Volgende schuift pas daarna door.
-    $component->set('form.room-1__room_name.text', 'Slaapkamer ouders')
-        ->assertSet('activeStepKey', 'rooms::room-1::room_name')
+    // Autosave via Livewire (blur): sticky houdt preferred_indoor vast; Volgende schuift pas daarna door.
+    $component->set('form.room-1__preferred_indoor_location.text', 'Boven het bed')
+        ->assertSet('activeStepKey', 'rooms::room-1::preferred_indoor_location')
         ->assertSet('showMissing', false);
 
     expect(count($component->viewData('steps')))->toBe($totalBefore);
@@ -284,25 +280,9 @@ test('room_name opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen
     $component->call('next')
         ->assertSet('showMissing', false);
 
-    $afterNameKey = $component->get('activeStepKey');
-    $keysAfterName = array_column($component->viewData('steps'), 'key');
-    expect($afterNameKey)->not->toBe('rooms::room-1::room_name')
-        ->and($afterNameKey)->not->toBe('')
-        ->and($keysAfterName)->not->toContain('rooms::room-1::room_name')
-        ->and(count($keysAfterName))->toBe($totalBefore - 1)
-        // v22/v23: preferred_indoor_location (optioneel) vóór wall_outlet wanneer outlets een foto nodig hebben.
-        ->and(in_array($afterNameKey, [
-            'rooms::room-1::preferred_indoor_location',
-            'rooms::room-1::wall_outlet_photo',
-        ], true))->toBeTrue();
-
-    // Skip optional preferred_indoor_location to reach the photo check when present.
-    if ($afterNameKey === 'rooms::room-1::preferred_indoor_location') {
-        $component->set('form.room-1__preferred_indoor_location.text', 'Weet ik niet')
-            ->call('next')
-            ->assertSet('showMissing', false)
-            ->assertSet('activeStepKey', 'rooms::room-1::wall_outlet_photo');
-    }
+    $afterKey = $component->get('activeStepKey');
+    expect($afterKey)->toBe('rooms::room-1::wall_outlet_photo')
+        ->and($afterKey)->not->toBe('');
 
     uploadAndPollPhotoAssessment(
         $component,
@@ -339,28 +319,28 @@ test('vraaglijst krimpt en groeit mid-flow zonder index-drift (beide richtingen)
 
     $intake->update([
         'current_section_key' => 'rooms',
-        'current_question_key' => 'room_name',
+        'current_question_key' => 'preferred_indoor_location',
         'current_section_instance_key' => 'room-1',
     ]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('activeStepKey', 'rooms::room-1::room_name');
+        ->assertSet('activeStepKey', 'rooms::room-1::preferred_indoor_location');
 
-    $countWithName = count($component->viewData('steps'));
+    $countBefore = count($component->viewData('steps'));
 
-    // Autosave: sticky houdt room_name vast tot Volgende (geen index-sprong).
-    $component->set('form.room-1__room_name.text', 'Ouders');
-    expect(count($component->viewData('steps')))->toBe($countWithName)
-        ->and($component->get('activeStepKey'))->toBe('rooms::room-1::room_name')
+    // Autosave: sticky houdt preferred_indoor vast tot Volgende (geen index-sprong).
+    $component->set('form.room-1__preferred_indoor_location.text', 'Boven het bed');
+    expect(count($component->viewData('steps')))->toBe($countBefore)
+        ->and($component->get('activeStepKey'))->toBe('rooms::room-1::preferred_indoor_location')
         ->and($component->get('showMissing'))->toBeFalse();
 
     $component->call('next')
         ->assertSet('showMissing', false);
 
     $keyAfterLeave = $component->get('activeStepKey');
-    $countWithoutName = count($component->viewData('steps'));
-    expect($keyAfterLeave)->not->toBe('rooms::room-1::room_name')
-        ->and($countWithoutName)->toBe($countWithName - 1);
+    $countAfterLeave = count($component->viewData('steps'));
+    expect($keyAfterLeave)->not->toBe('rooms::room-1::preferred_indoor_location')
+        ->and($countAfterLeave)->toBe($countBefore);
 
     // Grow: room_photos-analyse zet outlets op needs_photo → wall_outlet verschijnt.
     FakeAiClient::alwaysReturn([
@@ -400,7 +380,7 @@ test('vraaglijst krimpt en groeit mid-flow zonder index-drift (beide richtingen)
     $stepsAfterGrow = $component->viewData('steps');
     $keysAfterGrow = array_column($stepsAfterGrow, 'key');
     expect($keysAfterGrow)->toContain('rooms::room-1::wall_outlet_photo')
-        ->and(count($stepsAfterGrow))->toBeGreaterThan($countWithoutName);
+        ->and(count($stepsAfterGrow))->toBeGreaterThan($countAfterLeave);
 
     // Actieve stap blijft de room_photos-vraag (niet een verschoven index).
     expect($component->get('activeStepKey'))->toBe('rooms::room-1::room_photos')

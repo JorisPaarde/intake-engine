@@ -6,6 +6,7 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Support\SharedRoomAnswers;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
@@ -34,79 +35,78 @@ function prefillIntake(int $unitCount = 2): Intake
     return $intake->fresh();
 }
 
-function focusRoom2FloorLevel(Intake $intake): void
+function focusSharedFloorLevel(Intake $intake): void
 {
     $intake->update([
         'current_section_key' => 'rooms',
         'current_question_key' => 'floor_level',
-        'current_section_instance_key' => 'room-2',
+        'current_section_instance_key' => SharedRoomAnswers::SCOPE_INSTANCE,
     ]);
 }
 
-// --- Slice A: repeatable-instance prefill -----------------------------------
+// --- Slice A: gedeelde ruimtevraag (verdieping) --------------------------------
 
-test('room 2 prefills floor_level from room 1 as a labelled voorzet', function () {
+test('met meerdere ruimtes is floor_level een gedeelde stap', function () {
     $intake = prefillIntake();
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '1']);
-    focusRoom2FloorLevel($intake);
-
-    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('activeStepKey', 'rooms::room-2::floor_level')
-        ->assertSet('form.room-2__floor_level', ['value' => '1']);
-
-    expect($component->get('prefillNotice'))->toHaveKey('room-2__floor_level');
-});
-
-test('first room is never prefilled', function () {
-    $intake = prefillIntake();
-    $intake->update([
-        'current_section_key' => 'rooms',
-        'current_question_key' => 'floor_level',
-        'current_section_instance_key' => 'room-1',
-    ]);
-
-    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('activeStepKey', 'rooms::room-1::floor_level');
-
-    expect($component->get('form'))->not->toHaveKey('room-1__floor_level')
-        ->and($component->get('prefillNotice'))->toBe([]);
-});
-
-test('advancing persists the prefilled voorzet as a confirmed answer', function () {
-    $intake = prefillIntake();
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '1']);
-    focusRoom2FloorLevel($intake);
+    focusSharedFloorLevel($intake);
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->call('next');
-
-    $answer = $intake->answers()
-        ->where('question_key', 'floor_level')
-        ->where('section_instance_key', 'room-2')
-        ->first();
-
-    expect($answer)->not->toBeNull()
-        ->and($answer->value)->toBe(['value' => '1'])
-        ->and($answer->prefill_source)->toBeNull();
+        ->assertSet('activeStepKey', 'rooms::_shared::floor_level')
+        ->assertSee('Geldt voor alle ruimtes', false)
+        ->assertSee('Verschilt per ruimte', false);
 });
 
-test('editing a prefilled field clears its notice', function () {
+test('gedeeld floor_level-antwoord wordt naar alle ruimtes geschreven', function () {
+    $intake = prefillIntake();
+    focusSharedFloorLevel($intake);
+
+    $composite = SharedRoomAnswers::SCOPE_INSTANCE.'__floor_level';
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set("form.{$composite}.value", '1')
+        ->call('next');
+
+    foreach (['room-1', 'room-2'] as $room) {
+        $answer = $intake->answers()
+            ->where('question_key', 'floor_level')
+            ->where('section_instance_key', $room)
+            ->first();
+
+        expect($answer)->not->toBeNull()
+            ->and($answer?->value)->toBe(['value' => '1'])
+            ->and($answer?->prefill_source)->toBeNull();
+    }
+});
+
+test('één beantwoorde ruimte houdt de gedeelde floor_level-stap zichtbaar', function () {
     $intake = prefillIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '1']);
-    focusRoom2FloorLevel($intake);
+    focusSharedFloorLevel($intake);
 
-    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('form.room-2__floor_level.value', 'ground');
+    // Nog niet alle instanties beantwoord → gedeelde stap blijft (geen stille voorzet room-2).
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('activeStepKey', 'rooms::_shared::floor_level');
+});
 
-    expect($component->get('prefillNotice'))->not->toHaveKey('room-2__floor_level');
+test('editing a shared floor_level field persists to every room', function () {
+    $intake = prefillIntake();
+    focusSharedFloorLevel($intake);
 
-    $answer = $intake->answers()
-        ->where('question_key', 'floor_level')
-        ->where('section_instance_key', 'room-2')
-        ->first();
+    $composite = SharedRoomAnswers::SCOPE_INSTANCE.'__floor_level';
 
-    expect($answer->value)->toBe(['value' => 'ground'])
-        ->and($answer->prefill_source)->toBeNull();
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set("form.{$composite}.value", 'ground');
+
+    foreach (['room-1', 'room-2'] as $room) {
+        $answer = $intake->answers()
+            ->where('question_key', 'floor_level')
+            ->where('section_instance_key', $room)
+            ->first();
+
+        expect($answer)->not->toBeNull()
+            ->and($answer?->value)->toBe(['value' => 'ground'])
+            ->and($answer?->prefill_source)->toBeNull();
+    }
 });
 
 // --- Slice B: installer pre-fill shown to the customer -----------------------

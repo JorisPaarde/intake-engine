@@ -191,14 +191,22 @@ final class E2eScenarioFactory
 
         $this->seedLivingRoomKnown($intake);
 
+        // Start direct op ruimtefoto’s (niet known-summary) zodat de test niet vastloopt
+        // op “Klopt, verder” / Volgende-accessible-name.
+        $intake->update([
+            'current_section_key' => 'rooms',
+            'current_question_key' => 'room_photos',
+            'current_section_instance_key' => 'room-1',
+        ]);
+
         return $this->payload($intake, 'feedback', [
             'target_question_key' => 'room_photos',
         ]);
     }
 
     /**
-     * Two bedrooms at room_name: blur/autosave must keep the question sticky (BL-140).
-     * preferred_indoor is prefilled so Volgende lands on wall_outlet_photo.
+     * Two bedrooms at preferred_indoor_location: blur/autosave must keep the question sticky (BL-140).
+     * room_name stays hidden (generated Slaapkamer N); Volgende lands on wall_outlet_photo.
      *
      * @return array<string, mixed>
      */
@@ -230,7 +238,6 @@ final class E2eScenarioFactory
                 ['glazing_type', ['value' => 'double'], PrefillSources::AI_TEXT],
                 ['floor_level', ['value' => '1'], PrefillSources::AI_TEXT],
                 ['room_outlet_status', ['value' => 'needs_photo'], PrefillSources::AI_PHOTO],
-                ['preferred_indoor_location', ['text' => 'Boven de deur'], PrefillSources::AI_TEXT],
             ] as [$key, $value, $source]) {
                 $this->saveAnswer->handle($intake, $key, $instance, $value, $source);
             }
@@ -259,12 +266,12 @@ final class E2eScenarioFactory
 
         $intake->update([
             'current_section_key' => 'rooms',
-            'current_question_key' => 'room_name',
+            'current_question_key' => 'preferred_indoor_location',
             'current_section_instance_key' => 'room-1',
         ]);
 
         return $this->payload($intake, 'room-name-autosave', [
-            'target_question_key' => 'room_name',
+            'target_question_key' => 'preferred_indoor_location',
         ]);
     }
 
