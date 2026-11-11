@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.23 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.24 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Foto-flow Toch doorgaan + sticky override (BL-157) | done | 2026-11-11 | Lokaal Playwright viewport 390+1440: één **Toch doorgaan** alleen in footer; paneel alleen uitleg (“te donker…”); keuzeregel + **Opnieuw maken**/**Toch doorgaan** (nowrap, gap 12px) + Vorige-link; shell-`pb-52`/`pb-36` voorkomt afdekken. Zonder waarschuwing: normale Volgende. Screenshots `/opt/cursor/artifacts/bl156-polish-warning-390.png`, `…-warning-1440.png`, `…-clean-390.png`, `…-clean-1440.png`. |
 | Embed energielabel EP-Online (BL-156) | todo | - | Staging mét `EP_ONLINE_ENABLED`+key: `/embed-test` of `php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A` → klantkop toont **Energielabel A** naast bouwjaar/type. Zonder label of bij EP-storing: soft melding “Geen energielabel gevonden…”, flow niet geblokkeerd. |
 | Klantwizard eyebrow + teller (BL-155) | todo | - | Staging 390, 3 slaapkamers / 2037GR 273: eyebrow `Slaapkamer N van M · Vraag X van Y` (geen “, kelder / souterrain” tussen naam en van-N); teller aaneengesloten zonder gat (geen 25→27); totaal mag dalen als stappen wegvallen. |
 | Embed BAG-verrijking 2037GR 273 (BL-154) | todo | - | Staging: `php artisan embed:smoke-bag-address` groen; daarna `/embed-test` met **2037GR / 273** → klantheader toont volledige `Bernadottelaan 273, 2037GR Haarlem` (geen Onbekend, geen ellipsis; op ~390 px mag adres naar 2e regel); bouwjaar + woningtype niet gevraagd; screenshot ~390 px. Negatief: huisnummer **1** → nette melding, geen wizard. |
