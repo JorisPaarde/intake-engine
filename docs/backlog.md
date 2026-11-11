@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-158 | Buitenunit-fototip + drempel; meterkast-extra na Toch doorgaan; jargon uit klantweergave | E1/E4/E7 | in_progress | high | klanttest 11 nov ronde 2 · na BL-157 · airco v30 |
+| — | BL-158 | Buitenunit-fototip + drempel; meterkast-extra na Toch doorgaan; jargon uit klantweergave | E1/E4/E7 | done | high | klanttest 11 nov ronde 2 · airco v30 · PR #310 · 2026-11-11 |
 | — | BL-157 | Foto-flow: Toch doorgaan écht door + sticky override-keuze (geen stille Volgende) | E1/E7 | done | high | klanttest 11 nov · foto-flow · PR #308 · 2026-11-11 · was parallel als BL-156 |
 | — | BL-156 | Embed/klantwizard: energielabel tonen + soft melding bij geen label/EP-fout | E1/E2/E7 | done | high | na BL-154 · klanttest 11 nov · PR #307 · 2026-11-11 |
 | — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | done | high | na BL-153 · staging 390 Joris · PR #306 · 2026-11-11 |
@@ -709,12 +709,13 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-158 — Buitenunit-fototip/drempel + meterkast-extra + jargon (klanttest ronde 2)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Band:** A · **Volgt op:** BL-157 · **Ref:** klanttest 11 nov ronde 2 (390 + desktop)
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #310 · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Band:** A · **Volgt op:** BL-157 · **Ref:** klanttest 11 nov ronde 2 (390 + desktop)
 - **Aanleiding:** (7) alle 5 buitenunit-testfoto’s afgekeurd; tip sprak zichzelf tegen (“hele gevel” vs “één specifieke muur”). (10) na **Toch doorgaan** op meterkast bleef verplichte `fusebox_photo_extra` met `*`; DIN-rail/interne notities zichtbaar voor de klant.
 - **Doel:** één eenduidige buitenunit-tip (mobiel=desktop); redelijke gevel-/buitenmuurfoto’s accepteren; na meterkast-override geen verplichte extra foto; AI-retake/jargon sanitizen naar klanttaal.
 - **Drempel was → nu:** derive-pad outdoor met `detected` in `{outdoor_location,outdoor_unit}` + `subject_match=no` was `wrong_subject`; elke niet-lege `retake_instruction` was `needs_clearer`. Nu: accepted-set wint (gelijk follow-up); geaccepteerd outdoor-onderwerp blijft `ok` (retake over montage/kader blokkeert niet). Verkeerd onderwerp en usability (te donker/klein) blijven blokkeren.
 - **Scope:** airco **v30**; `PhotoContentAssessment` + outdoor/fusebox prompts (v8/v7); `CustomerFacingTaskText` sanitize; `IntakeWizard::clearForcedExtraFuseboxPhoto`; Pest.
 - **Acceptatie:** Pest groen; viewport-screenshots 390+1440; CI groen; geen tag/prod.
+- **Resultaat:** PR #310; screenshots in artifacts; niet zelf mergen.
 
 ### BL-157 — Foto-flow: Toch doorgaan écht door + sticky override-keuze
 
