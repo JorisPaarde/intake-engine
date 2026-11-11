@@ -280,7 +280,7 @@ test('goedgekeurde foto toont geen oranje waarschuwingsbox', function () {
         ->assertDontSee('Status:');
 });
 
-test('N56: alleen "Vraag Y van N" als teller, geen tweede "X van N vragen" die daarvan afwijkt', function () {
+test('N56: voortgang via balk/%, geen "X van Y" of tweede vragen-teller', function () {
     $intake = uxReviewIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
@@ -290,11 +290,10 @@ test('N56: alleen "Vraag Y van N" als teller, geen tweede "X van N vragen" die d
     $component->set('stepIndex', $target)->set('activeStepKey', $steps[$target]['key']);
 
     $html = $component->html();
-    $total = count($component->viewData('steps'));
-    $number = (int) $component->viewData('stepDisplayNumber');
 
     expect($html)->not->toContain('data-testid="progress-step-count"')
-        ->and($html)->not->toMatch('/\d+ van '.$total.' vragen/')
-        ->and($html)->toContain('Vraag '.$number.' van '.$total)
-        ->and($number)->toBe(2);
+        ->and($html)->not->toMatch('/\d+ van \d+ vragen/')
+        ->and($html)->not->toMatch('/Vraag \d+ van \d+/')
+        ->and($html)->toContain('data-testid="progress-percent"')
+        ->and($html)->toContain('data-testid="step-counter"');
 });

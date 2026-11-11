@@ -3387,6 +3387,24 @@ class IntakeWizard extends Component
         $this->persistComposite($composite);
         $this->showMissing = false;
         $this->completionMissing = [];
+        $this->confirmSaveAfterAdvance = true;
+
+        // Cache invalideren en landen op de eerste per-kamer-stap van deze vraag.
+        $this->resolvedSteps = null;
+        $this->resolvedStepsFormSignature = null;
+        $steps = $this->steps();
+        foreach ($steps as $index => $candidate) {
+            if ($candidate['question_key'] !== $questionKey) {
+                continue;
+            }
+            $instance = $candidate['section_instance_key'] ?? null;
+            if (is_string($instance) && str_starts_with($instance, 'room-')) {
+                $this->landOnStepIndex($steps, $index);
+
+                return;
+            }
+        }
+
         $this->next();
     }
 

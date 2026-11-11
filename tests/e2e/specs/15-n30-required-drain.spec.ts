@@ -108,14 +108,10 @@ async function runN30Catchup(page: Page, payload: E2eScenarioPayload): Promise<v
   expect(after).toMatch(/bereikbaar/i);
   expect(after.toLowerCase()).not.toMatch(/koop|huur/);
 
-  // Teller in de vraagkop (eyebrow) moet bij de zichtbare stap horen.
-  const headingCounter = page.getByText(/Vraag\s+\d+\s+van\s+\d+/i).first();
-  await expect(headingCounter).toBeVisible();
-  const headingLabel = ((await headingCounter.textContent()) ?? '').trim();
-  const match = /Vraag\s+(\d+)\s+van\s+(\d+)/i.exec(headingLabel);
-  expect(match).not.toBeNull();
-  expect(Number(match![1])).toBeGreaterThanOrEqual(1);
-  expect(Number(match![1])).toBeLessThanOrEqual(Number(match![2]));
+  // BL-159: voortgang via balk/% (geen "X van Y"); zichtbare stap blijft de h1.
+  await expect(page.getByTestId('progress-percent')).toBeVisible();
+  await expect(page.getByText(/Vraag\s+\d+\s+van\s+\d+/i)).toHaveCount(0);
+  await expect(page.getByTestId('step-counter')).toBeVisible();
 }
 
 async function runN3DrainChoice(page: Page, request: import('@playwright/test').APIRequestContext, payload: E2eScenarioPayload): Promise<void> {

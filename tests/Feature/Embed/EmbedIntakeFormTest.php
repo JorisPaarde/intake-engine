@@ -163,12 +163,16 @@ test('embed form shows for enabled key with frame-ancestors header and signed to
         ->assertSee('Start je opname', false)
         ->assertSee('Voorbeeld Koeling', false)
         ->assertSee('verwerkingsverantwoordelijke', false)
+        ->assertSee('gegevens en foto', false)
         ->assertSee('name="website"', false)
         ->assertSee('name="embed_form_token"', false)
         ->assertDontSee('@csrf', false)
         ->assertDontSee('name="_token"', false)
         ->assertSee('target="_top"', false)
         ->assertHeader('Content-Security-Policy');
+
+    // Explicit AVG checkbox must start unchecked (no checked attribute on privacy_consent).
+    expect($response->getContent())->not->toMatch('/id="privacy_consent"[^>]*checked/');
 
     $csp = (string) $response->headers->get('Content-Security-Policy');
 
@@ -202,6 +206,11 @@ test('happy path creates embed intake without AI and redirects to customer link'
         ->and($intake->company_id)->toBe($ctx['company']->id)
         ->and($intake->customer_access_enabled)->toBeTrue()
         ->and($intake->isTokenValid())->toBeTrue();
+
+    $privacy = $intake->answers()->where('question_key', 'privacy_consent')->whereNull('section_instance_key')->first();
+    expect($privacy)->not->toBeNull()
+        ->and($privacy?->value['bool'] ?? null)->toBeTrue()
+        ->and($privacy?->prefill_source)->toBeNull();
 
     $response->assertRedirect($intake->customerUrl())
         ->assertStatus(303);

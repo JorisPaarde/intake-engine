@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.25 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.27 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,10 +12,11 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Embed UX zon/glas + leidingen + AVG (BL-159) | todo | - | 390 + 1440: gedeelde zon/glas zonder fotoverwijzing (“deze ruimtes”); `pipe_visibility` met zichtwerk/weggewerkt-uitleg; embed-formulier AVG-vinkje (gegevens+foto’s, unchecked); wizard toont privacy_consent niet opnieuw; geen “Vraag X van Y” (alleen balk/%); **Verschilt per ruimte** → zon per kamer; ook op buitenunit-/meterkaststappen. |
 | Buitenunit-tip/drempel + meterkast-extra (BL-158) | done | 2026-11-11 | Lokaal Playwright viewport 390+1440: outdoor-stap één tip (“gevel of buitenmuur… herkenbaar”, zelfde op 390/1440); meterkast-override footer **Toch doorgaan** zonder DIN-rail (klantretake “scherpere foto… vrije plek…”). Screenshots `/opt/cursor/artifacts/bl158-outdoor-tip-390.png`, `…-outdoor-tip-1440.png`, `…-fusebox-override-390.png`, `…-fusebox-override-1440.png`. Pest dekt drempel + skip extra foto. |
 | Foto-flow Toch doorgaan + sticky override (BL-157) | done | 2026-11-11 | Lokaal Playwright viewport 390+1440: één **Toch doorgaan** alleen in footer; paneel alleen uitleg (“te donker…”); keuzeregel + **Opnieuw maken**/**Toch doorgaan** (nowrap, gap 12px) + Vorige-link; shell-`pb-52`/`pb-36` voorkomt afdekken. Zonder waarschuwing: normale Volgende. Screenshots `/opt/cursor/artifacts/bl156-polish-warning-390.png`, `…-warning-1440.png`, `…-clean-390.png`, `…-clean-1440.png`. |
 | Embed energielabel EP-Online (BL-156) | todo | - | Staging mét `EP_ONLINE_ENABLED`+key: `/embed-test` of `php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A` → klantkop toont **Energielabel A** naast bouwjaar/type. Zonder label of bij EP-storing: soft melding “Geen energielabel gevonden…”, flow niet geblokkeerd. |
-| Klantwizard eyebrow + teller (BL-155) | todo | - | Staging 390, 3 slaapkamers / 2037GR 273: eyebrow `Slaapkamer N van M · Vraag X van Y` (geen “, kelder / souterrain” tussen naam en van-N); teller aaneengesloten zonder gat (geen 25→27); totaal mag dalen als stappen wegvallen. |
+| Klantwizard eyebrow + teller (BL-155) | todo | - | Staging 390, 3 slaapkamers / 2037GR 273: eyebrow `Slaapkamer N van M` zonder “, kelder / souterrain”; aaneengesloten ordinals (geen 25→27). (BL-159: geen “van Y” meer in de teller.) |
 | Embed BAG-verrijking 2037GR 273 (BL-154) | todo | - | Staging: `php artisan embed:smoke-bag-address` groen; daarna `/embed-test` met **2037GR / 273** → klantheader toont volledige `Bernadottelaan 273, 2037GR Haarlem` (geen Onbekend, geen ellipsis; op ~390 px mag adres naar 2e regel); bouwjaar + woningtype niet gevraagd; screenshot ~390 px. Negatief: huisnummer **1** → nette melding, geen wizard. |
 | Embed-formulier AI + badge + smoke (BL-153) | todo | - | Staging: na deploy is prepare al gedraaid; open **https://staging.intake-engine.nl/embed-test** (bij 404: `php artisan embed:prepare-staging-test`) → invullen → `/o/{token}` → openingszin → **Even geduld**-wachtscherm (geen 20 s dode Volgende) → known-summary; ruimtelabel `Slaapkamer N van M` alleen in eyebrow; gedeelde vraag met **Geldt voor alle slaapkamers** + **Verschilt per ruimte**; bij “3 bij 5 meter” géén matenscherm opnieuw; teller merkelijk lager (~30 i.p.v. ~40); dashboard/detail badge **Nieuw via website**; login `embed-staging-test@example.com` / `password`. |
 | Embed-formulier publiek (BL-152) | todo | - | Staging: iframe op allowlist-host of `/embed-test` → invullen → top-window landt op `/o/{token}`; installateur ziet `source=embed`; honeypot/verkeerd domein/uitgeschakelde sleutel/dagplafond; na alleen create géén request-intent `ai_runs`; backup-mail fail-soft. |
