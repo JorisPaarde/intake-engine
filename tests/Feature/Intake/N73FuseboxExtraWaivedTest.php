@@ -7,6 +7,7 @@ use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -64,26 +65,38 @@ function n73MissingKeys(Intake $intake): array
         ->pluck('question_key')->all();
 }
 
-test('N73: extra meterkastfoto is niet verplicht na Toch doorgaan op de hoofdfoto', function () {
+function n73StepKeys(Intake $intake): array
+{
+    $intake = $intake->fresh();
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+
+    return collect(app(IntakeStepBuilder::class)->build($intake, $version))
+        ->pluck('question_key')
+        ->all();
+}
+
+test('N73/BL-158: Toch doorgaan wist fusebox_clarity zodat extra meterkastfoto verdwijnt', function () {
     $intake = n73Intake();
     n73FuseboxUpload($intake, override: false);
+
+    expect(n73StepKeys($intake))->toContain('fusebox_photo_extra');
+
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('activeStepKey', 'electrical::fusebox_photo')
-        ->call('acceptPhotoMismatch');
+        ->call('acceptPhotoMismatch')
+        ->call('advanceAfterPhotoOverride');
 
-    expect(n73MissingKeys($intake))->not->toContain('fusebox_photo_extra');
-
-    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('activeStepKey', 'electrical::fusebox_photo_extra')
-        ->call('next');
-
-    expect($component->get('showMissing'))->toBeFalse()
-        ->and($component->get('activeStepKey'))->not->toBe('electrical::fusebox_photo_extra');
+    expect(n73MissingKeys($intake))->not->toContain('fusebox_photo_extra')
+        ->and(n73StepKeys($intake))->not->toContain('fusebox_photo_extra')
+        ->and($intake->fresh()->answers()->where('question_key', 'fusebox_clarity')->value('value'))
+        ->toBe(['value' => 'clear']);
 });
 
-test('N73: extra meterkastfoto blijft verplicht zolang de klant niet Toch doorgaan koos', function () {
+test('N73: zonder Toch doorgaan blijft extra meterkastfoto in de flow (v30 niet-verplicht)', function () {
     $intake = n73Intake();
     n73FuseboxUpload($intake, override: false);
 
-    expect(n73MissingKeys($intake))->toContain('fusebox_photo_extra');
+    // v30: fusebox_photo_extra is optioneel → niet in missing_required, wel zichtbaar.
+    expect(n73StepKeys($intake))->toContain('fusebox_photo_extra')
+        ->and(n73MissingKeys($intake))->not->toContain('fusebox_photo_extra');
 });
