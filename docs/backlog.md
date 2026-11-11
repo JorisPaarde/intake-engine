@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-161 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · 2026-11-11 |
+| — | BL-161 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · PR #314 · 2026-11-11 |
 | — | BL-160 | Embed: huisnummer tekstveld + adresbevestiging + iframe auto-resize / geen mobiele overflow | E1/E5 | done | high | klanttest 11 nov punten 8–9 · PR #311 · 2026-11-11 · was parallel als BL-158 |
 | — | BL-159 | Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming één keer + teller | E1/E7 | done | high | 2026-11-11 · PR #309 · airco v31 · was parallel als BL-156 |
 | — | BL-158 | Buitenunit-fototip + drempel; meterkast-extra na Toch doorgaan; jargon uit klantweergave | E1/E4/E7 | done | high | klanttest 11 nov ronde 2 · airco v30 · PR #310 · 2026-11-11 |
@@ -708,7 +708,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-161 — Klanttest run 3: oppervlak, kamernummering, teller, Vorige/klembord
 
-- **Status:** done · **Datum:** 2026-11-11 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-155/159 · **Ref:** klanttest 11 nov run 3 (2037GR 273, “3 kamers van 3 bij 5”)
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #314 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-155/159 · **Ref:** klanttest 11 nov run 3 (2037GR 273, “3 kamers van 3 bij 5”)
 - **Aanleiding:** (1) known-summary toonde “berekend uit L×B” i.p.v. 15 m²; (2) eyebrow “Woonkamer 1 van 3” / “Slaapkamer 2 van 3” mengde per-soort-index met overall totaal; (3) zichtbare “Vraag N” bleef plakken / telde terug na herladen ondanks BL-159; (4) klik Vorige zette iets op het klembord (geen `navigator.clipboard` in klantwizard — selectie-side-effect).
 - **Keuze kamernummering:** overall `Kamer N van M (type)` — “van M” klopt altijd met het aantal kamers; type blijft ter oriëntatie. Per-soort zonder “van M” was minder duidelijk bij gemengde types.
 - **Doel/resultaat:** derived m² als getal + L×B-toelichting; overall eyebrow; nooit zichtbare “Vraag N” (alleen balk/%); Vorige wist selectie. Pest `KlanttestRun3WizardLabelsTest`; E2E `20-klanttest-run3-labels`. Geen overlap met parallel “Verschilt per ruimte” / foto-check PRs.
