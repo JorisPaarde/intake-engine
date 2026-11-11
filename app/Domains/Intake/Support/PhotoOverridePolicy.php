@@ -203,7 +203,9 @@ final class PhotoOverridePolicy
             if ($message !== null
                 && $assessment->status() !== PhotoContentAssessment::STATUS_OK
                 && $assessment->status() !== PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-                return $message;
+                $expected = $assessment->expectedSubject() ?? PhotoSubject::Other;
+
+                return CustomerFacingTaskText::sanitizePhotoRetake($expected, $message);
             }
         }
 

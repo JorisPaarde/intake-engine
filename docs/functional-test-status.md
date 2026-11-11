@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.26 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.27 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,7 +12,8 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
-| Embed UX zon/glas + leidingen + AVG (BL-159) | todo | - | 390 + 1440: gedeelde zon/glas zonder fotoverwijzing (“deze ruimtes”); `pipe_visibility` met zichtwerk/weggewerkt-uitleg; embed-formulier AVG-vinkje (gegevens+foto’s, unchecked); wizard toont privacy_consent niet opnieuw; geen “Vraag X van Y” (alleen balk/%); **Verschilt per ruimte** → zon per kamer. |
+| Embed UX zon/glas + leidingen + AVG (BL-159) | todo | - | 390 + 1440: gedeelde zon/glas zonder fotoverwijzing (“deze ruimtes”); `pipe_visibility` met zichtwerk/weggewerkt-uitleg; embed-formulier AVG-vinkje (gegevens+foto’s, unchecked); wizard toont privacy_consent niet opnieuw; geen “Vraag X van Y” (alleen balk/%); **Verschilt per ruimte** → zon per kamer; ook op buitenunit-/meterkaststappen. |
+| Buitenunit-tip/drempel + meterkast-extra (BL-158) | done | 2026-11-11 | Lokaal Playwright viewport 390+1440: outdoor-stap één tip (“gevel of buitenmuur… herkenbaar”, zelfde op 390/1440); meterkast-override footer **Toch doorgaan** zonder DIN-rail (klantretake “scherpere foto… vrije plek…”). Screenshots `/opt/cursor/artifacts/bl158-outdoor-tip-390.png`, `…-outdoor-tip-1440.png`, `…-fusebox-override-390.png`, `…-fusebox-override-1440.png`. Pest dekt drempel + skip extra foto. |
 | Foto-flow Toch doorgaan + sticky override (BL-157) | done | 2026-11-11 | Lokaal Playwright viewport 390+1440: één **Toch doorgaan** alleen in footer; paneel alleen uitleg (“te donker…”); keuzeregel + **Opnieuw maken**/**Toch doorgaan** (nowrap, gap 12px) + Vorige-link; shell-`pb-52`/`pb-36` voorkomt afdekken. Zonder waarschuwing: normale Volgende. Screenshots `/opt/cursor/artifacts/bl156-polish-warning-390.png`, `…-warning-1440.png`, `…-clean-390.png`, `…-clean-1440.png`. |
 | Embed energielabel EP-Online (BL-156) | todo | - | Staging mét `EP_ONLINE_ENABLED`+key: `/embed-test` of `php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A` → klantkop toont **Energielabel A** naast bouwjaar/type. Zonder label of bij EP-storing: soft melding “Geen energielabel gevonden…”, flow niet geblokkeerd. |
 | Klantwizard eyebrow + teller (BL-155) | todo | - | Staging 390, 3 slaapkamers / 2037GR 273: eyebrow `Slaapkamer N van M` zonder “, kelder / souterrain”; aaneengesloten ordinals (geen 25→27). (BL-159: geen “van Y” meer in de teller.) |

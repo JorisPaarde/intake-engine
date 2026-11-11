@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\TemplateVersionStatus;
 
-test('airco template seeder publishes v1 through v30 with v30 as latest', function () {
+test('airco template seeder publishes v1 through v31 with v31 as latest', function () {
     seedAllAircoTemplateVersions();
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -16,14 +17,14 @@ test('airco template seeder publishes v1 through v30 with v30 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(30)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30])
+    expect($versions)->toHaveCount(31)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(30)
+        ->and($latest->version)->toBe(31)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -190,7 +191,10 @@ test('airco template seeder publishes v1 through v30 with v30 as latest', functi
         ->and($aroundHouse->meta['skip_label'] ?? null)->toBe('Weet ik niet / sla over')
         ->and($aroundHouse->meta['reuse_from_photo_keys'] ?? [])->toContain('outdoor_location_photos')
         ->and($aroundHouse->label)->toBe('We zien de buitenkant nog niet goed')
-        ->and($aroundHouse->help_text)->toContain('gevel of tuin')
+        ->and($aroundHouse->help_text)->toBe(CustomerFacingTaskText::OUTDOOR_PHOTO_TIP)
+        ->and($outdoor->questions()->where('key', 'outdoor_location_photos')->firstOrFail()->photo_instructions)
+        ->toBe(CustomerFacingTaskText::OUTDOOR_PHOTO_TIP)
+        ->and($latest->sections()->where('key', 'electrical')->firstOrFail()->questions()->where('key', 'fusebox_photo_extra')->firstOrFail()->is_required)->toBeFalse()
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
         ->and($aroundHouse->is_required)->toBeFalse()
@@ -284,11 +288,11 @@ test('airco template seeder publishes v1 through v30 with v30 as latest', functi
         require database_path('data/templates/airco/v1.php'),
     );
     $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v30.php'),
+        require database_path('data/templates/airco/v31.php'),
     );
 
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(30);
+        ->and($template->versions()->count())->toBe(31);
 });

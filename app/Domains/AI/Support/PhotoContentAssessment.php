@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Support;
 
+use App\Domains\Intake\Support\CustomerFacingTaskText;
+
 /**
  * Structured content verdict stored on `intake_uploads.content_assessment`.
  *
@@ -61,7 +63,8 @@ final class PhotoContentAssessment
             'status' => self::STATUS_NEEDS_CLEARER,
             'expected_subject' => $expected->value,
             'detected_subject' => $expected->value,
-            'customer_message' => $message,
+            // AI-retake kan installateursjargon bevatten (DIN-rail, fase, …).
+            'customer_message' => CustomerFacingTaskText::sanitizePhotoRetake($expected, $message),
         ]);
     }
 
@@ -87,15 +90,14 @@ final class PhotoContentAssessment
      *
      * Derive/Fusebox (geen accepted-set): subject_match=no → altijd wrong_subject,
      * behalve route: een herkende `pipe_route` blokkeert nooit.
-     * Accepted-set: detected in de set geldt als match (ongeacht subject_match),
-     * behalve op het derive-pad (`$questionKey !== null`) voor outdoor_location /
-     * around_house / drain (`expected === OutdoorLocation`): subject_match=no →
-     * wrong_subject. Follow-up (geen questionKey) blijft accepted-set-wint.
+     * Accepted-set: detected in de set geldt als match (ongeacht subject_match) —
+     * ook op het derive-pad voor outdoor/around_house/drain (BL-158: redelijke
+     * gevel-/buitenmuurfoto’s niet afkeuren om subject_match=no).
      * Bruikbare match + retake_instruction → needs_clearer
-     * (behalve route-foto’s: die blijven ok / nooit blokkeren).
+     * (behalve route-foto’s én geaccepteerde outdoor-onderwerpen: die blijven ok).
      *
      * @param  array<string, mixed>  $output
-     * @param  list<PhotoSubject>|null  $acceptedSubjects  Follow-up/route: geaccepteerde onderwerpen; null = niet filteren
+     * @param  list<PhotoSubject>|null  $acceptedSubjects  Follow-up/route/outdoor: geaccepteerde onderwerpen; null = niet filteren
      */
     public static function fromModelOutput(
         PhotoSubject $expected,
@@ -131,10 +133,9 @@ final class PhotoContentAssessment
                 return self::wrongSubject($expected, $detected, $questionKey);
             }
 
-            // Derive-pad alleen: outdoor/around_house/drain + subject_match=no → mismatch.
-            // Follow-up (questionKey null) houdt accepted-set-wint.
-            if ($questionKey !== null
-                && $expected === PhotoSubject::OutdoorLocation
+            // Afvoer (drain_photo): subject_match=no blijft wrong_subject — outdoor_location
+            // in de accepted-set ≠ bruikbare afvoerfoto (A4 / BL-158 uitzondering).
+            if ($questionKey === 'drain_photo'
                 && ($output['subject_match'] ?? 'yes') !== 'yes') {
                 return self::wrongSubject(
                     $expected,
@@ -153,6 +154,15 @@ final class PhotoContentAssessment
         // Routevraag: geaccepteerde categorie → nooit needs_clearer/wrong_subject-blokkade.
         if ($expected === PhotoSubject::PipeRoute && $retake !== '') {
             return self::ok($expected, $detected === PhotoSubject::Other ? $expected : $detected);
+        }
+
+        // Outdoor/gevel/around_house (BL-158): geaccepteerd outdoor-onderwerp = ok;
+        // retake over montage-/kaderdetails mag de klant niet soft-blokkeren.
+        // drain_photo valt hierboven al af bij subject_match=no.
+        if ($expected === PhotoSubject::OutdoorLocation
+            && $questionKey !== 'drain_photo'
+            && in_array($detected, [PhotoSubject::OutdoorLocation, PhotoSubject::OutdoorUnit], true)) {
+            return self::ok($expected, $detected);
         }
 
         if ($retake !== '') {

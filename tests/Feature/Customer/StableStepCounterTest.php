@@ -190,3 +190,27 @@ test('Toch doorgaan toont feedback en advanceAfterPhotoOverride gaat verder', fu
             return $key !== $steps[$roomIndex]['key'];
         });
 });
+
+test('buitenunit- en meterkaststappen tonen geen Vraag X van Y', function () {
+    $intake = stableCounterIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+
+    foreach (['outdoor_location_photos', 'fusebox_photo'] as $questionKey) {
+        $index = collect($steps)->search(
+            static fn (array $step): bool => ($step['question_key'] ?? null) === $questionKey,
+        );
+        expect($index)->toBeInt();
+        $html = $component
+            ->set('stepIndex', $index)
+            ->set('activeStepKey', $steps[$index]['key'])
+            ->html();
+        expect($html)->not->toMatch('/Vraag \d+ van \d+/')
+            ->and($html)->toContain('data-testid="progress-percent"')
+            ->and($html)->not->toMatch('/text-\[#838c86\]">·<\/span>\s*<span[^>]*data-testid="step-counter"/');
+    }
+});

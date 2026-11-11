@@ -2951,6 +2951,11 @@ class IntakeWizard extends Component
             $this->clearForcedExtraRoomOverview($step['section_instance_key']);
         }
 
+        // Afgekeurde meterkastfoto + Toch doorgaan: geen verplichte extra meterkastfoto (BL-158).
+        if ($question->key === 'fusebox_photo') {
+            $this->clearForcedExtraFuseboxPhoto();
+        }
+
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
         $this->clearPhotoFeedbackForComposite($composite);
         $this->forgetIntakeDerivedCaches();
@@ -3006,6 +3011,40 @@ class IntakeWizard extends Component
         // de extra wand/deur-stap forceren.
         $composite = VisibilityResolver::compositeKey('room_extra_overview_needed', $sectionInstanceKey);
         $this->form[$composite] = ['value' => 'complete'];
+        unset($this->dirtyFormComposites[$composite]);
+    }
+
+    /**
+     * Na Toch doorgaan op een afgekeurde meterkastfoto: zet fusebox_clarity terug
+     * naar clear zodat fusebox_photo_extra verdwijnt (BL-158, spiegel van BL-157).
+     */
+    private function clearForcedExtraFuseboxPhoto(): void
+    {
+        $answer = IntakeAnswer::query()
+            ->where('intake_id', $this->intakeId)
+            ->where('question_key', 'fusebox_clarity')
+            ->whereNull('section_instance_key')
+            ->first();
+
+        if (! $answer instanceof IntakeAnswer) {
+            return;
+        }
+
+        $value = is_array($answer->value) ? ($answer->value['value'] ?? null) : null;
+        if ($value !== 'needs_clearer_photo') {
+            return;
+        }
+
+        app(SaveIntakeAnswer::class)->handle(
+            $this->intake(),
+            'fusebox_clarity',
+            null,
+            ['value' => 'clear'],
+            PrefillSources::AI_PHOTO,
+        );
+
+        $composite = VisibilityResolver::compositeKey('fusebox_clarity', null);
+        $this->form[$composite] = ['value' => 'clear'];
         unset($this->dirtyFormComposites[$composite]);
     }
 

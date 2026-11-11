@@ -290,9 +290,10 @@ test('P2: fusebox prompt defines vrije groep and never prefills free_group_known
     $prompt = app(PromptVersionRepository::class)->body('fusebox_assessment');
     $version = app(PromptVersionRepository::class)->version('fusebox_assessment');
 
-    expect($version)->toBe('fusebox-assessment-v6')
+    expect($version)->toBe('fusebox-assessment-v7')
         ->and($prompt)->toContain('Vrije groep')
         ->and($prompt)->toContain('Lege modulepositie')
+        ->and($prompt)->toContain('Nooit: DIN-rail')
         ->and($prompt)->toContain('nooit');
 
     $intake = b2Intake();
@@ -365,9 +366,10 @@ test('P3: pipe_route prompt forbids buitenunitplek; code does not rewrite model 
 
 test('P3: outdoor assessment does not guess mount_type without clear location', function () {
     $prompt = app(PromptVersionRepository::class)->body('outdoor_assessment');
-    expect(app(PromptVersionRepository::class)->version('outdoor_assessment'))->toBe('outdoor-assessment-v7')
+    expect(app(PromptVersionRepository::class)->version('outdoor_assessment'))->toBe('outdoor-assessment-v8')
         ->and($prompt)->toContain('Geen montage-gok')
-        ->and($prompt)->toContain('zonder bestaande buitenunit');
+        ->and($prompt)->toContain('zonder bestaande buitenunit')
+        ->and($prompt)->toContain('Redelijke gevel-/muurfoto’s accepteren');
 
     $intake = b2Intake();
     FakeAiClient::alwaysReturn([

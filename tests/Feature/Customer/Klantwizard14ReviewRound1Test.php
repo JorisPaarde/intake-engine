@@ -204,9 +204,10 @@ test('R1-9: gevel/tuin-advies alleen outdoor/around_house; drain blijft A4-wrong
         'subject_match' => 'no',
     ], PhotoSubject::acceptedSubjectsForPhotoQuestion('drain_photo', 'drain'), 'drain_photo');
 
-    expect($outdoor->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
-        ->and($outdoor->customerMessage())->toContain('gevel')
-        ->and($around->customerMessage())->toBe($outdoor->customerMessage())
+    // BL-158: outdoor/around_house accepted outdoor-onderwerp blijft ok.
+    expect($outdoor->status())->toBe(PhotoContentAssessment::STATUS_OK)
+        ->and($around->status())->toBe(PhotoContentAssessment::STATUS_OK)
+        // drain: subject_match=no blijft wrong_subject met afvoer-tekst (geen gevel-tip).
         ->and($drainAcceptedMatch->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
         ->and($drainAcceptedMatch->expectedSubject())->toBe(PhotoSubject::OutdoorLocation)
         ->and($drainAcceptedMatch->expectedSubject()?->value)->toBe('outdoor_location')
