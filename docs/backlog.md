@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-156 | Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming één keer + teller | E1/E7 | in_progress | high | na BL-153/155 · staging embed-test · airco v30 |
+| — | BL-156 | Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming één keer + teller | E1/E7 | done | high | 2026-11-11 · PR #309 · airco v30 |
 | — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | in_progress | high | na BL-153 · staging 390 Joris · 3 slaapkamers 2037GR 273 |
 | — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | in_progress | high | na BL-152/153 · staging bug Joris · parallel #304 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
@@ -707,12 +707,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-156 — Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-153/155
-- **Aanleiding:** klanttest 11 nov op staging embed: (1) zon/glas-uitleg verwees naar een foto terwijl de eerste slaapkamerfoto later komt; label “deze ruimte” terwijl het antwoord voor alle slaapkamers geldt; (2) “zichtwerk of weggewerkt” zonder uitleg; (3) teller 26/26 → 27/27 door toestemmingsstap ná waarheidsverklaring terwijl embed al AVG vroeg.
-- **Doel:** tekst/meervoud zonder vroegtijdige fotoverwijzing (airco v30); klantvriendelijke leidingvoorkeur; één expliciete AVG-stap (embed-formulier) die in de wizard niet opnieuw verschijnt; stabiele voortgang (geen oplopend “X van Y”). Waarheidsverklaring blijft apart (niet bundelen met AVG). **Verschilt per ruimte** → vraag per kamer (niet stil weg via AI-prefill).
+- **Status:** done (2026-11-11, PR #309) · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-153/155
+- **Aanleiding:** klanttest 11 nov op staging embed: (1) zon/glas-uitleg verwees naar een foto terwijl de eerste slaapkamerfoto later komt; label “deze ruimte” terwijl het antwoord voor alle slaapkamers geldt; (2) “zichtwerk of weggewerkt” zonder uitleg; (3) teller 26/26 → 27/27 door toestemmingsstap ná waarheidsverklaring terwijl embed al AVG vroeg. Tweede test: totaal 26→31 / na herladen 22 van 23; **Verschilt per ruimte** op zon kwam niet per kamer terug.
+- **Doel:** tekst/meervoud zonder vroegtijdige fotoverwijzing (airco v30); klantvriendelijke leidingvoorkeur; één expliciete AVG-stap (embed-formulier) die in de wizard niet opnieuw verschijnt; stabiele voortgang (geen oplopend “X van Y” — alleen balk/%). Waarheidsverklaring blijft apart. **Verschilt per ruimte** → vraag per kamer (niet stil weg via AI-prefill).
 - **AVG:** embed-checkbox blijft verplicht, niet vooraf aangevinkt, tekst noemt gegevens én foto’s; opslag als echt `privacy_consent`-antwoord (`prefill_source=null`) zonder intake te starten; wizard toont geaccepteerde must-accept niet opnieuw. Niet-embed-opnames blijven toestemming in de wizard vragen.
 - **Scope:** airco **v30**; `IntakeStepBuilder` share-labels + differs-volgorde/prefill-guard; wizard-teller zonder “van N”; `StartEmbedIntake` + embed-form copy; Pest `EmbedPrivacyConsentMergeTest` / `SharedRoomAnswersTest` / `StableStepCounterTest` / `PublishTemplateTest`. Geen energielabel-, foto-afkeur-, meterkast-, buitenunit- of adres/iframe-wijzigingen.
-- **Acceptatie:** Pest groen; browser 390/1440 screenshots zon/glas + leidingen + embed-consent; CI groen; geen tag/prod.
+- **Resultaat:** PR #309.
 
 ### BL-155 — Klantwizard ruimte-eyebrow + aaneengesloten teller
 
