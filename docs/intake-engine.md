@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.46 · **Laatste update:** 2026-10-12 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.47 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v28** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -365,9 +365,11 @@ Het neemt twee vragen over:
 
 **Bouwtype alleen bij herkenning.** EP-Online legt de waarden van `Gebouwtype` niet vast in de OpenAPI-spec, dus de omschrijving wordt op herkenbare woorden gematcht ("vrijstaand", "hoek", "tussen", "galerij"). Herkennen we hem niet, dan blijft de vraag staan in plaats van dat we gokken. `Gebouwklasse` "U" gaat rechtstreeks naar `commercial`.
 
-Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig.
+Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig. De verrijking bewaart dan `energy_label_status` (`not_found` of `unavailable` bij storing/uitgeschakeld) zodat de klantkop een soft melding kan tonen zonder de flow te blokkeren.
 
-De gewone dossierweergave vertaalt het afgeleide antwoord naar **Isolatie-indicatie: Goed, Gemiddeld of Matig** en toont de energiebehoefte ernaast wanneer die beschikbaar is. De integratie is fail-soft en draait alleen met `EP_ONLINE_ENABLED=true` én een geldige key in de omgeving; zonder configuratie of zonder label blijft `insulation_indication` een normale klantvraag. Na het activeren kan **Adres opnieuw controleren** een bestaand dossier opnieuw via BAG en EP-Online verrijken.
+De klantwizard toont de labelletter in **bekende woninggegevens** (`knownHousingFactLines`: Bouwjaar, Woningtype, Energielabel). Ontbreekt het label na een lookup (of faalt/ontbreekt EP-Online), dan verschijnt: “Geen energielabel gevonden voor dit adres. Dat is geen probleem; je kunt gewoon verder.”
+
+De gewone dossierweergave vertaalt het afgeleide antwoord naar **Isolatie-indicatie: Goed, Gemiddeld of Matig** en toont de energiebehoefte ernaast wanneer die beschikbaar is. De integratie is fail-soft en draait alleen met `EP_ONLINE_ENABLED=true` én een geldige key in de omgeving; zonder configuratie of zonder label blijft `insulation_indication` een normale klantvraag. Na het activeren kan **Adres opnieuw controleren** een bestaand dossier opnieuw via BAG en EP-Online verrijken. Staging-smoke: `php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A` (alleen met key).
 
 Omdat `building_type` nu uit twee registers kan komen, accepteert `meta.skip_when_prefilled_by` sinds v8 ook een lijst bronnen.
 

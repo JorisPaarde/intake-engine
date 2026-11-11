@@ -327,7 +327,7 @@ class Intake extends Model
      */
     public function knownHousingFactLines(): array
     {
-        $this->loadMissing(['answers', 'templateVersion.sections.questions.options']);
+        $this->loadMissing(['answers', 'externalFacts', 'templateVersion.sections.questions.options']);
 
         $lines = [];
 
@@ -353,6 +353,49 @@ class Intake extends Model
             ];
         }
 
+        $energyClass = $this->knownEnergyLabelClass();
+        if ($energyClass !== null) {
+            $lines[] = ['label' => 'Energielabel', 'value' => $energyClass];
+        }
+
         return $lines;
+    }
+
+    /**
+     * Soft customer note when EP-Online found no label or the lookup failed.
+     * Null when a label letter is already shown (or no lookup was recorded).
+     */
+    public function energyLabelCustomerNote(): ?string
+    {
+        if ($this->knownEnergyLabelClass() !== null) {
+            return null;
+        }
+
+        $this->loadMissing('externalFacts');
+
+        $statusFact = $this->externalFacts->firstWhere('fact_key', 'energy_label_status');
+        $status = is_array($statusFact?->value) ? ($statusFact->value['status'] ?? null) : null;
+
+        if (! in_array($status, ['not_found', 'unavailable'], true)) {
+            return null;
+        }
+
+        return 'Geen energielabel gevonden voor dit adres. Dat is geen probleem; je kunt gewoon verder.';
+    }
+
+    private function knownEnergyLabelClass(): ?string
+    {
+        $this->loadMissing('externalFacts');
+
+        $energyFact = $this->externalFacts->firstWhere('fact_key', 'energy_label');
+        $class = is_array($energyFact?->value) ? ($energyFact->value['value'] ?? null) : null;
+
+        if (! is_string($class)) {
+            return null;
+        }
+
+        $trimmed = strtoupper(trim($class));
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

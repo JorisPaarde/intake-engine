@@ -52,11 +52,18 @@ final class EpOnlineService
         $response = $this->request()
             ->get('/api/v5/PandEnergielabel/AdresseerbaarObject/'.$addressableObjectId);
 
+        // 404/204 = geen geregistreerd label. Overige fouten (401/5xx) gooit throw() —
+        // EnrichIntakeAddress vangt dat fail-soft af zonder de opname te blokkeren.
         if (in_array($response->status(), [204, 404], true)) {
             return null;
         }
 
         $labels = $response->throw()->json();
+
+        // Sommige clients wrappen de lijst; accepteer zowel een platte array als { data: [...] }.
+        if (is_array($labels) && array_is_list($labels) === false && isset($labels['data']) && is_array($labels['data'])) {
+            $labels = $labels['data'];
+        }
 
         if (! is_array($labels) || $labels === []) {
             return null;

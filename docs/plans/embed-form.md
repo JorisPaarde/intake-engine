@@ -1,6 +1,6 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding na Joris-stagingtest (sync-prefill freeze, ruimtelabels, maten-overslaan). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
@@ -67,4 +67,12 @@ php artisan embed:smoke-bag-address
 
 Vaste case **2037GR 273** (Haarlem, Bernadottelaan): na embed-create moeten straat, plaats, bouwjaar en woningtype gevuld zijn (geen `Onbekend`). Onbekend adres **2037GR 1** moet een nette validatiemelding geven (`We konden dit adres niet vinden…`) zonder opname. Optioneel `--keep` om de testopname te bewaren voor een 390 px browsercheck van de klantwizard-header.
 
-Browser (aanvulling op `/embed-test`): postcode `2037GR`, huisnummer `273` → header toont `Bernadottelaan 273` + `Haarlem`; bouwjaar-/woningtypevragen vervallen. Herhaal met huisnummer `1` → formulierfout, geen redirect.
+Met `EP_ONLINE_ENABLED=true` + `EP_ONLINE_KEY` (shared `.env`, nooit in git): de klantkop toont ook **Energielabel** wanneer RVO een letter teruggeeft. Voorbeeld Warschaustraat 18:
+
+```bash
+php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A
+```
+
+Zonder geregistreerd label of bij EP-storing/timeout: soft melding “Geen energielabel gevonden…” — flow blijft open. Zonder key blijft BAG werken; de soft melding verschijnt wel (`energy_label_status=unavailable`).
+
+Browser (aanvulling op `/embed-test`): postcode `2037GR`, huisnummer `273` → header toont `Bernadottelaan 273` + `Haarlem`; bouwjaar-/woningtypevragen vervallen. Herhaal met huisnummer `1` → formulierfout, geen redirect. Met EP-key: `2034VL` / `18` → Energielabel A in de bekende-woninggegevenslijst.

@@ -8,6 +8,7 @@ use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -125,7 +126,10 @@ test('a registered energy label answers both insulation and building type', func
     expect($intake->answers()->where('question_key', 'insulation_indication')->firstOrFail()->value)->toBe(['value' => 'average'])
         ->and($intake->answers()->where('question_key', 'building_type')->firstOrFail()->value)->toBe(['value' => 'terraced'])
         ->and($facts['energy_label']['value'])->toBe('B')
-        ->and($facts['energy_demand'])->toBe(['number' => 78.5, 'unit' => 'kWh/m²·jr']);
+        ->and($facts['energy_demand'])->toBe(['number' => 78.5, 'unit' => 'kWh/m²·jr'])
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->exists())->toBeFalse()
+        ->and(collect($intake->knownHousingFactLines())->firstWhere('label', 'Energielabel')['value'] ?? null)->toBe('B')
+        ->and($intake->energyLabelCustomerNote())->toBeNull();
 
     expect(stepKeysFor($intake))->not->toContain('insulation_indication')
         ->and(stepKeysFor($intake))->not->toContain('building_type');
@@ -193,7 +197,10 @@ test('an address without a registered label keeps both questions', function () {
         ->and(stepKeysFor($intake))->toContain('insulation_indication')
         ->and(stepKeysFor($intake))->toContain('building_type')
         // De BAG-verrijking moet gewoon geslaagd zijn.
-        ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
+        ->toBe(['status' => 'not_found'])
+        ->and($intake->energyLabelCustomerNote())->toContain('Geen energielabel gevonden');
 });
 
 test('an EP-Online outage never blocks the rest of the enrichment', function () {
@@ -202,7 +209,56 @@ test('an EP-Online outage never blocks the rest of the enrichment', function () 
     $intake = createEnrichedIntake('epostoring@example.com');
 
     expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
-        ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeTrue();
+        ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeTrue()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
+        ->toBe(['status' => 'unavailable'])
+        ->and($intake->energyLabelCustomerNote())->toContain('Geen energielabel gevonden');
+});
+
+test('an EP-Online timeout never blocks enrichment and records unavailable status', function () {
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'ep-online.test')) {
+            throw new ConnectionException('Connection timed out');
+        }
+
+        if (str_contains($request->url(), '/lookup') || str_contains($request->url(), '/free')) {
+            return Http::response(['response' => ['docs' => [[
+                'id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+                'weergavenaam' => 'Damrak 1, 1012LG Amsterdam',
+                'straatnaam' => 'Damrak',
+                'huisnummer' => 1,
+                'postcode' => '1012LG',
+                'woonplaatsnaam' => 'Amsterdam',
+                'adresseerbaarobject_id' => '0363010012111931',
+            ]]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => [
+                        'identificatie' => '0363010012111931',
+                        'gebruiksdoel' => 'woonfunctie',
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-uuid'],
+                    ],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.898, 52.377]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items/pand-uuid')) {
+            return Http::response(['properties' => ['identificatie' => '0363100012185508', 'bouwjaar' => 1962]]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $intake = createEnrichedIntake('epotimeout@example.com');
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
+        ->toBe(['status' => 'unavailable']);
 });
 
 test('a utility building class maps straight to commercial', function () {
