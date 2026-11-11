@@ -3379,12 +3379,20 @@ class IntakeWizard extends Component
             return;
         }
 
+        $targets = [];
+        foreach ($step['shared_target_instances'] ?? [] as $target) {
+            if ($target !== '') {
+                $targets[] = $target;
+            }
+        }
+
         $composite = VisibilityResolver::compositeKey($questionKey, SharedRoomAnswers::SCOPE_INSTANCE);
         $this->form[$composite] = array_merge($this->form[$composite] ?? [], [
             'value' => SharedRoomAnswers::DIFFERS_VALUE,
         ]);
         $this->dirtyFormComposites[$composite] = true;
         $this->persistComposite($composite);
+        $this->persistSharedDiffersMarker($questionKey);
         $this->showMissing = false;
         $this->completionMissing = [];
         $this->confirmSaveAfterAdvance = true;
@@ -3393,19 +3401,30 @@ class IntakeWizard extends Component
         $this->resolvedSteps = null;
         $this->resolvedStepsFormSignature = null;
         $steps = $this->steps();
-        foreach ($steps as $index => $candidate) {
-            if ($candidate['question_key'] !== $questionKey) {
-                continue;
-            }
-            $instance = $candidate['section_instance_key'] ?? null;
-            if (is_string($instance) && str_starts_with($instance, 'room-')) {
-                $this->landOnStepIndex($steps, $index);
-
-                return;
-            }
+        if ($this->landOnFirstPerRoomStep($steps, $questionKey)) {
+            return;
         }
 
-        $this->next();
+        // Per-kamer-stappen ontbreken (sticky/visibility): forceer ze zichtbaar.
+        foreach ($targets as $roomInstance) {
+            $roomComposite = VisibilityResolver::compositeKey($questionKey, $roomInstance);
+            if (! in_array($roomComposite, $this->forceShowKnown, true)) {
+                $this->forceShowKnown[] = $roomComposite;
+            }
+        }
+        $this->resolvedSteps = null;
+        $this->resolvedStepsFormSignature = null;
+        $steps = $this->steps();
+        if ($this->landOnFirstPerRoomStep($steps, $questionKey)) {
+            return;
+        }
+
+        // Laatste vangnet: niet via next() met stale knownStepKeys (slaat nieuwe stappen over).
+        $this->knownStepKeys = array_map(
+            static fn (array $row): string => $row['key'],
+            $steps,
+        );
+        $this->realignToActiveStep();
     }
 
     /**
@@ -3913,7 +3932,71 @@ class IntakeWizard extends Component
     {
         $steps = $this->steps();
         $returnKey = $this->displayedStepKey($steps);
+        $answers = $this->answerMapForSharedNavigation();
+        $targetInstance = SharedRoomAnswers::navigableInstanceKey(
+            $questionKey,
+            $sectionInstanceKey,
+            $steps,
+            $answers,
+        );
 
+        if ($this->goToMissingStep($steps, $questionKey, $targetInstance, $returnKey)) {
+            return;
+        }
+
+        // Shareable: exacte room-N-stap ontbreekt (gedeeld scherm of differs nog niet
+        // geëxpandeerd) — forceer zichtbaarheid en probeer opnieuw.
+        if (SharedRoomAnswers::isShareable($questionKey)) {
+            $forceInstance = $targetInstance;
+            if ($forceInstance === null || $forceInstance === SharedRoomAnswers::SCOPE_INSTANCE) {
+                $forceInstance = is_string($sectionInstanceKey) && str_starts_with($sectionInstanceKey, 'room-')
+                    ? $sectionInstanceKey
+                    : 'room-1';
+            }
+            $forceComposite = VisibilityResolver::compositeKey($questionKey, $forceInstance);
+            if (! in_array($forceComposite, $this->forceShowKnown, true)) {
+                $this->forceShowKnown[] = $forceComposite;
+            }
+            if (SharedRoomAnswers::customerChoseDiffers($answers, $questionKey)
+                || (is_string($sectionInstanceKey) && str_starts_with($sectionInstanceKey, 'room-'))) {
+                // Differs of completeness-room: toon per kamer, niet opnieuw het gedeelde scherm.
+                $sharedComposite = VisibilityResolver::compositeKey($questionKey, SharedRoomAnswers::SCOPE_INSTANCE);
+                $this->forceShowKnown = array_values(array_filter(
+                    $this->forceShowKnown,
+                    static fn (string $key): bool => $key !== $sharedComposite,
+                ));
+            }
+            $this->resolvedSteps = null;
+            $this->resolvedStepsFormSignature = null;
+            $steps = $this->steps();
+            $answers = $this->answerMapForSharedNavigation();
+            $targetInstance = SharedRoomAnswers::navigableInstanceKey(
+                $questionKey,
+                $sectionInstanceKey,
+                $steps,
+                $answers,
+            );
+            if ($this->goToMissingStep($steps, $questionKey, $targetInstance, $returnKey)) {
+                return;
+            }
+            // Laatste poging: gedeelde stap als die er wél is.
+            if ($this->goToMissingStep($steps, $questionKey, SharedRoomAnswers::SCOPE_INSTANCE, $returnKey)) {
+                return;
+            }
+        }
+
+        $this->photoFixReturnStepKey = '';
+    }
+
+    /**
+     * @param  list<array{key: string, question_key: string, section_instance_key: string|null}>  $steps
+     */
+    private function goToMissingStep(
+        array $steps,
+        string $questionKey,
+        ?string $sectionInstanceKey,
+        ?string $returnKey,
+    ): bool {
         foreach ($steps as $index => $step) {
             if ($step['question_key'] !== $questionKey) {
                 continue;
@@ -3924,16 +4007,59 @@ class IntakeWizard extends Component
             }
 
             $this->goToStep($index);
-            // goToStep wist de return-key; herstel alleen bij een gevonden doel.
             if (is_string($returnKey) && $returnKey !== '') {
                 $this->photoFixReturnStepKey = $returnKey;
             }
             $this->dispatch('scroll-to-photo-mismatch');
 
-            return;
+            return true;
         }
 
-        $this->photoFixReturnStepKey = '';
+        return false;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>|null>
+     */
+    private function answerMapForSharedNavigation(): array
+    {
+        $answers = [];
+        $intake = $this->intake();
+        $intake->loadMissing('answers');
+        foreach ($intake->answers as $answer) {
+            $answers[VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key)] = $answer->value;
+        }
+        foreach ($this->liveAnswers() as $key => $value) {
+            if (is_array($value)) {
+                $answers[$key] = $value;
+            }
+        }
+
+        return $answers;
+    }
+
+    /**
+     * @param  list<array{key: string, question_key: string, section_instance_key: string|null}>  $steps
+     */
+    private function landOnFirstPerRoomStep(array $steps, string $questionKey): bool
+    {
+        foreach ($steps as $index => $candidate) {
+            if ($candidate['question_key'] !== $questionKey) {
+                continue;
+            }
+            $instance = $candidate['section_instance_key'] ?? null;
+            if (is_string($instance) && str_starts_with($instance, 'room-')) {
+                $this->knownStepKeys = array_map(
+                    static fn (array $row): string => $row['key'],
+                    $steps,
+                );
+                $this->landOnStepIndex($steps, $index);
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function intake(): Intake
@@ -4291,9 +4417,15 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Verdieping e.d. die shareable zijn: stil overnemen + direct opslaan,
-        // geen “Overgenomen van Ruimtes N — klopt het zo?”-bevestiging (BL-153).
+        // “Verschilt per ruimte”: nooit stil kopiëren van een andere kamer — de klant
+        // koos expliciet om per ruimte te antwoorden (anders verdwijnt de vraag).
         if (SharedRoomAnswers::isShareable($step['question_key'])) {
+            $answers = $this->answerMapForSharedNavigation();
+            if (SharedRoomAnswers::customerChoseDiffers($answers, $step['question_key'])) {
+                return;
+            }
+
+            // Zonder differs: stil overnemen + opslaan (BL-153, één gedeeld antwoord).
             $this->form[$composite] = $suggestion['value'];
             unset($this->prefillNotice[$composite]);
             $this->persistComposite($composite);
@@ -4463,6 +4595,7 @@ class IntakeWizard extends Component
                     'answered_at' => now(),
                 ],
             );
+            $this->persistSharedDiffersMarker($questionKey);
             $this->forgetIntakeDerivedCaches();
 
             return;
@@ -4473,13 +4606,44 @@ class IntakeWizard extends Component
             $save->handle($intake, $questionKey, $roomInstance, $payload);
         }
 
-        // Ruim eventueel eerdere “verschilt”-markering op _shared.
+        // Ruim eventueel eerdere “verschilt”-markering op _shared + duurzame marker.
         $intake->answers()
             ->where('question_key', $questionKey)
             ->where('section_instance_key', SharedRoomAnswers::SCOPE_INSTANCE)
             ->delete();
+        $intake->answers()
+            ->where('question_key', SharedRoomAnswers::differsMarkerKey($questionKey))
+            ->whereNull('section_instance_key')
+            ->delete();
 
         $this->forgetIntakeDerivedCaches();
+    }
+
+    /**
+     * Duurzame differs-markering (overleeft per ongeluk wissen van `_shared`-antwoord).
+     * Wordt gelezen door {@see SharedRoomAnswers::customerChoseDiffers()}.
+     */
+    private function persistSharedDiffersMarker(string $questionKey): void
+    {
+        IntakeAnswer::query()->updateOrCreate(
+            [
+                'intake_id' => $this->intake()->id,
+                'question_key' => SharedRoomAnswers::differsMarkerKey($questionKey),
+                'section_instance_key' => null,
+            ],
+            [
+                'value' => [
+                    'bool' => true,
+                    'value' => SharedRoomAnswers::DIFFERS_VALUE,
+                ],
+                'prefill_source' => null,
+                'fact_provenance' => 'stated',
+                'fact_confidence' => 100,
+                'fact_evidence' => null,
+                'fact_source' => 'klantantwoord',
+                'answered_at' => now(),
+            ],
+        );
     }
 
     /**
@@ -5070,12 +5234,30 @@ class IntakeWizard extends Component
         $intake = $this->intake();
         $intake->loadMissing('uploads');
         $steps = $this->steps();
+        $answers = $this->answerMapForSharedNavigation();
         $enriched = [];
+        /** @var array<string, true> $seen */
+        $seen = [];
 
         foreach ($missing as $item) {
             $questionKey = $item['question_key'];
             $instanceKey = $item['section_instance_key'];
             $reason = $item['reason'];
+
+            // Completeness telt shareable vragen per room-*; de wizard toont `_shared`
+            // tot “Verschilt per ruimte”. Remap naar een bestaande stap zodat de link werkt.
+            $navigableInstance = SharedRoomAnswers::navigableInstanceKey(
+                $questionKey,
+                $instanceKey,
+                $steps,
+                $answers,
+            );
+            $dedupeKey = $questionKey.'|'.(string) ($navigableInstance ?? '');
+            if (isset($seen[$dedupeKey])) {
+                continue;
+            }
+            $seen[$dedupeKey] = true;
+            $instanceKey = $navigableInstance;
 
             $matchingStep = null;
             foreach ($steps as $step) {
@@ -5089,6 +5271,13 @@ class IntakeWizard extends Component
             $roomLabel = $matchingStep !== null
                 ? $this->roomLabelForStep($matchingStep)
                 : null;
+            if ($roomLabel === null
+                && $instanceKey === SharedRoomAnswers::SCOPE_INSTANCE
+                && is_string($item['instance_label'] ?? null)) {
+                // Eén gedeelde link i.p.v. “Ruimtes 1/2/3”.
+                $roomLabel = null;
+                $item['instance_label'] = null;
+            }
 
             if ($reason === 'required_photo') {
                 $uploads = $intake->uploads->filter(

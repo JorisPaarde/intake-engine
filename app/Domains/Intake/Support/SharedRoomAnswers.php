@@ -188,4 +188,63 @@ final class SharedRoomAnswers
             ? trim($label)
             : self::DIFFERS_LABEL;
     }
+
+    /**
+     * Welke section_instance_key hoort bij een werkende wizardstap voor een
+     * ontbrekende shareable vraag? Completeness telt per room-*, maar de wizard
+     * toont óf `_shared` óf per-kamer — nooit beide. Zonder remap ontstaan dode
+     * “Nog niet alles is klaar”-links naar room-N terwijl alleen `_shared` bestaat.
+     *
+     * @param  list<array{question_key: string, section_instance_key: string|null, shared_scope?: bool}>  $steps
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    public static function navigableInstanceKey(
+        string $questionKey,
+        ?string $requestedInstanceKey,
+        array $steps,
+        array $answers,
+    ): ?string {
+        if (! self::isShareable($questionKey)) {
+            return $requestedInstanceKey;
+        }
+
+        foreach ($steps as $step) {
+            if ($step['question_key'] !== $questionKey) {
+                continue;
+            }
+            if (($step['section_instance_key'] ?? null) === $requestedInstanceKey) {
+                return $requestedInstanceKey;
+            }
+        }
+
+        if (self::customerChoseDiffers($answers, $questionKey)) {
+            if (is_string($requestedInstanceKey) && str_starts_with($requestedInstanceKey, 'room-')) {
+                return $requestedInstanceKey;
+            }
+
+            foreach ($steps as $step) {
+                if ($step['question_key'] !== $questionKey) {
+                    continue;
+                }
+                $instance = $step['section_instance_key'] ?? null;
+                if (is_string($instance) && str_starts_with($instance, 'room-')) {
+                    return $instance;
+                }
+            }
+
+            return $requestedInstanceKey;
+        }
+
+        foreach ($steps as $step) {
+            if ($step['question_key'] !== $questionKey) {
+                continue;
+            }
+            if (($step['shared_scope'] ?? false) === true
+                || ($step['section_instance_key'] ?? null) === self::SCOPE_INSTANCE) {
+                return self::SCOPE_INSTANCE;
+            }
+        }
+
+        return $requestedInstanceKey;
+    }
 }
