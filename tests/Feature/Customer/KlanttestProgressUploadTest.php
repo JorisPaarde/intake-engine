@@ -543,7 +543,7 @@ test('progressExtraNote verdwijnt bij next na foto-analyse', function () {
         ->assertSet('progressExtraNote', '');
 });
 
-test('wizard progress volgt Vraag X van Y, daalt niet mid-session, 100% pas na afronden', function () {
+test('wizard progress volgt stappenlijst %, daalt niet mid-session, 100% pas na afronden', function () {
     $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     $intake->refresh();

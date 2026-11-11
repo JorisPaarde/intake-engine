@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PrefillSources;
@@ -233,6 +234,59 @@ test('Toch doorgaan op afgekeurde ruimtefoto slaat verplichte extra wand/deur-fo
         ->toBe(['value' => 'complete'])
         ->and($component->get('activeStepKey'))->not->toContain('indoor_unit_position_photo')
         ->and($component->get('activeStepKey'))->not->toContain('room_photos');
+});
+
+test('Toch doorgaan op afgekeurde meterkastfoto slaat verplichte extra meterkastfoto over', function () {
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast-soft.jpg', 1200, 900),
+    );
+    $upload->updateQuietly([
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::needsClearer(
+            PhotoSubject::Fusebox,
+            'Maak een scherpere foto met lege DIN-railposities zichtbaar.',
+        )->toArray(),
+    ]);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'fusebox_clarity',
+        null,
+        ['value' => 'needs_clearer_photo'],
+        PrefillSources::AI_PHOTO,
+    );
+
+    $steps = app(IntakeStepBuilder::class)->build(
+        $intake->fresh() ?? $intake,
+        $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail(),
+    );
+    expect(collect($steps)->pluck('question_key'))->toContain('fusebox_photo_extra');
+
+    $index = collect($steps)->search(fn (array $s): bool => ($s['question_key'] ?? '') === 'fusebox_photo');
+    expect($index)->not->toBeFalse();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $index)
+        ->set('activeStepKey', $steps[$index]['key'])
+        ->assertSee(CustomerFacingTaskText::fuseboxRetakePrompt())
+        ->assertDontSee('DIN-rail')
+        ->call('acceptPhotoMismatch')
+        ->assertSet('saveMessage', PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH)
+        ->call('advanceAfterPhotoOverride');
+
+    $keys = collect($component->viewData('steps'))->pluck('question_key');
+    expect($keys)->not->toContain('fusebox_photo_extra')
+        ->and($intake->fresh()->answers()->where('question_key', 'fusebox_clarity')->value('value'))
+        ->toBe(['value' => 'clear'])
+        ->and($component->get('activeStepKey'))->not->toContain('fusebox_photo_extra')
+        ->and($component->get('activeStepKey'))->not->toContain('fusebox_photo');
 });
 
 test('één Toch doorgaan accepteert alle afgekeurde foto’s op de stap', function () {

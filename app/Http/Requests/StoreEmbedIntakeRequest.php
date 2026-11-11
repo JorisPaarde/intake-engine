@@ -60,7 +60,7 @@ final class StoreEmbedIntakeRequest
             'address_house_number.required' => 'Vul je huisnummer in.',
             'address_house_number.regex' => 'Vul een geldig huisnummer in.',
             'address_house_number_addition.regex' => 'Gebruik alleen letters, cijfers, spaties of een streepje in de toevoeging.',
-            'privacy_consent.accepted' => 'Bevestig dat je akkoord gaat met de verwerking van je gegevens.',
+            'privacy_consent.accepted' => 'Bevestig dat je akkoord gaat met de verwerking van je gegevens en foto’s.',
         ];
     }
 

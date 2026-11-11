@@ -10,13 +10,9 @@ import {
   waitForPhotoAssessed,
 } from '../helpers/app';
 
-function questionCounter(page: import('@playwright/test').Page) {
-  return page.getByText(/Vraag\s+\d+\s+van\s+\d+/i).first();
-}
-
-async function readCounter(page: import('@playwright/test').Page): Promise<string> {
-  const text = ((await questionCounter(page).textContent()) ?? '').replace(/\s+/g, ' ').trim();
-  expect(text).toMatch(/Vraag\s+\d+\s+van\s+\d+/i);
+async function readProgressPercent(page: import('@playwright/test').Page): Promise<string> {
+  const text = ((await page.getByTestId('progress-percent').textContent()) ?? '').replace(/\s+/g, ' ').trim();
+  expect(text).toMatch(/^\d+%$/);
 
   return text;
 }
@@ -34,15 +30,17 @@ test.describe('Wizard preferred_indoor autosave sticky', () => {
     });
 
     const headingBefore = await headingText(page);
-    const counterBefore = await readCounter(page);
+    const percentBefore = await readProgressPercent(page);
+    // BL-159: geen "X van Y" meer (adaptief totaal); sticky = zelfde vraag + zelfde %.
+    await expect(page.getByText(/Vraag\s+\d+\s+van\s+\d+/i)).toHaveCount(0);
 
     await fillTextAndBlur(page, 'Boven het bed');
     await expect(page.getByText('Opgeslagen').first()).toBeVisible({ timeout: 10_000 }).catch(() => undefined);
 
-    // Sticky (BL-140): blur must not jump to stopcontact or change the counter.
+    // Sticky (BL-140): blur must not jump to stopcontact or change progress.
     await expect(page.locator('h1').first()).toContainText(/binnenunit|hangen|voorkeur/i);
     expect(await headingText(page)).toBe(headingBefore);
-    expect(await readCounter(page)).toBe(counterBefore);
+    expect(await readProgressPercent(page)).toBe(percentBefore);
     await expect(page.getByTestId('step-missing-alert')).toHaveCount(0);
     await expect(page.getByText(/Beantwoord eerst/i)).toHaveCount(0);
 

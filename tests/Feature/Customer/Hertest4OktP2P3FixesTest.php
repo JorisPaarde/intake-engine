@@ -340,9 +340,11 @@ test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', functi
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $html = $component->html();
+    // BL-159: adaptieve stappen → geen "X van Y" (totaal liep op); voortgang = balk/%.
     expect($html)->toMatch('/data-testid="progress-percent">\d+%/')
         ->and($html)->toMatch('/data-testid="step-counter"/')
-        ->and($html)->toMatch('/Vraag\s+\d+\s+van\s+\d+/');
+        ->and($html)->not->toMatch('/Vraag\s+\d+\s+van\s+\d+/')
+        ->and($html)->toContain('Voortgang via balk');
 
     // Foto telt mee zodra ontvangen; assessment mag async (intake 82 soft-continue).
     $pending = new IntakeUpload([
@@ -359,7 +361,7 @@ test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', functi
     ]);
     expect(PhotoContentSatisfaction::uploadsSatisfy(collect([$accepted])))->toBeTrue();
 
-    // % en teller delen countDoneSteps / computeRawStepProgressPercent.
+    // % volgt dezelfde stappenlijst (countDoneSteps / computeRawStepProgressPercent).
     $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
     $steps = app(IntakeStepBuilder::class)->build($intake->fresh(), $version);
     expect($steps)->not->toBeEmpty();
@@ -368,7 +370,7 @@ test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', functi
     $displayTotal = (int) $component->viewData('stepDisplayTotal');
     expect($percentFromSameRule)->toBe(0)
         ->and($displayTotal)->toBeGreaterThanOrEqual($total)
-        ->and($html)->toContain('van '.$displayTotal);
+        ->and((bool) $component->viewData('stepDisplayTotalReady'))->toBeTrue();
 });
 
 test('earlier Oct3: pipe_route accepteert lege wand/room zonder wrong_subject', function () {

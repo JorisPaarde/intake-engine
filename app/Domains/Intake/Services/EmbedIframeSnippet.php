@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 /**
- * Builds the copy-paste iframe snippet + host-side auto-resize listener (BL-158).
+ * Builds the copy-paste iframe snippet + host-side auto-resize listener (BL-160).
  */
 final class EmbedIframeSnippet
 {

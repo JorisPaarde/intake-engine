@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * BL-158: iframe auto-resize must shrink when navigating form → address confirm.
+ * BL-160: iframe auto-resize must shrink when navigating form → address confirm.
  */
 test('embed iframe height shrinks after address confirmation step', async ({ page, request }) => {
   const prepare = await request.post('/__e2e__/embed/prepare');

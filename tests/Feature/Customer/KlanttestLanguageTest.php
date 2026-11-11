@@ -73,8 +73,9 @@ test('fusebox_photo asks for full cabinet including empty slots without phase ju
 
     expect($fusebox->photo_instructions)
         ->toContain('hele kast')
-        ->and($fusebox->photo_instructions)->toContain('lege of vrije posities')
-        ->and($fusebox->photo_instructions)->not->toMatch('/1-?\s*fase|3-?\s*fase/iu');
+        ->and($fusebox->photo_instructions)->toContain('vrije plek voor een extra groep')
+        ->and($fusebox->photo_instructions)->not->toMatch('/1-?\s*fase|3-?\s*fase/iu')
+        ->and($fusebox->photo_instructions)->not->toContain('DIN');
 });
 
 test('customer wizard runtime copy has no u/uw in notices or intro', function () {

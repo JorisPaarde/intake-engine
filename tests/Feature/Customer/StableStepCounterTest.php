@@ -38,7 +38,7 @@ function stableCounterIntake(array $overrides = []): Intake
     ], $overrides));
 }
 
-test('teller toont geen van-N tot ruimtes bekend zijn; totaal mag krimpen', function () {
+test('teller toont geen van-N; na ruimtes alleen voortgangsbalk/%', function () {
     $intake = stableCounterIntake();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
@@ -57,24 +57,19 @@ test('teller toont geen van-N tot ruimtes bekend zijn; totaal mag krimpen', func
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
-    $steps = $component->viewData('steps');
-    $total = count($steps);
+    $html = $component->html();
 
     expect($component->viewData('stepDisplayTotalReady'))->toBeTrue()
-        ->and($component->viewData('stepDisplayTotal'))->toBe($total)
-        ->and((int) $component->get('stepTotalHighWater'))->toBe($total);
+        ->and($html)->toContain('data-testid="progress-percent"')
+        ->and($html)->toContain('data-testid="step-counter"')
+        ->and($html)->not->toMatch('/Vraag \d+ van \d+/')
+        ->and($html)->toContain('Voortgang via balk')
+        // Geen losse "SECTIE ·" zonder zichtbare teller erna.
+        ->and($html)->not->toMatch('/text-\[#838c86\]">·<\/span>\s*<span[^>]*data-testid="step-counter"/');
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '1'], PrefillSources::AI_TEXT);
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-2', ['value' => '1'], PrefillSources::AI_TEXT);
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-3', ['value' => '1'], PrefillSources::AI_TEXT);
-
-    $component->call('$refresh');
-    $shrunk = count($component->viewData('steps'));
-    $displayTotal = (int) $component->viewData('stepDisplayTotal');
-
-    expect($shrunk)->toBeLessThanOrEqual($total)
-        ->and($displayTotal)->toBe($shrunk)
-        ->and((int) $component->get('stepTotalHighWater'))->toBe($shrunk);
+    // Herladen: nog steeds geen "X van Y" (stabiel t.o.v. oplopend/krimpend totaal).
+    $reloaded = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    expect($reloaded->html())->not->toMatch('/Vraag \d+ van \d+/');
 });
 
 test('teller hergebruikt nummer als tussenstap wegvalt (geen gat 25→27)', function () {
@@ -194,4 +189,28 @@ test('Toch doorgaan toont feedback en advanceAfterPhotoOverride gaat verder', fu
         ->assertSet('activeStepKey', function (string $key) use ($steps, $roomIndex): bool {
             return $key !== $steps[$roomIndex]['key'];
         });
+});
+
+test('buitenunit- en meterkaststappen tonen geen Vraag X van Y', function () {
+    $intake = stableCounterIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+
+    foreach (['outdoor_location_photos', 'fusebox_photo'] as $questionKey) {
+        $index = collect($steps)->search(
+            static fn (array $step): bool => ($step['question_key'] ?? null) === $questionKey,
+        );
+        expect($index)->toBeInt();
+        $html = $component
+            ->set('stepIndex', $index)
+            ->set('activeStepKey', $steps[$index]['key'])
+            ->html();
+        expect($html)->not->toMatch('/Vraag \d+ van \d+/')
+            ->and($html)->toContain('data-testid="progress-percent"')
+            ->and($html)->not->toMatch('/text-\[#838c86\]">·<\/span>\s*<span[^>]*data-testid="step-counter"/');
+    }
 });

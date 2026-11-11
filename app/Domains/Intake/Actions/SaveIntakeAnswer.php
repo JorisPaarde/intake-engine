@@ -50,6 +50,7 @@ final class SaveIntakeAnswer
         ?string $factEvidence = null,
         FactSource|string|null $factSource = null,
         bool $allowFollowUpPhotoPrefill = false,
+        bool $advanceCustomerProgress = true,
     ): IntakeAnswer {
         $question = $this->findQuestion($intake, $questionKey);
 
@@ -85,6 +86,7 @@ final class SaveIntakeAnswer
             $evidenceValue,
             $sourceValue,
             $allowFollowUpPhotoPrefill,
+            $advanceCustomerProgress,
         ): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
@@ -138,8 +140,11 @@ final class SaveIntakeAnswer
                 $answer->update($payload);
             }
 
-            // An installer prefill at creation must not "start" the intake for the customer.
-            $this->touchProgress($intake, $prefillSource === null);
+            // Installer/embed create-time writes must not "start" the intake for the customer.
+            $this->touchProgress(
+                $intake,
+                $advanceCustomerProgress && $prefillSource === null,
+            );
 
             if ($prefillSource === null) {
                 IntakeActivityEvent::query()->create([

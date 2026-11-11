@@ -1,4 +1,4 @@
-{{-- Child-frame height reporter for host auto-resize (BL-158).
+{{-- Child-frame height reporter for host auto-resize (BL-160).
      Measures the main content box so height can shrink after step changes. --}}
 <script>
 (function () {

@@ -372,7 +372,7 @@ enum PhotoSubject: string
             self::Fusebox => 'Maak een nieuwe, duidelijke foto van je meterkast',
             self::Room => 'Maak een nieuwe, duidelijke foto van de hele ruimte',
             self::OutdoorUnit => 'Maak een nieuwe, duidelijke foto van de buitenunit',
-            self::OutdoorLocation => 'Maak een nieuwe, duidelijke foto van de gevel, tuin of buitenplek',
+            self::OutdoorLocation => 'Maak een duidelijke foto van de gevel of buitenmuur waar de buitenunit kan komen. Neem genoeg omgeving mee zodat de plek herkenbaar is.',
             self::PipeRoute => 'Maak een nieuwe, duidelijke foto van de leidingroute',
             self::IndoorUnit => 'Maak een nieuwe, duidelijke foto van de binnenunit of wandplek',
             self::Other => 'Maak een nieuwe, duidelijke foto van wat we vroegen',

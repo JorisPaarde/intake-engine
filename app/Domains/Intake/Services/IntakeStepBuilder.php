@@ -342,15 +342,25 @@ final class IntakeStepBuilder
                 $shareTitle = (string) $question->meta['share_section_title'];
             }
 
+            $shareLabel = $question->meta['share_label'] ?? null;
+            $title = is_string($shareLabel) && trim($shareLabel) !== ''
+                ? trim($shareLabel)
+                : $question->label;
+
+            $shareHelp = $question->meta['share_help_text'] ?? null;
+            $helpText = is_string($shareHelp) && trim($shareHelp) !== ''
+                ? trim($shareHelp)
+                : $question->help_text;
+
             $steps[] = [
                 'key' => $section->key.'::'.SharedRoomAnswers::SCOPE_INSTANCE.'::'.$question->key,
                 'section_key' => $section->key,
                 'section_instance_key' => SharedRoomAnswers::SCOPE_INSTANCE,
                 'question_key' => $question->key,
-                'title' => $question->label,
+                'title' => $title,
                 'section_title' => $shareTitle,
                 'description' => 'Dit antwoord gebruiken we voor alle ruimtes, tenzij je aangeeft dat het verschilt.',
-                'help_text' => $question->help_text,
+                'help_text' => $helpText,
                 'is_repeatable' => true,
                 'is_required' => $presentation['required'],
                 'kind' => 'question',
@@ -387,8 +397,27 @@ final class IntakeStepBuilder
         array $stickyStepKeys = [],
         array $sharedTargets = [],
     ): void {
-        $questions = $section->questions->sortBy('sort_order')->values();
-        $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
+        $sortedQuestions = $section->questions->sortBy('sort_order')->values();
+        // Na “Verschilt per ruimte”: stel die vragen meteen per kamer (vóór foto’s),
+        // anders verdwijnen ze uit beeld tot na de ruimtefoto’s / AI-prefill.
+        if ($sectionInstanceKey !== null && count($sharedTargets) > 1) {
+            $differsFirst = $sortedQuestions->filter(
+                static function (IntakeQuestion $question) use ($context): bool {
+                    return SharedRoomAnswers::isShareable($question)
+                        && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key);
+                },
+            );
+            $rest = $sortedQuestions->reject(
+                static function (IntakeQuestion $question) use ($context): bool {
+                    return SharedRoomAnswers::isShareable($question)
+                        && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key);
+                },
+            );
+            $questions = $differsFirst->concat($rest)->values();
+        } else {
+            $questions = $sortedQuestions;
+        }
+        $visibility = $this->resolveVisibilityForSection($sortedQuestions, $sectionInstanceKey, $context);
         /** @var array<string, true> $emittedGroups */
         $emittedGroups = [];
         /** @var list<array{question: IntakeQuestion, required: bool}> $pendingClosing */
@@ -923,12 +952,27 @@ final class IntakeStepBuilder
             );
         }
 
+        // Geaccepteerde must-accept (AVG-toestemming / waarheidsverklaring) niet opnieuw tonen.
+        // Embed legt privacy_consent al bij start vast — voorkomt dubbele stap + tellersprong.
+        $mustAcceptSatisfied = ! $forceShow
+            && $answered
+            && MustAcceptQuestions::requiresAcceptance($question);
+
         $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped(
             $question,
             $answerSource,
             $answerFact,
             is_array($answerValue) ? $answerValue : null,
         );
+        // Klant koos expliciet “Verschilt per ruimte”: AI-/fotoprefill mag de
+        // per-kamer-vraag niet stil overslaan — die moet per ruimte gesteld worden.
+        if ($prefilledSkipped
+            && is_string($sectionInstanceKey)
+            && str_starts_with($sectionInstanceKey, 'room-')
+            && SharedRoomAnswers::isShareable($question)
+            && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)) {
+            $prefilledSkipped = false;
+        }
         $roomNameHidden = ! $forceShow
             && $question->key === 'room_name'
             && ! $this->shouldAskRoomName($context['answers'], $sectionInstanceKey);
@@ -956,6 +1000,7 @@ final class IntakeStepBuilder
         $ruleVisible = $state['visible'] === true;
         $wizardVisible = $ruleVisible
             && ! $prefilledSkipped
+            && ! $mustAcceptSatisfied
             && ! $roomNameHidden
             && ! $aroundHouseReused
             && ! $ceilingHeightNotNeeded
@@ -966,7 +1011,7 @@ final class IntakeStepBuilder
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded || $sizeClassNotNeeded || $roomCountCoveredByRooms,
+            prefilledSkipped: $prefilledSkipped || $mustAcceptSatisfied || $roomNameHidden || $aroundHouseReused || $ceilingHeightNotNeeded || $sizeClassNotNeeded || $roomCountCoveredByRooms,
             internal: $internal,
         );
 

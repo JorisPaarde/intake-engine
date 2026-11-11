@@ -1,8 +1,8 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.6 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
-**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding na Joris-stagingtest; BL-158 adresbevestiging + iframe auto-resize. Optioneel later: publieke adres-autocomplete, WP-plugin.
+**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer) + BL-160 (adresbevestiging + iframe auto-resize). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
 ## Wat er staat
 
@@ -13,16 +13,17 @@ Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-ma
 | Settings | BL-151 | `companies.embed_*`, sleutel/domeinen/limiet/snippet in bedrijfsinstellingen |
 | Publiek formulier | BL-152 | `GET/POST /embed/{public_key}`, CSP, limieten, dedup, CreateIntake zonder AI |
 | AI + badge + smoke | BL-153 | request-prefill bij eerste klantstap/foto; dashboardbadge; staging-testpagina |
-| Adresbevestiging + resize | BL-158 | tekstvelden huisnummer/toevoeging; “Is dit je adres?”; iframe auto-hoogte via `postMessage` |
+| AVG één keer | BL-159 | embed-checkbox (gegevens+foto’s) → `privacy_consent` bij create; wizard niet opnieuw |
+| Adresbevestiging + resize | BL-160 | tekstvelden huisnummer/toevoeging; “Is dit je adres?”; iframe auto-hoogte via `postMessage` |
 
 ## Flow
 
 1. Installateur zet formulier aan, registreert hostnames, kopieert snippet (iframe + resize-script).
 2. Klant opent installateurssite → iframe laadt `/embed/{key}` (`frame-ancestors` allowlist + `'self'`). De embedded pagina stuurt zijn hoogte via `postMessage` (`source=intake-engine-embed`, `type=resize`); het host-script past de iframe-hoogte aan na origin-check.
-3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, Origin-check) blijft in het iframe: PDOK-lookup → bevestiging **Is dit je adres?** met **Ja, klopt** / **Aanpassen**.
-4. **Ja, klopt** (met `address_confirmed=1`, `target=_top`): dagplafond-check + `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + backup-mail → 303 `/o/{token}`.
+3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, Origin-check) blijft in het iframe: PDOK-lookup → bevestiging **Is dit je adres?** met **Ja, klopt** / **Aanpassen**. Eén AVG-vinkje op het formulier (geen tweede in de wizard).
+4. **Ja, klopt** (met `address_confirmed=1`, `target=_top`): dagplafond-check + `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + opslaan van het AVG-vinkje als `privacy_consent` (echt klantantwoord, intake blijft `sent`) + backup-mail → 303 `/o/{token}`.
 5. Bestaande open opname (zelfde company + e-mail): opnieuw mailen + neutrale bevestiging in iframe (geen token-lek); telt niet mee voor dagplafond.
-6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden.
+6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden. Wizard vraagt `privacy_consent` niet opnieuw (BL-159); `truth_confirmation` blijft wel.
 
 ## Snippet
 
@@ -35,7 +36,7 @@ De snippet in bedrijfsinstellingen bevat iframe **én** host-script (auto-resize
   title="Opname starten"
   width="100%"
   height="480"
-  style="border:0;width:100%;max-width:40rem;min-height:320px;display:block;"
+  style="border:0;width:100%;max-width:40rem;display:block;"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"
 ></iframe>
