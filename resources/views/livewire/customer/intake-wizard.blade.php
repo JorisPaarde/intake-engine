@@ -29,6 +29,7 @@
                     <p>Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende woninggegevens. Jij laat alleen zien wat we nog nodig hebben.</p>
                     @php
                         $knownHousingLines = $intake->knownHousingFactLines();
+                        $energyLabelNote = $intake->energyLabelCustomerNote();
                     @endphp
                     @if ($knownHousingLines !== [])
                         <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
@@ -39,6 +40,11 @@
                                 </div>
                             @endforeach
                         </dl>
+                    @endif
+                    @if ($energyLabelNote !== null)
+                        <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="energy-label-note" role="status">
+                            {{ $energyLabelNote }}
+                        </p>
                     @endif
                 @else
                     <p>Met jouw hulp kunnen we sneller je airco plaatsen. Beantwoord de vragen hieronder — dat kan ook op je telefoon. Je kunt later gewoon verdergaan.</p>
