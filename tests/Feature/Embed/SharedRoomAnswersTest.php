@@ -165,6 +165,59 @@ test('verschilt per ruimte toont daarna per-ruimte stappen', function () {
             && str_starts_with((string) ($step['section_instance_key'] ?? ''), 'room-'),
     )->values();
     expect($perRoomSun)->toHaveCount(3);
+
+    // Direct na Verschilt: land op eerste kamer, vóór die kamerfoto.
+    expect($component->get('activeStepKey'))->toBe('rooms::room-1::sun_exposure');
+    $room1PhotoIndex = collect($stepsAfter)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'room_photos'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    $room1SunIndex = collect($stepsAfter)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'sun_exposure'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    expect($room1SunIndex)->toBeInt()
+        ->and($room1PhotoIndex)->toBeInt()
+        ->and($room1SunIndex)->toBeLessThan($room1PhotoIndex);
+});
+
+test('verschilt per ruimte: AI-prefill slaat per-kamer zon niet stil over', function () {
+    [$intake, $save] = jorisSharedScenarioIntake();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = app(IntakeStepBuilder::class)->build(
+        $intake->fresh(['answers', 'templateVersion.sections.questions.options']),
+        $intake->templateVersion,
+    );
+    $shared = collect($steps)->first(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'sun_exposure'
+            && ($step['shared_scope'] ?? false) === true,
+    );
+    $component->set('activeStepKey', $shared['key'])->call('chooseSharedDiffers');
+
+    // Simuleer fotoprefill ná Verschilt — mag de per-kamer-vraag niet verbergen.
+    foreach (['room-1', 'room-2', 'room-3'] as $room) {
+        $save->handle(
+            $intake,
+            'sun_exposure',
+            $room,
+            ['value' => 'medium'],
+            PrefillSources::AI_PHOTO,
+            factProvenance: 'inferred',
+            factConfidence: 80,
+            factSource: 'foto',
+        );
+    }
+
+    $stepsAfter = app(IntakeStepBuilder::class)->build(
+        $intake->fresh(['answers', 'templateVersion.sections.questions.options', 'templateVersion.sections.questions.rules']),
+        $intake->templateVersion,
+    );
+    $perRoomSun = collect($stepsAfter)->filter(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'sun_exposure'
+            && str_starts_with((string) ($step['section_instance_key'] ?? ''), 'room-'),
+    );
+    expect($perRoomSun)->toHaveCount(3);
 });
 
 test('blade toont Verschilt per ruimte op gedeelde single_choice stap', function () {
@@ -181,4 +234,40 @@ test('blade toont Verschilt per ruimte op gedeelde single_choice stap', function
         ->assertSee('Geldt voor alle slaapkamers', false)
         ->assertSee('data-testid="shared-differs"', false)
         ->assertSee('Verschilt per ruimte', false);
+});
+
+test('gedeelde zon/glas-tekst is meervoud zonder fotoverwijzing vóór ruimtefoto', function () {
+    [$intake] = jorisSharedScenarioIntake();
+
+    $steps = app(IntakeStepBuilder::class)->build($intake, $intake->templateVersion);
+    $sun = collect($steps)->first(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'sun_exposure'
+            && ($step['shared_scope'] ?? false) === true,
+    );
+    $glass = collect($steps)->first(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'glass_amount'
+            && ($step['shared_scope'] ?? false) === true,
+    );
+    $roomPhotoIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'room_photos',
+    );
+    $sunIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'sun_exposure'
+            && ($step['shared_scope'] ?? false) === true,
+    );
+
+    expect($sun)->not->toBeNull()
+        ->and($sun['title'])->toBe('Hoeveel zon krijgen deze ruimtes?')
+        ->and((string) ($sun['help_text'] ?? ''))->not->toContain('foto')
+        ->and($glass['title'])->toBe('Hoeveel glas is er in deze ruimtes?')
+        ->and((string) ($glass['help_text'] ?? ''))->not->toContain('foto')
+        ->and($sunIndex)->toBeInt()
+        ->and($roomPhotoIndex)->toBeInt()
+        ->and($sunIndex)->toBeLessThan($roomPhotoIndex);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('activeStepKey', $sun['key'])
+        ->assertSee('Hoeveel zon krijgen deze ruimtes?', false)
+        ->assertDontSee('volgde dat uit je foto', false)
+        ->assertDontSee('uit je foto', false);
 });

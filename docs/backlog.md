@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.11 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.13 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,6 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-156 | Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming één keer + teller | E1/E7 | in_progress | high | na BL-153/155 · staging embed-test · airco v30 |
 | — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | in_progress | high | na BL-153 · staging 390 Joris · 3 slaapkamers 2037GR 273 |
 | — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | in_progress | high | na BL-152/153 · staging bug Joris · parallel #304 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
@@ -703,6 +704,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
+
+### BL-156 — Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-153/155
+- **Aanleiding:** klanttest 11 nov op staging embed: (1) zon/glas-uitleg verwees naar een foto terwijl de eerste slaapkamerfoto later komt; label “deze ruimte” terwijl het antwoord voor alle slaapkamers geldt; (2) “zichtwerk of weggewerkt” zonder uitleg; (3) teller 26/26 → 27/27 door toestemmingsstap ná waarheidsverklaring terwijl embed al AVG vroeg.
+- **Doel:** tekst/meervoud zonder vroegtijdige fotoverwijzing (airco v30); klantvriendelijke leidingvoorkeur; één expliciete AVG-stap (embed-formulier) die in de wizard niet opnieuw verschijnt; stabiele voortgang (geen oplopend “X van Y”). Waarheidsverklaring blijft apart (niet bundelen met AVG). **Verschilt per ruimte** → vraag per kamer (niet stil weg via AI-prefill).
+- **AVG:** embed-checkbox blijft verplicht, niet vooraf aangevinkt, tekst noemt gegevens én foto’s; opslag als echt `privacy_consent`-antwoord (`prefill_source=null`) zonder intake te starten; wizard toont geaccepteerde must-accept niet opnieuw. Niet-embed-opnames blijven toestemming in de wizard vragen.
+- **Scope:** airco **v30**; `IntakeStepBuilder` share-labels + differs-volgorde/prefill-guard; wizard-teller zonder “van N”; `StartEmbedIntake` + embed-form copy; Pest `EmbedPrivacyConsentMergeTest` / `SharedRoomAnswersTest` / `StableStepCounterTest` / `PublishTemplateTest`. Geen energielabel-, foto-afkeur-, meterkast-, buitenunit- of adres/iframe-wijzigingen.
+- **Acceptatie:** Pest groen; browser 390/1440 screenshots zon/glas + leidingen + embed-consent; CI groen; geen tag/prod.
 
 ### BL-155 — Klantwizard ruimte-eyebrow + aaneengesloten teller
 

@@ -24,6 +24,7 @@ final class StartEmbedIntake
         private readonly EnrichIntakeAddress $enrichIntakeAddress,
         private readonly SendCustomerIntakeLink $sendCustomerIntakeLink,
         private readonly PdokAddressService $pdokAddressService,
+        private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
     /**
@@ -97,10 +98,30 @@ final class StartEmbedIntake
         $this->enrichIntakeAddress->handle($intake, $resolved['lookup_id']);
         $fresh = $intake->fresh() ?? $intake;
 
+        // AVG: het embed-formulier vraagt expliciete toestemming (niet vooraf aangevinkt).
+        // Sla die op als echt klantantwoord (geen prefill), zodat de wizard-stap
+        // privacy_consent niet opnieuw verschijnt en de stappenteller niet oploopt.
+        $this->recordEmbedPrivacyConsent($fresh);
+
         // Backup-mail; geen AI-job (BL-152). Fail-soft zit in SendCustomerIntakeLink.
         $this->sendCustomerIntakeLink->handle($fresh, $creator);
 
-        return ['intake' => $fresh, 'created' => true];
+        return ['intake' => $fresh->fresh() ?? $fresh, 'created' => true];
+    }
+
+    /**
+     * Persist the embed form checkbox as an accepted privacy_consent answer.
+     * prefill_source stays null so MustAcceptQuestions counts it as real acceptance.
+     */
+    private function recordEmbedPrivacyConsent(Intake $intake): void
+    {
+        $this->saveIntakeAnswer->handle(
+            $intake,
+            'privacy_consent',
+            null,
+            ['bool' => true],
+            advanceCustomerProgress: false,
+        );
     }
 
     /**

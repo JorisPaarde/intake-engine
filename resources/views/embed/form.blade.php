@@ -277,8 +277,8 @@
                             @if ($hasError('privacy_consent')) aria-invalid="true" aria-describedby="{{ $errorId('privacy_consent') }}" @endif
                         >
                         <span>
-                            Ik geef {{ $company->name }} toestemming om mijn gegevens te gebruiken voor deze opname.
-                            {{ $company->name }} is verwerkingsverantwoordelijke.
+                            Ik geef {{ $company->name }} toestemming om mijn gegevens en foto’s te verwerken voor deze opname.
+                            {{ $company->name }} is verwerkingsverantwoordelijke. Zonder dit vinkje kunnen we de opname niet starten.
                         </span>
                     </label>
                     @if ($hasError('privacy_consent'))

@@ -301,16 +301,18 @@ test('ticked consent does not show refusal text when another field is missing', 
     $upload = $intake->uploads()->where('question_key', 'fusebox_photo')->first()
         ?? $intake->uploads()->first();
     expect($upload)->not->toBeNull();
+    $missingKey = $upload->question_key;
+    $missingInstance = $upload->section_instance_key;
     $upload->delete();
 
+    // Geaccepteerde toestemming verdwijnt uit de wizardstappen (geen dubbele AVG-stap);
+    // we landen op de ontbrekende foto en controleren dat er geen toestemmingsweigering verschijnt.
     $html = Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])
-        ->call('goToMissing', 'privacy_consent', null)
-        ->set('form.privacy_consent.bool', true)
+        ->call('goToMissing', $missingKey, $missingInstance)
         ->set('showMissing', true)
         ->html();
 
-    expect($html)->toContain('data-testid="must-accept-checkbox"')
-        ->and($html)->not->toContain(MustAcceptQuestions::refusalMessage('privacy_consent'))
+    expect($html)->not->toContain(MustAcceptQuestions::refusalMessage('privacy_consent'))
         ->and($html)->not->toContain('data-testid="must-accept-refusal"');
 });
 

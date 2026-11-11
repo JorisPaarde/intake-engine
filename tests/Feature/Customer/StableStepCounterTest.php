@@ -38,7 +38,7 @@ function stableCounterIntake(array $overrides = []): Intake
     ], $overrides));
 }
 
-test('teller toont geen van-N tot ruimtes bekend zijn; totaal mag krimpen', function () {
+test('teller toont geen van-N; na ruimtes alleen voortgangsbalk/%', function () {
     $intake = stableCounterIntake();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
@@ -57,24 +57,17 @@ test('teller toont geen van-N tot ruimtes bekend zijn; totaal mag krimpen', func
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
-    $steps = $component->viewData('steps');
-    $total = count($steps);
+    $html = $component->html();
 
     expect($component->viewData('stepDisplayTotalReady'))->toBeTrue()
-        ->and($component->viewData('stepDisplayTotal'))->toBe($total)
-        ->and((int) $component->get('stepTotalHighWater'))->toBe($total);
+        ->and($html)->toContain('data-testid="progress-percent"')
+        ->and($html)->toContain('data-testid="step-counter"')
+        ->and($html)->not->toMatch('/Vraag \d+ van \d+/')
+        ->and($html)->toContain('Voortgang via balk');
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-1', ['value' => '1'], PrefillSources::AI_TEXT);
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-2', ['value' => '1'], PrefillSources::AI_TEXT);
-    app(SaveIntakeAnswer::class)->handle($intake, 'floor_level', 'room-3', ['value' => '1'], PrefillSources::AI_TEXT);
-
-    $component->call('$refresh');
-    $shrunk = count($component->viewData('steps'));
-    $displayTotal = (int) $component->viewData('stepDisplayTotal');
-
-    expect($shrunk)->toBeLessThanOrEqual($total)
-        ->and($displayTotal)->toBe($shrunk)
-        ->and((int) $component->get('stepTotalHighWater'))->toBe($shrunk);
+    // Herladen: nog steeds geen "X van Y" (stabiel t.o.v. oplopend/krimpend totaal).
+    $reloaded = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    expect($reloaded->html())->not->toMatch('/Vraag \d+ van \d+/');
 });
 
 test('teller hergebruikt nummer als tussenstap wegvalt (geen gat 25→27)', function () {

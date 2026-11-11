@@ -57,7 +57,7 @@ final class StoreEmbedIntakeRequest
             'address_postal_code.regex' => 'Vul een geldige postcode in, bijvoorbeeld 1234 AB.',
             'address_house_number.required' => 'Vul je huisnummer in.',
             'address_house_number.integer' => 'Vul een geldig huisnummer in.',
-            'privacy_consent.accepted' => 'Bevestig dat je akkoord gaat met de verwerking van je gegevens.',
+            'privacy_consent.accepted' => 'Bevestig dat je akkoord gaat met de verwerking van je gegevens en foto’s.',
         ];
     }
 

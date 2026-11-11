@@ -42,21 +42,9 @@ test.describe('Progress percentage and question counter', () => {
     );
     expect(percentAfter).toBeLessThan(100);
 
-    const headingCounter = page.getByText(/Vraag\s+\d+\s+van\s+\d+/i).first();
-    if (await headingCounter.count()) {
-      const counterText = ((await headingCounter.textContent()) ?? '').trim();
-      const match = /Vraag\s+(\d+)\s+van\s+(\d+)/i.exec(counterText);
-      expect(match).not.toBeNull();
-      const current = Number(match![1]);
-      const total = Number(match![2]);
-      expect(current).toBeGreaterThanOrEqual(1);
-      expect(current).toBeLessThanOrEqual(total);
-      // Same calculation: percent roughly tracks done/total (allow high-water / known steps).
-      expect(percentAfter).toBeLessThanOrEqual(100);
-      if (total > 0 && current < total) {
-        expect(percentAfter).toBeLessThan(100);
-      }
-    }
+    // BL-156: adaptieve stappen → geen "X van Y"; voortgang = balk/% (<100 zolang open).
+    await expect(page.getByTestId('step-counter')).toBeVisible();
+    expect(percentAfter).toBeLessThan(100);
   });
 
   test('finding: no 100% on an empty follow-up task', async ({ page, request }) => {
