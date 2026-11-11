@@ -770,6 +770,49 @@
                     >
                         {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
                     </button>
+                @elseif (! empty($photoNeedsOverride))
+                    {{-- BL-156: keuze bij de sticky knop i.p.v. groene Volgende die stil niets doet. --}}
+                    <div
+                        class="flex min-w-0 flex-[1.4] flex-col gap-2"
+                        data-testid="footer-photo-override"
+                    >
+                        <p
+                            class="text-center text-xs font-medium text-[#a84832]"
+                            data-testid="footer-mismatch-warning"
+                        >
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
+                        </p>
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                wire:click="replaceMismatchedPhoto"
+                                wire:loading.attr="disabled"
+                                wire:target="replaceMismatchedPhoto,acceptPhotoMismatch,advanceAfterPhotoOverride"
+                                class="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-[#dde2da] bg-white px-3 text-sm font-semibold text-[#18201d] disabled:opacity-60"
+                                data-testid="footer-replace-photos"
+                            >
+                                <span wire:loading.remove wire:target="replaceMismatchedPhoto">Opnieuw maken</span>
+                                <span wire:loading wire:target="replaceMismatchedPhoto" class="inline-flex items-center gap-2">
+                                    <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                                    Bezig…
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                wire:click="acceptPhotoMismatch"
+                                wire:loading.attr="disabled"
+                                wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride,replaceMismatchedPhoto"
+                                class="flex min-h-12 flex-1 items-center justify-center rounded-xl bg-[var(--tenant-primary)] px-3 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
+                                data-testid="footer-accept-mismatch"
+                            >
+                                <span wire:loading.remove wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride">Toch doorgaan</span>
+                                <span wire:loading wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride" class="inline-flex items-center gap-2">
+                                    <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                                    Bezig…
+                                </span>
+                            </button>
+                        </div>
+                    </div>
                 @else
                     <button
                         type="button"
@@ -799,11 +842,23 @@
 @script
 <script>
     $wire.on('scroll-to-photo-mismatch', () => {
-        queueMicrotask(() => {
-            const panel = document.querySelector('[data-testid="photo-mismatch-panel"]');
-            if (panel) {
-                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const scrollToMismatch = () => {
+            const panel = document.querySelector('[data-testid="photo-mismatch-panel"]')
+                || document.querySelector('[data-testid="footer-photo-override"]');
+            if (! panel) {
+                return false;
             }
+            panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return true;
+        };
+
+        queueMicrotask(() => {
+            if (scrollToMismatch()) {
+                return;
+            }
+            // Livewire morph kan net na de event nog DOM bijwerken.
+            setTimeout(() => { scrollToMismatch(); }, 50);
+            setTimeout(() => { scrollToMismatch(); }, 200);
         });
     });
 </script>

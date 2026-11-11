@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.11 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.12 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,6 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-156 | Foto-flow: Toch doorgaan écht door + sticky override-keuze (geen stille Volgende) | E1/E7 | done | high | klanttest 11 nov · foto-flow · 2026-11-11 |
 | — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | in_progress | high | na BL-153 · staging 390 Joris · 3 slaapkamers 2037GR 273 |
 | — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | in_progress | high | na BL-152/153 · staging bug Joris · parallel #304 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
@@ -703,6 +704,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
+
+### BL-156 — Foto-flow: Toch doorgaan écht door + sticky override-keuze
+
+- **Status:** done · **Datum:** 2026-11-11 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-139/147 · **Ref:** klanttest 11 nov (desktop + 390 px)
+- **Aanleiding:** (A) afgekeurde slaapkamerfoto + **Toch doorgaan** landde op verplichte extra wand/deur-foto; (B) buitenfoto’s met waarschuwing: groene Volgende leek actief maar deed niets, instructie buiten beeld; op 390 px leek meerdere keren bevestigen nodig.
+- **Doel:** Toch doorgaan gaat naar de volgende inhoudelijke vraag (geen verplichte extra overzichtsfoto na override); sticky footer toont **Opnieuw maken** / **Toch doorgaan** i.p.v. stille Volgende; één bevestiging voor alle probleemfoto’s op de stap; auto-scroll naar meldingspaneel.
+- **Scope:** `IntakeWizard` (acceptPhotoMismatch + clearForcedExtraRoomOverview + footer/scroll); `intake-wizard.blade.php`; Pest `KlantwizardFotoStatusTest`; E2E `05-photo-feedback`. Geen templatebump; geen overlap met energielabel-/vraagtekst-agents.
+- **Acceptatie:** Pest/E2E groen; browser 390 + 1440 screenshots; CI groen; geen tag/prod.
+- **Resultaat:** sticky footer-override; room override → `room_extra_overview_needed=complete` (+ form-sync); screenshots in artifacts.
 
 ### BL-155 — Klantwizard ruimte-eyebrow + aaneengesloten teller
 

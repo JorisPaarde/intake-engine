@@ -861,14 +861,18 @@ test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blij
     $indexBefore = $component->get('stepIndex');
 
     $component
+        ->assertSeeHtml('data-testid="footer-photo-override"')
+        ->assertSeeHtml('data-testid="footer-mismatch-warning"')
+        ->assertDontSeeHtml('data-testid="next-button"')
         ->call('next')
         ->assertSet('showMissing', true)
         ->assertSet('activeStepKey', $stepBefore)
         ->assertSet('stepIndex', $indexBefore)
+        ->assertDispatched('scroll-to-photo-mismatch')
         ->assertSee('Kies: foto vervangen of toch doorgaan')
         ->assertSeeHtml('data-testid="mismatch-next-warning"')
         ->assertSeeHtml('data-testid="photo-mismatch-panel"')
-        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"');
+        ->assertSeeHtml('data-testid="footer-mismatch-warning"');
 });
 
 test('ExternalFactPresenter toont pipe_route-voorstel met bron en onzekerheid', function () {

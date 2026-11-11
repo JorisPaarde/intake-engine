@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.46 · **Laatste update:** 2026-10-12 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.47 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v28** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -210,7 +210,7 @@ Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun
 Runtime bovenop airco v19 (geen templatewijziging t.o.v. v18):
 
 - Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`) beoordeelt **elke upload zonder assessment**. `subject_match=no` → altijd `wrong_subject`; AI-fout of inference uit → `not_assessed` (nooit null na beoordelingspoging). Fabriek: `PhotoContentAssessment::fromModelOutput`.
-- Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** en **Toch doorgaan**. Banner verdwijnt via `PhotoContentSatisfaction`; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven.
+- Klant: niet-goede foto’s soft-blocken — sticky footer **Opnieuw maken** / **Toch doorgaan** i.p.v. stille Volgende (BL-156); één bevestiging per stap; paneel scrollt in beeld. Banner verdwijnt via `PhotoContentSatisfaction`; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven. Afgekeurde ruimtefoto + Toch doorgaan → geen verplichte extra wand/deur-foto.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routeconclusies via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS`.
 - Follow-up refrigerant accepteert `pipe_route` én `outdoor_unit`. Async follow-up → BL-121.
 

@@ -155,7 +155,29 @@ test('meerdere afgekeurde foto’s: meervoudskop en één Toch doorgaan', functi
         ->and($html)->not->toContain('Status:');
 });
 
-test('Volgende zonder keuze toont OVERRIDE_MESSAGE alleen in het fotomeldingsvak', function () {
+test('bij foto-waarschuwing toont sticky footer Toch doorgaan i.p.v. Volgende', function () {
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+    seedRejectedRoomPhoto($intake);
+
+    [$steps, $index] = goToRoomPhotosStep($intake);
+
+    $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $index)
+        ->set('activeStepKey', $steps[$index]['key'])
+        ->assertSeeHtml('data-testid="footer-photo-override"')
+        ->assertSeeHtml('data-testid="footer-mismatch-warning"')
+        ->assertSeeHtml('data-testid="footer-accept-mismatch"')
+        ->assertSeeHtml('data-testid="footer-replace-photos"')
+        ->assertDontSeeHtml('data-testid="next-button"')
+        ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
+        ->html();
+
+    expect($html)->toContain('Opnieuw maken')
+        ->and(substr_count($html, 'Toch doorgaan'))->toBeGreaterThanOrEqual(2);
+});
+
+test('Volgende zonder keuze bij override scrollt en toont OVERRIDE_MESSAGE in paneel', function () {
     $intake = fotoStatusIntake();
     seedOneRoomForPhotos($intake);
     seedRejectedRoomPhoto($intake);
@@ -167,10 +189,64 @@ test('Volgende zonder keuze toont OVERRIDE_MESSAGE alleen in het fotomeldingsvak
         ->set('activeStepKey', $steps[$index]['key'])
         ->call('next')
         ->assertSet('showMissing', true)
+        ->assertDispatched('scroll-to-photo-mismatch')
         ->assertSeeHtml('data-testid="mismatch-next-warning"')
+        ->assertSeeHtml('data-testid="footer-mismatch-warning"')
         ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
-        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"')
         ->assertDontSeeHtml('data-testid="step-missing-alert"');
+});
+
+test('Toch doorgaan op afgekeurde ruimtefoto slaat verplichte extra wand/deur-foto over', function () {
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+    seedRejectedRoomPhoto($intake);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'room_extra_overview_needed',
+        'room-1',
+        ['value' => 'needs_photo'],
+        PrefillSources::AI_PHOTO,
+    );
+
+    [$steps, $index] = goToRoomPhotosStep($intake->fresh() ?? $intake);
+    expect(collect($steps)->pluck('question_key'))->toContain('indoor_unit_position_photo');
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $index)
+        ->set('activeStepKey', $steps[$index]['key'])
+        ->call('acceptPhotoMismatch')
+        ->assertSet('saveMessage', PhotoOverridePolicy::OVERRIDE_ACCEPTED_FLASH)
+        ->call('advanceAfterPhotoOverride');
+
+    $keys = collect($component->viewData('steps'))->pluck('question_key');
+    expect($keys)->not->toContain('indoor_unit_position_photo')
+        ->and($intake->fresh()->answers()->where('question_key', 'room_extra_overview_needed')->value('value'))
+        ->toBe(['value' => 'complete'])
+        ->and($component->get('activeStepKey'))->not->toContain('indoor_unit_position_photo')
+        ->and($component->get('activeStepKey'))->not->toContain('room_photos');
+});
+
+test('één Toch doorgaan accepteert alle afgekeurde foto’s op de stap', function () {
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+    $first = seedRejectedRoomPhoto($intake, 'wrong-1.jpg', 1200);
+    $second = seedRejectedRoomPhoto($intake, 'wrong-2.jpg', 1201);
+
+    [$steps, $index] = goToRoomPhotosStep($intake);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $index)
+        ->set('activeStepKey', $steps[$index]['key'])
+        ->assertSeeHtml('data-testid="footer-accept-mismatch"')
+        ->call('acceptPhotoMismatch');
+
+    expect(PhotoOverridePolicy::needsOverride($first->fresh() ?? $first))->toBeFalse()
+        ->and(PhotoOverridePolicy::needsOverride($second->fresh() ?? $second))->toBeFalse()
+        ->and(PhotoOverridePolicy::hasUnresolvedOverride(collect([
+            $first->fresh() ?? $first,
+            $second->fresh() ?? $second,
+        ])))->toBeFalse();
 });
 
 test('afgekeurde foto op eerdere stap toont banner met link terug', function () {

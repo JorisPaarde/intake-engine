@@ -1794,6 +1794,25 @@ class IntakeWizard extends Component
         // wordt anders binnen seconden weer unchecked (E2E 01).
         if (! $pollTargetsCurrentStep) {
             $this->skipRender();
+
+            return;
+        }
+
+        // Waarschuwingspaneel vaak boven de sticky knop: scroll in beeld (BL-156).
+        if ($questionKey !== '' && PhotoContentSatisfaction::unresolvedOverride(
+            $this->intake()->uploads->filter(
+                static function (IntakeUpload $upload) use ($questionKey, $instanceKey): bool {
+                    if ($upload->question_key !== $questionKey) {
+                        return false;
+                    }
+
+                    return $instanceKey === null
+                        ? $upload->section_instance_key === null
+                        : $upload->section_instance_key === $instanceKey;
+                },
+            ),
+        ) instanceof IntakeUpload) {
+            $this->dispatch('scroll-to-photo-mismatch');
         }
     }
 
@@ -2927,6 +2946,11 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Afgekeurde ruimtefoto + Toch doorgaan: geen verplichte extra wand/deur-foto (BL-156).
+        if ($question->key === 'room_photos') {
+            $this->clearForcedExtraRoomOverview($step['section_instance_key']);
+        }
+
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
         $this->clearPhotoFeedbackForComposite($composite);
         $this->forgetIntakeDerivedCaches();
@@ -2942,6 +2966,47 @@ class IntakeWizard extends Component
 
         // Kort feedbackmoment (tegel + banner), daarna door. Livewire-tests: advanceAfterPhotoOverride.
         $this->js('setTimeout(() => $wire.advanceAfterPhotoOverride(), 1200)');
+    }
+
+    /**
+     * Na Toch doorgaan op een afgekeurde ruimtefoto: zet needs_photo terug naar
+     * complete zodat indoor_unit_position_photo verdwijnt (BL-156).
+     */
+    private function clearForcedExtraRoomOverview(?string $sectionInstanceKey): void
+    {
+        $query = IntakeAnswer::query()
+            ->where('intake_id', $this->intakeId)
+            ->where('question_key', 'room_extra_overview_needed');
+
+        if ($sectionInstanceKey === null) {
+            $query->whereNull('section_instance_key');
+        } else {
+            $query->where('section_instance_key', $sectionInstanceKey);
+        }
+
+        $answer = $query->first();
+        if (! $answer instanceof IntakeAnswer) {
+            return;
+        }
+
+        $value = is_array($answer->value) ? ($answer->value['value'] ?? null) : null;
+        if ($value !== 'needs_photo') {
+            return;
+        }
+
+        app(SaveIntakeAnswer::class)->handle(
+            $this->intake(),
+            'room_extra_overview_needed',
+            $sectionInstanceKey,
+            ['value' => 'complete'],
+            PrefillSources::AI_PHOTO,
+        );
+
+        // liveAnswers() wint van de DB: zonder form-refresh blijft needs_photo
+        // de extra wand/deur-stap forceren.
+        $composite = VisibilityResolver::compositeKey('room_extra_overview_needed', $sectionInstanceKey);
+        $this->form[$composite] = ['value' => 'complete'];
+        unset($this->dirtyFormComposites[$composite]);
     }
 
     /**
@@ -3548,6 +3613,11 @@ class IntakeWizard extends Component
             $this->showMissing = true;
             $this->completionMissing = [];
             $this->saveMessage = '';
+
+            // Foto-waarschuwing staat vaak boven de sticky knop (390 px): scroll in beeld.
+            if ($this->stepHasUnresolvedPhotoOverride($stepToValidate)) {
+                $this->dispatch('scroll-to-photo-mismatch');
+            }
 
             return;
         }
@@ -4770,6 +4840,45 @@ class IntakeWizard extends Component
         }
 
         return PhotoContentSatisfaction::isSatisfied($this->intake(), $questionKey, $sectionInstanceKey);
+    }
+
+    /**
+     * @param  array{
+     *     section_key?: string,
+     *     section_instance_key?: string|null,
+     *     question_key?: string,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }|null  $step
+     */
+    private function stepHasUnresolvedPhotoOverride(?array $step): bool
+    {
+        if ($step === null) {
+            return false;
+        }
+
+        $question = $this->photoQuestionForStep($step);
+        if (! $question instanceof IntakeQuestion) {
+            return false;
+        }
+
+        $instanceKey = $step['section_instance_key'] ?? null;
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+
+        $uploads = $intake->uploads->filter(
+            static function (IntakeUpload $upload) use ($question, $instanceKey): bool {
+                if ($upload->question_key !== $question->key) {
+                    return false;
+                }
+
+                return $instanceKey === null
+                    ? $upload->section_instance_key === null
+                    : $upload->section_instance_key === $instanceKey;
+            },
+        );
+
+        return PhotoOverridePolicy::hasUnresolvedOverride($uploads);
     }
 
     /**
