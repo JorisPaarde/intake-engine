@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-161 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | in_progress | high | klanttest 11 nov run 3 · regressie #309/#311 |
+| — | BL-161 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | done | high | klanttest 11 nov run 3 · PR #313 · 2026-11-11 |
 | — | BL-160 | Embed: huisnummer tekstveld + adresbevestiging + iframe auto-resize / geen mobiele overflow | E1/E5 | done | high | klanttest 11 nov punten 8–9 · PR #311 · 2026-11-11 · was parallel als BL-158 |
 | — | BL-159 | Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming één keer + teller | E1/E7 | done | high | 2026-11-11 · PR #309 · airco v31 · was parallel als BL-156 |
 | — | BL-158 | Buitenunit-fototip + drempel; meterkast-extra na Toch doorgaan; jargon uit klantweergave | E1/E4/E7 | done | high | klanttest 11 nov ronde 2 · airco v30 · PR #310 · 2026-11-11 |
@@ -708,11 +708,11 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-161 — Verschilt per ruimte: per-kamer + Afronden-links
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-159/160 · **Ref:** klanttest 11 nov run 3 (2037GR 273, 3× slaapkamer 3×5)
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #313 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-159/160 · **Ref:** klanttest 11 nov run 3 (2037GR 273, 3× slaapkamer 3×5)
 - **Aanleiding:** na **Verschilt per ruimte** op verdieping (en zon) kwam de per-kamer-vraag niet; Afronden op ~99% toonde “Nog niet alles is klaar” met 3 dode links naar die vraag (ook na herladen). Alleen 21× Vorige + één verdieping voor alles werkte.
 - **Oorzaak:** Completeness telt shareable vragen per `room-*`, terwijl de wizard tot differs alleen `_shared` toont — `goToMissing` zocht room-N-stappen die er niet zijn. Daarnaast kon differs-expansie hapëren (stale `knownStepKeys`, stille `prefill_from_previous`-kopie, marker alleen op `_shared`).
 - **Doel:** na Verschilt direct per-kamer verdieping én zon; Afronden-links altijd naar een zichtbare stap; geen dode links.
-- **Scope:** `SharedRoomAnswers::navigableInstanceKey`, wizard `chooseSharedDiffers`/`goToMissing`/`enrichCompletionMissing`/`applyPrefillForActiveStep`, duurzame differs-marker; Pest `SharedDiffersPerRoomNavigationTest`; E2E `20-differs-per-room-floors`. Geen templateversie.
+- **Resultaat:** remap + force-show in `goToMissing`/`enrichCompletionMissing`; duurzame differs-marker; geen stille prefill na differs; Pest `SharedDiffersPerRoomNavigationTest`; E2E `20-differs-per-room-floors` + screenshots bl161-*. Geen templateversie.
 
 ### BL-160 — Embed adresbevestiging + iframe auto-resize
 
