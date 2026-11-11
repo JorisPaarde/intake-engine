@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.51 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.52 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v31** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -300,7 +300,7 @@ Na de eerste echte installateurstrial (Jamie Elderenbos, 28 aug 2026) herstelt v
 
 | Onderwerp | Aanpak |
 |-----------|--------|
-| Meterkast | Verplichte `fusebox_photo` eerst; bij lage zekerheid volgt optionele `fusebox_photo_extra` (v30 niet verplicht; na **Toch doorgaan** verdwijnt hij via `fusebox_clarity=clear`, BL-158); `free_group_known` is vanaf v17 installateursbeslissing (niet in klantwizard) |
+| Meterkast | Verplichte `fusebox_photo` eerst; bij lage zekerheid volgt optionele `fusebox_photo_extra` (v30 niet verplicht; na **Toch doorgaan** verdwijnt hij via `fusebox_clarity=clear` + `PhotoFollowUpWaiver` hide, BL-158/BL-161 — late AI mag clarity niet terugzetten); `free_group_known` is vanaf v17 installateursbeslissing (niet in klantwizard) |
 | 1-/3-fase | Alleen uit `AssessFuseboxPhotos` (`one_phase`/`three_phase`); geen losse fasevraag |
 | Stopcontacten | Uit ruimtefoto (`room_outlet_status`); anders verplichte `wall_outlet_photo` |
 | Rondom het huis | v12–v27: verplichte `around_house_photos` (gevel/tuin/montageplek). v28: verborgen bij bruikbare buitenfoto, anders gerichte vervolgvraag met sla-over; geen Street View/luchtfoto-vervanging |

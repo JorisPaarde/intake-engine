@@ -1,0 +1,30 @@
+{
+  "id": "obs-bl161-garden-overview-accept",
+  "kind": "photo_observation",
+  "origin": "klanttest 11 nov ronde 3 outdoor-assessment (BL-161)",
+  "source_kind": "reconstructed",
+  "slot": "outdoor_location_photos",
+  "room": null,
+  "text": "Achtertuin met gras, schutting en deel van de achtergevel; geen bestaande buitenunit zichtbaar. Montageplek niet specifiek aangewezen.",
+  "model_fields": {
+    "outdoor_location": "garden",
+    "outdoor_mount_type": "unknown",
+    "outdoor_accessibility": "unknown",
+    "detected_subject": "other",
+    "subject_match": "no",
+    "confidence": "medium",
+    "evidence": "Achtertuin met gras en schutting; geen bestaande buitenunit zichtbaar.",
+    "retake_instruction": "Maak een foto dichter bij de beoogde montageplek."
+  },
+  "expected": {
+    "outdoor_location": "garden",
+    "existing_outdoor_unit_visible": false
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "BL-161: strenge modeloutput (detected=other + retake) mag tuinoverzicht niet afkeuren; PhotoContentAssessment pipeline → ok (zie OutdoorPhotoPipelineFixtureTest).",
+  "disputed_facts": {}
+}
