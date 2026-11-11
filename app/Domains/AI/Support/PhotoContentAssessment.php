@@ -132,6 +132,17 @@ final class PhotoContentAssessment
             if (! $accepted) {
                 return self::wrongSubject($expected, $detected, $questionKey);
             }
+
+            // Afvoer (drain_photo): subject_match=no blijft wrong_subject — outdoor_location
+            // in de accepted-set ≠ bruikbare afvoerfoto (A4 / BL-158 uitzondering).
+            if ($questionKey === 'drain_photo'
+                && ($output['subject_match'] ?? 'yes') !== 'yes') {
+                return self::wrongSubject(
+                    $expected,
+                    $detected === $expected ? PhotoSubject::Other : $detected,
+                    $questionKey,
+                );
+            }
         } elseif (($output['subject_match'] ?? 'yes') !== 'yes') {
             return self::wrongSubject($expected, $detected, $questionKey);
         }
@@ -145,10 +156,11 @@ final class PhotoContentAssessment
             return self::ok($expected, $detected === PhotoSubject::Other ? $expected : $detected);
         }
 
-        // Outdoor/gevel (BL-158): geaccepteerd outdoor-onderwerp = ok; retake over
-        // montage-/kaderdetails mag de klant niet soft-blokkeren. Verkeerd onderwerp
-        // is hierboven al wrong_subject.
+        // Outdoor/gevel/around_house (BL-158): geaccepteerd outdoor-onderwerp = ok;
+        // retake over montage-/kaderdetails mag de klant niet soft-blokkeren.
+        // drain_photo valt hierboven al af bij subject_match=no.
         if ($expected === PhotoSubject::OutdoorLocation
+            && $questionKey !== 'drain_photo'
             && in_array($detected, [PhotoSubject::OutdoorLocation, PhotoSubject::OutdoorUnit], true)) {
             return self::ok($expected, $detected);
         }

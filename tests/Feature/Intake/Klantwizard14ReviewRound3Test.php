@@ -105,6 +105,23 @@ test('R3-3/BL-158: derive-pad OutdoorLocation met accepted subject blijft ok ond
     expect($assessment->status())->toBe(PhotoContentAssessment::STATUS_OK);
 });
 
+test('BL-158: drain_photo houdt subject_match=no als wrong_subject', function () {
+    $accepted = PhotoSubject::acceptedSubjectsForPhotoQuestion('drain_photo', 'drain');
+
+    $assessment = PhotoContentAssessment::fromModelOutput(
+        PhotoSubject::OutdoorLocation,
+        [
+            'detected_subject' => 'outdoor_location',
+            'subject_match' => 'no',
+        ],
+        $accepted,
+        'drain_photo',
+    );
+
+    expect($assessment->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
+        ->and($assessment->customerMessage())->toContain('afvoer');
+});
+
 test('R3-4: caption drop trailing ,0', function () {
     $caption = CustomerAnswerBlocks::roomDimensionsCaption([
         'length_m' => 3.5,

@@ -46,10 +46,10 @@ function makeKlantwizard14PhotoIntake(): Intake
     ]);
 }
 
-test('A4: subject_match=no met detected outdoor_location geeft advies bij outdoor, around_house en drain', function () {
+test('A4/BL-158: outdoor/around_house ok bij detected outdoor_location; drain blijft wrong_subject', function () {
     $intake = makeKlantwizard14PhotoIntake();
 
-    // Pin de echte A4-fix: detected in accepted set + subject_match=no.
+    // detected in accepted set + subject_match=no.
     FakeAiClient::alwaysReturn([
         'outdoor_location' => 'unknown',
         'outdoor_mount_type' => 'wall',
@@ -88,6 +88,7 @@ test('A4: subject_match=no met detected outdoor_location geeft advies bij outdoo
         runAssessUploadedPhotoJob($upload->id);
     }
 
+    $statuses = [];
     $messages = [];
     foreach ($questionKeys as $questionKey) {
         $upload = IntakeUpload::query()
@@ -97,17 +98,16 @@ test('A4: subject_match=no met detected outdoor_location geeft advies bij outdoo
 
         $assessment = $upload->contentAssessment();
         expect($assessment)->not->toBeNull()
-            ->and($assessment?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
-            ->and($assessment?->expectedSubject())->toBe(PhotoSubject::OutdoorLocation)
-            ->and($assessment?->customerMessage())->not->toBeNull();
+            ->and($assessment?->expectedSubject())->toBe(PhotoSubject::OutdoorLocation);
 
+        $statuses[$questionKey] = $assessment?->status();
         $messages[$questionKey] = $assessment?->customerMessage();
     }
 
-    expect($messages['outdoor_location_photos'])->toContain('gevel')
-        ->and($messages['around_house_photos'])->toBe($messages['outdoor_location_photos'])
-        // A4 status for drain stays wrong_subject (OutdoorLocation force); wording only differs.
-        ->and($messages['drain_photo'])->not->toBe($messages['outdoor_location_photos'])
+    // BL-158: redelijke outdoor/around_house niet meer soft-blokkeren.
+    expect($statuses['outdoor_location_photos'])->toBe(PhotoContentAssessment::STATUS_OK)
+        ->and($statuses['around_house_photos'])->toBe(PhotoContentAssessment::STATUS_OK)
+        ->and($statuses['drain_photo'])->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
         ->and($messages['drain_photo'])->toBe(
             'Dit lijkt geen foto van de afvoer. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.'
         )
