@@ -168,7 +168,7 @@ jobs:
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -207,23 +207,9 @@ jobs:
         run: npm run build
 
       - name: Install Playwright Chromium
-        run: |
-          # --with-deps uses apt; GitHub runners sometimes hit transient DNS
-          # failures on archive.ubuntu.com. Retry, then fall back to browser-
-          # only install (ubuntu-latest usually already has Chromium system libs).
-          set +e
-          for attempt in 1 2 3; do
-            npx playwright install chromium --with-deps
-            status=$?
-            if [ "$status" -eq 0 ]; then
-              exit 0
-            fi
-            echo "Playwright install --with-deps attempt ${attempt} failed (exit ${status})"
-            sleep $((attempt * 15))
-          done
-          echo "Falling back to browser-only Playwright install"
-          npx playwright install chromium
-          exit $?
+        # Skip --with-deps: apt against archive.ubuntu.com flakes (DNS) and can
+        # burn the whole job timeout. ubuntu-latest already has Chromium libs.
+        run: npx playwright install chromium
 
       - name: Generate E2E photo fixtures
         run: npm run e2e:fixtures
