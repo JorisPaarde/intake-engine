@@ -63,7 +63,9 @@ test('teller toont geen van-N; na ruimtes alleen voortgangsbalk/%', function () 
         ->and($html)->toContain('data-testid="progress-percent"')
         ->and($html)->toContain('data-testid="step-counter"')
         ->and($html)->not->toMatch('/Vraag \d+ van \d+/')
-        ->and($html)->toContain('Voortgang via balk');
+        ->and($html)->toContain('Voortgang via balk')
+        // Geen losse "SECTIE ·" zonder zichtbare teller erna.
+        ->and($html)->not->toMatch('/text-\[#838c86\]">·<\/span>\s*<span[^>]*data-testid="step-counter"/');
 
     // Herladen: nog steeds geen "X van Y" (stabiel t.o.v. oplopend/krimpend totaal).
     $reloaded = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);

@@ -108,15 +108,13 @@
         <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
-                <span class="mx-1.5 text-[#838c86]">·</span>
-                <span data-testid="step-counter">
-                    {{-- Adaptieve stappen: geen "X van Y" (totaal liep op / week af na herladen). Voortgang = balk/%. --}}
-                    @if ($stepDisplayTotalReady ?? false)
-                        <span class="sr-only">Voortgang via balk</span>
-                    @else
-                        Vraag {{ $stepDisplayNumber }}
-                    @endif
-                </span>
+                {{-- Geen "·" als er niets zichtbaars achter staat (BL-156: geen X van Y). --}}
+                @if ($stepDisplayTotalReady ?? false)
+                    <span data-testid="step-counter" class="sr-only">Voortgang via balk</span>
+                @else
+                    <span class="mx-1.5 text-[#838c86]">·</span>
+                    <span data-testid="step-counter">Vraag {{ $stepDisplayNumber }}</span>
+                @endif
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -152,15 +150,13 @@
         <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
-                <span class="mx-1.5 text-[#838c86]">·</span>
-                <span data-testid="step-counter">
-                    {{-- Adaptieve stappen: geen "X van Y" (totaal liep op / week af na herladen). Voortgang = balk/%. --}}
-                    @if ($stepDisplayTotalReady ?? false)
-                        <span class="sr-only">Voortgang via balk</span>
-                    @else
-                        Vraag {{ $stepDisplayNumber }}
-                    @endif
-                </span>
+                {{-- Geen "·" als er niets zichtbaars achter staat (BL-156: geen X van Y). --}}
+                @if ($stepDisplayTotalReady ?? false)
+                    <span data-testid="step-counter" class="sr-only">Voortgang via balk</span>
+                @else
+                    <span class="mx-1.5 text-[#838c86]">·</span>
+                    <span data-testid="step-counter">Vraag {{ $stepDisplayNumber }}</span>
+                @endif
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -241,15 +237,13 @@
         <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
-                <span class="mx-1.5 text-[#838c86]">·</span>
-                <span data-testid="step-counter">
-                    {{-- Adaptieve stappen: geen "X van Y" (totaal liep op / week af na herladen). Voortgang = balk/%. --}}
-                    @if ($stepDisplayTotalReady ?? false)
-                        <span class="sr-only">Voortgang via balk</span>
-                    @else
-                        Vraag {{ $stepDisplayNumber }}
-                    @endif
-                </span>
+                {{-- Geen "·" als er niets zichtbaars achter staat (BL-156: geen X van Y). --}}
+                @if ($stepDisplayTotalReady ?? false)
+                    <span data-testid="step-counter" class="sr-only">Voortgang via balk</span>
+                @else
+                    <span class="mx-1.5 text-[#838c86]">·</span>
+                    <span data-testid="step-counter">Vraag {{ $stepDisplayNumber }}</span>
+                @endif
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] ?? $question->label }}
