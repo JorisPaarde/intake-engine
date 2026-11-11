@@ -37,3 +37,4 @@ yarn-error.log
 /tests/e2e/fixtures/*.jpg
 !/tests/e2e/fixtures/generate-fixtures.mjs
 /storage/framework/e2e-ai-scenario.txt
+/storage/framework/e2e-embed-address-stub.json

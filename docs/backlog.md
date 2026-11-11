@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.14 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.15 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -712,7 +712,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Status:** done · **Datum:** 2026-11-11 · **PR:** #311 · **Prioriteit:** high · **Epic:** E1/E5 · **Band:** A · **Volgt op:** BL-152/153
 - **Aanleiding:** klanttest 390+desktop: (8) `type=number` huisnummer veranderde via muiswiel (2→1) → verkeerd adres; (9) vaste iframe-hoogte 720 px gaf scroll-in-scroll en invoervelden liepen op mobiel rechts buiten de kaart.
 - **Doel:** tekstvelden met `inputmode`/`pattern`/autocomplete; na opzoeken bevestiging “Is dit je adres? …” met Ja/Aanpassen vóór create; host-snippet auto-resize via `postMessage`+origin-check; geen horizontale overflow op 320/360/390.
-- **Resultaat:** tekstvelden + bevestigingsstap; `EmbedIframeSnippet` in settings/`/embed-test`; Pest + lokale browser 390/1440. Geen veilige bestaande opruimroute voor willekeurige `@example.com`-testintakes (alleen `intakes:purge-demos` voor `is_demo`).
+- **Resultaat:** tekstvelden + bevestigingsstap; `EmbedIframeSnippet` in settings/`/embed-test` met krimpende auto-hoogte (content-measure); Pest + Playwright `19-embed-iframe-resize`; browser 390/1440. Opruim: `intakes:purge-test --email-domain=…` (dry-run / `--confirm`, weigert production).
 
 ### BL-157 — Foto-flow: Toch doorgaan écht door + sticky override-keuze
 

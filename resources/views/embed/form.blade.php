@@ -24,6 +24,8 @@
             margin: 0;
             max-width: 100%;
             overflow-x: hidden;
+            height: auto;
+            min-height: 0;
         }
         body {
             font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;

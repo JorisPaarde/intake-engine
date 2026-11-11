@@ -1,6 +1,6 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding na Joris-stagingtest; BL-158 adresbevestiging + iframe auto-resize. Optioneel later: publieke adres-autocomplete, WP-plugin.
 
@@ -44,9 +44,18 @@ De snippet in bedrijfsinstellingen bevat iframe **én** host-script (auto-resize
 </script>
 ```
 
-Huisnummer en toevoeging zijn `type="text"` met `inputmode="numeric"` / passend `pattern` (geen muiswiel-spin). Op smalle viewports: `box-sizing:border-box`, `min-width:0` op grids/inputs, geen horizontale overflow.
+Huisnummer en toevoeging zijn `type="text"` met `inputmode="numeric"` / passend `pattern` (geen muiswiel-spin). Op smalle viewports: `box-sizing:border-box`, `min-width:0` op grids/inputs, geen horizontale overflow. De child meet de **content** (`main`/card) na `height:auto`-collapse, zodat de host-iframe bij stapwissel (formulier ↔ bevestiging) zowel groeit als krimpt; geen CSS `min-height` op de iframe.
 
 Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe + resize-snippet op de app-host (`'self'`).
+
+### Test-intakes opruimen (staging/local)
+
+```bash
+php artisan intakes:purge-test --email-domain=example.com          # dry-run: aantal + IDs
+php artisan intakes:purge-test --email-domain=example.com --confirm # hard-delete via HardDeleteIntake
+```
+
+Weigert `production`. Dry-run toont geen e-mailadressen/namen. Slaat `is_demo`-intakes over (`intakes:purge-demos` blijft daarvoor).
 
 ## Beveiliging (kort)
 

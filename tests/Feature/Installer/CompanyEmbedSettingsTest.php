@@ -204,7 +204,9 @@ test('iframe snippet includes auto-resize postMessage listener with origin check
         ->and($snippet)->toContain('event.origin!==expectedOrigin')
         ->and($snippet)->toContain('data.type!=="resize"')
         ->and($snippet)->not->toContain('height="720"')
-        ->and($snippet)->toContain('height="480"');
+        ->and($snippet)->not->toContain('min-height:320px')
+        ->and($snippet)->toContain('height="480"')
+        ->and($snippet)->toContain('iframe.removeAttribute("height")');
 
     expect(EmbedIframeSnippet::MESSAGE_SOURCE)->toBe('intake-engine-embed')
         ->and(EmbedIframeSnippet::MESSAGE_TYPE_RESIZE)->toBe('resize');
