@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-156 | Embed/klantwizard: energielabel tonen + soft melding bij geen label/EP-fout | E1/E2/E7 | in_progress | high | na BL-154 · klanttest 11 nov · Warschaustraat 18 / Grote Markt 2 |
+| — | BL-156 | Embed/klantwizard: energielabel tonen + soft melding bij geen label/EP-fout | E1/E2/E7 | done | high | na BL-154 · klanttest 11 nov · PR #307 · 2026-11-11 |
 | — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | done | high | na BL-153 · staging 390 Joris · PR #306 · 2026-11-11 |
 | — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | done | high | na BL-152/153 · staging bug Joris · PR #305 · 2026-11-11 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
@@ -707,12 +707,13 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-156 — Embed/klantwizard energielabel tonen + soft melding
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E2/E7 · **Band:** A · **Volgt op:** BL-154
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #307 · **Prioriteit:** high · **Epic:** E1/E2/E7 · **Band:** A · **Volgt op:** BL-154
 - **Aanleiding:** klanttest 11 nov op staging embed: na adres verschenen straat/plaats/bouwjaar/woningtype wel, maar geen energielabel (Warschaustraat 18 / 2034VL Haarlem heeft label A; Grote Markt 2 idem leeg).
 - **Oorzaak:** (1) `Intake::knownHousingFactLines()` toonde alleen bouwjaar + woningtype — ook als `energy_label` wél in `intake_external_facts` stond. (2) Bij geen label / EP-fout / EP uit werd geen status vastgelegd, dus geen klantmelding. Endpoint/auth (`/api/v5/PandEnergielabel/AdresseerbaarObject/{BAG-VBO-id}`, `Authorization: EP_ONLINE_KEY`) bleven correct.
 - **Doel:** labelletter in de bekende-woninggegevenslijst; bij `not_found`/`unavailable` soft NL-melding zonder flowblokkade; Pest met gemockte EP-responses (gevonden / geen label / timeout).
 - **Scope:** `knownHousingFactLines` + `energyLabelCustomerNote`; `EnrichIntakeAddress::captureEnergyLabel` statusfeit; wizard-blade; smoke `--expect-energy-label=`; docs. Geen echte secrets in code/logs.
 - **Acceptatie:** Pest groen; met `EP_ONLINE_ENABLED`+key toont Warschaustraat 18 label A; zonder label/storing geen blokkade + soft melding.
+- **Resultaat:** PR #307; live Warschaustraat-A-check op staging vereist geconfigureerde EP-key (niet in deze cloud-run).
 
 ### BL-155 — Klantwizard ruimte-eyebrow + aaneengesloten teller
 
