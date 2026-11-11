@@ -23,6 +23,7 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AiRunStatus;
@@ -208,16 +209,18 @@ final class AssessFuseboxPhotos
             if ($existing !== null && ! $existing->needsReassessment()) {
                 $assessment = $existing;
                 if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                    && ! $assessment->customerAcceptedMismatch()) {
+                    && ! $assessment->customerAcceptedOverride()) {
                     continue;
                 }
 
                 $hasMismatchOnly = false;
-                if ($assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
+                // BL-161: Toch doorgaan (needs_clearer óf wrong_subject) telt als ok-match
+                // en mag fusebox_clarity niet opnieuw op needs_clearer_photo zetten.
+                if ($assessment->customerAcceptedOverride()) {
+                    $hasOkMatch = true;
+                } elseif ($assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
                     $needsClearer = true;
-                }
-                if ($assessment->status() === PhotoContentAssessment::STATUS_OK
-                    || $assessment->customerAcceptedMismatch()) {
+                } elseif ($assessment->status() === PhotoContentAssessment::STATUS_OK) {
                     $hasOkMatch = true;
                 }
 
@@ -239,7 +242,7 @@ final class AssessFuseboxPhotos
             }
 
             if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                && ! $assessment->customerAcceptedMismatch()) {
+                && ! $assessment->customerAcceptedOverride()) {
                 if ($assessed['trace'] instanceof AiTraceHandle) {
                     $this->finalizeContentOnlyTrace(
                         $assessed['trace'],
@@ -254,12 +257,11 @@ final class AssessFuseboxPhotos
 
             $hasMismatchOnly = false;
 
-            if ($assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
+            if ($assessment->customerAcceptedOverride()) {
+                $hasOkMatch = true;
+            } elseif ($assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
                 $needsClearer = true;
-            }
-
-            if ($assessment->status() === PhotoContentAssessment::STATUS_OK
-                || $assessment->customerAcceptedMismatch()) {
+            } elseif ($assessment->status() === PhotoContentAssessment::STATUS_OK) {
                 $hasOkMatch = true;
             }
 
@@ -320,7 +322,7 @@ final class AssessFuseboxPhotos
                 }
 
                 return $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                    || $assessment->customerAcceptedMismatch();
+                    || $assessment->customerAcceptedOverride();
             })->values();
 
             if ($applyContext !== null) {
@@ -424,7 +426,11 @@ final class AssessFuseboxPhotos
                         $this->storeObservation($intake, $run, $output, $matchingUploads, $trace->traceId());
 
                         // Foto mag free_group_known nooit afleiden (BL-129): alleen clarity + observation.
-                        if ($hasOkMatch) {
+                        // BL-161: override/"Toch doorgaan" → clear (geen verplichte extra foto),
+                        // ook als clarityValue anders needs_clearer_photo zou teruggeven.
+                        if ($this->fuseboxExtraWaivedByOverride($matchingUploads)) {
+                            $this->prefillClarity($intake, 'clear');
+                        } elseif ($hasOkMatch) {
                             $this->prefillClarity($intake, $this->clarityValue($output));
                         } elseif ($needsClearer) {
                             $this->prefillClarity($intake, 'needs_clearer_photo');
@@ -734,7 +740,9 @@ final class AssessFuseboxPhotos
      */
     private function applyUploadAssessment(IntakeUpload $upload, PhotoSubject $expected, array $output): void
     {
-        $previous = $upload->contentAssessment();
+        // Verse DB-rij: override-flag kan net gezet zijn terwijl de collectie-stale is.
+        $fresh = IntakeUpload::query()->whereKey($upload->id)->first() ?? $upload;
+        $previous = $fresh->contentAssessment();
         $assessment = PhotoContentAssessment::fromModelOutput($expected, $output);
 
         // Meterkast: onleesbare fase/lage confidence zonder retake → toch scherpere foto vragen.
@@ -746,7 +754,7 @@ final class AssessFuseboxPhotos
             $assessment = PhotoContentAssessment::needsClearer($expected, $message);
         }
 
-        $upload->storeContentAssessment($assessment->preservingCustomerAcceptance($previous));
+        $fresh->storeContentAssessment($assessment->preservingCustomerAcceptance($previous));
     }
 
     /**
@@ -1030,6 +1038,12 @@ final class AssessFuseboxPhotos
             return;
         }
 
+        // Late AI-job na Toch doorgaan: nooit opnieuw needs_clearer_photo forceren.
+        if ($clarity === 'needs_clearer_photo'
+            && $this->fuseboxExtraWaivedByOverride($this->currentFuseboxUploads($intake))) {
+            $clarity = 'clear';
+        }
+
         $existing = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->where('question_key', self::CLARITY_QUESTION)
@@ -1047,6 +1061,30 @@ final class AssessFuseboxPhotos
             ['value' => $clarity],
             PrefillSources::AI_PHOTO,
         );
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function fuseboxExtraWaivedByOverride(Collection $uploads): bool
+    {
+        // Altijd verse DB-state: $allUploads in handle() kan stale content_assessment hebben
+        // nadat applyUploadAssessment al schreef.
+        $ids = $uploads->pluck('id')->filter()->values()->all();
+        if ($ids === []) {
+            return false;
+        }
+
+        $fresh = IntakeUpload::query()->whereIn('id', $ids)->get();
+        $primary = $fresh->filter(
+            static fn (IntakeUpload $upload): bool => $upload->question_key === self::PHOTO_QUESTION,
+        );
+
+        if ($primary->isEmpty()) {
+            $primary = $fresh;
+        }
+
+        return PhotoOverridePolicy::hasAcceptedOverride($primary);
     }
 
     /**

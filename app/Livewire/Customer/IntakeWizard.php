@@ -3015,26 +3015,12 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Na Toch doorgaan op een afgekeurde meterkastfoto: zet fusebox_clarity terug
-     * naar clear zodat fusebox_photo_extra verdwijnt (BL-158, spiegel van BL-157).
+     * Na Toch doorgaan op een afgekeurde meterkastfoto: zet fusebox_clarity op
+     * clear zodat fusebox_photo_extra verdwijnt (BL-158/BL-161, spiegel van BL-157).
+     * Altijd upsert — ook als clarity nog ontbrak (late AI) of al clear stond.
      */
     private function clearForcedExtraFuseboxPhoto(): void
     {
-        $answer = IntakeAnswer::query()
-            ->where('intake_id', $this->intakeId)
-            ->where('question_key', 'fusebox_clarity')
-            ->whereNull('section_instance_key')
-            ->first();
-
-        if (! $answer instanceof IntakeAnswer) {
-            return;
-        }
-
-        $value = is_array($answer->value) ? ($answer->value['value'] ?? null) : null;
-        if ($value !== 'needs_clearer_photo') {
-            return;
-        }
-
         app(SaveIntakeAnswer::class)->handle(
             $this->intake(),
             'fusebox_clarity',

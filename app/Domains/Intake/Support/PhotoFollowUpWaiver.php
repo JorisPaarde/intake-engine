@@ -10,8 +10,9 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Enums\QuestionType;
 
 /**
- * N73: de extra meterkastfoto (`fusebox_photo_extra`) is niet verplicht zodra de
- * klant op de hoofdfoto (`fusebox_photo`) “Toch doorgaan” koos.
+ * N73/BL-158/BL-161: na “Toch doorgaan” op de hoofdfoto (`fusebox_photo`) hoort
+ * de extra meterkastfoto (`fusebox_photo_extra`) weg — niet alleen optioneel, maar
+ * verborgen in de wizardstappen (late AI mag clarity niet opnieuw forceren).
  */
 final class PhotoFollowUpWaiver
 {

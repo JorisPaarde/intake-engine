@@ -11,7 +11,7 @@ import {
 } from '../helpers/app';
 
 /**
- * Klanttest 11 nov run 3 (BL-161): na “Verschilt per ruimte” volgen per-kamer
+ * Klanttest 11 nov run 3 (BL-162): na “Verschilt per ruimte” volgen per-kamer
  * verdieping (en zon); Afronden-links mogen niet dood zijn.
  */
 test.describe('Verschilt per ruimte → per kamer tot Afronden', () => {

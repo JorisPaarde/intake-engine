@@ -366,10 +366,10 @@ test('P3: pipe_route prompt forbids buitenunitplek; code does not rewrite model 
 
 test('P3: outdoor assessment does not guess mount_type without clear location', function () {
     $prompt = app(PromptVersionRepository::class)->body('outdoor_assessment');
-    expect(app(PromptVersionRepository::class)->version('outdoor_assessment'))->toBe('outdoor-assessment-v8')
+    expect(app(PromptVersionRepository::class)->version('outdoor_assessment'))->toBe('outdoor-assessment-v9')
         ->and($prompt)->toContain('Geen montage-gok')
         ->and($prompt)->toContain('zonder bestaande buitenunit')
-        ->and($prompt)->toContain('Redelijke gevel-/muurfoto’s accepteren');
+        ->and($prompt)->toContain('Tuin-/gevelfoto’s altijd accepteren');
 
     $intake = b2Intake();
     FakeAiClient::alwaysReturn([
