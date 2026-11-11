@@ -475,8 +475,11 @@ final class IntakeStepBuilder
                 $forceShow,
             );
 
+            // BL-161: na Toch doorgaan op fusebox_photo de extra foto helemaal
+            // verbergen (niet alleen un-require) — ook als fusebox_clarity per
+            // ongeluk weer needs_clearer_photo is.
             if (PhotoFollowUpWaiver::waives($intake, $intake->templateVersion, $question, $sectionInstanceKey)) {
-                $presentation['required'] = false;
+                continue;
             }
 
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;

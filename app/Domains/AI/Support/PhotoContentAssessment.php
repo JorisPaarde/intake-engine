@@ -86,6 +86,21 @@ final class PhotoContentAssessment
     }
 
     /**
+     * Outdoor-plek-enums die bewijzen dat de foto buitenruimte toont (BL-161).
+     *
+     * @var list<string>
+     */
+    private const OUTDOOR_PLACE_VALUES = [
+        'garden',
+        'side_passage',
+        'facade',
+        'balcony',
+        'flat_roof',
+        'pitched_roof',
+        'dormer',
+    ];
+
+    /**
      * Eén fabriek voor Derive / Fusebox / Follow-up.
      *
      * Derive/Fusebox (geen accepted-set): subject_match=no → altijd wrong_subject,
@@ -93,6 +108,8 @@ final class PhotoContentAssessment
      * Accepted-set: detected in de set geldt als match (ongeacht subject_match) —
      * ook op het derive-pad voor outdoor/around_house/drain (BL-158: redelijke
      * gevel-/buitenmuurfoto’s niet afkeuren om subject_match=no).
+     * Outdoor (BL-161): bekende outdoor_location-enum of subject_match=yes met
+     * detected=other → coerce naar outdoor_location (tuin/gevel niet afkeuren).
      * Bruikbare match + retake_instruction → needs_clearer
      * (behalve route-foto’s én geaccepteerde outdoor-onderwerpen: die blijven ok).
      *
@@ -110,9 +127,22 @@ final class PhotoContentAssessment
         $detected = PhotoSubject::tryFromMixed($output['detected_subject'] ?? null);
         if ($detected === null) {
             if (($output['subject_match'] ?? 'yes') !== 'yes') {
-                return self::wrongSubject($expected, PhotoSubject::Other, $questionKey);
+                // Outdoor: bekende plek-enum wint van ontbrekende detected + match=no.
+                if (self::isOutdoorPlacementQuestion($expected, $questionKey)
+                    && self::outdoorPlaceFromOutput($output) !== null) {
+                    $detected = PhotoSubject::OutdoorLocation;
+                } else {
+                    return self::wrongSubject($expected, PhotoSubject::Other, $questionKey);
+                }
+            } else {
+                $detected = $expected;
             }
-            $detected = $expected;
+        }
+
+        // Outdoor: coerce “other”/twijfel naar outdoor_location wanneer de output
+        // zelf een herkenbare buitenplek noemt, of subject_match=yes zegt.
+        if (self::isOutdoorPlacementQuestion($expected, $questionKey)) {
+            $detected = self::coerceOutdoorDetected($detected, $output);
         }
 
         // Een expliciete leidingroutefoto mag de klant nooit blokkeren.
@@ -156,7 +186,7 @@ final class PhotoContentAssessment
             return self::ok($expected, $detected === PhotoSubject::Other ? $expected : $detected);
         }
 
-        // Outdoor/gevel/around_house (BL-158): geaccepteerd outdoor-onderwerp = ok;
+        // Outdoor/gevel/around_house (BL-158/BL-161): geaccepteerd outdoor-onderwerp = ok;
         // retake over montage-/kaderdetails mag de klant niet soft-blokkeren.
         // drain_photo valt hierboven al af bij subject_match=no.
         if ($expected === PhotoSubject::OutdoorLocation
@@ -170,6 +200,50 @@ final class PhotoContentAssessment
         }
 
         return self::ok($expected, $detected === PhotoSubject::Other ? $expected : $detected);
+    }
+
+    private static function isOutdoorPlacementQuestion(PhotoSubject $expected, ?string $questionKey): bool
+    {
+        return $expected === PhotoSubject::OutdoorLocation && $questionKey !== 'drain_photo';
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private static function outdoorPlaceFromOutput(array $output): ?string
+    {
+        $place = $output['outdoor_location'] ?? null;
+
+        return is_string($place) && in_array($place, self::OUTDOOR_PLACE_VALUES, true)
+            ? $place
+            : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private static function coerceOutdoorDetected(PhotoSubject $detected, array $output): PhotoSubject
+    {
+        if (in_array($detected, [PhotoSubject::OutdoorLocation, PhotoSubject::OutdoorUnit], true)) {
+            return $detected;
+        }
+
+        // Duidelijk binnen → niet herlabelen.
+        if (in_array($detected, [PhotoSubject::Room, PhotoSubject::Fusebox, PhotoSubject::IndoorUnit], true)) {
+            return $detected;
+        }
+
+        if (self::outdoorPlaceFromOutput($output) !== null) {
+            return PhotoSubject::OutdoorLocation;
+        }
+
+        // Model zegt match=yes maar zet detected=other (strenge montage-eis) → alsnog outdoor.
+        if (($output['subject_match'] ?? 'no') === 'yes'
+            && in_array($detected, [PhotoSubject::Other, PhotoSubject::PipeRoute], true)) {
+            return PhotoSubject::OutdoorLocation;
+        }
+
+        return $detected;
     }
 
     /** Behoud klant-acceptatie wanneer een herbeoordeling opnieuw een niet-ok oordeel oplevert. */
