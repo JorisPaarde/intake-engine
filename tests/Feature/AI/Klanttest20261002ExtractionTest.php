@@ -359,9 +359,9 @@ test('case 81: alle expliciete feiten opgeslagen met bron; stroom/condens niet u
     expect($photoSteps)->toHaveCount(2)
         ->and($photoSteps[0]['title'])->toBe('Foto’s van de ruimte')
         ->and($photoSteps[1]['title'])->toBe('Foto’s van de ruimte')
-        // Eyebrow: kamernaam + van-N, zonder dossier-verdieping ertussen (BL-155).
-        ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders van 2')
-        ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer van 2')
+        // Eyebrow: kamernaam + overall N van M, zonder dossier-verdieping ertussen (BL-155/BL-161).
+        ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders · 1 van 2')
+        ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer · 2 van 2')
         ->and($summaryKeys)->not->toContain('fusebox_clarity')
         ->and($summaryKeys)->not->toContain('drain_location')
         ->and($summaryKeys)->not->toContain('free_group_known');
@@ -737,7 +737,7 @@ test('v16 legacy skip ai matcht ai_text/ai_photo in stepbuilder en known-summary
         ->and($keys)->not->toContain('sun_exposure');
 });
 
-test('known-summary toont derived_lxw als berekend uit L×B en natural instance-volgorde', function () {
+test('known-summary toont derived_lxw als m²-getal met L×B-toelichting en natural instance-volgorde', function () {
     $intake = klanttestIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 10], PrefillSources::AI_TEXT);
     app(SaveIntakeAnswer::class)->handle($intake, 'room_length_m', 'room-2', ['number' => 4], PrefillSources::AI_TEXT);
@@ -751,7 +751,10 @@ test('known-summary toont derived_lxw als berekend uit L×B en natural instance-
 
     $areaItems = $items->where('question_key', 'room_area_m2')->values();
     expect($areaItems)->not->toBeEmpty()
-        ->and($areaItems->every(static fn (array $item): bool => $item['display_value'] === 'berekend uit L×B'))->toBeTrue();
+        ->and($areaItems->pluck('display_value')->all())->toBe([
+            '12 m² (berekend uit 4 × 3 m)',
+            '20 m² (berekend uit 5 × 4 m)',
+        ]);
 
     $instances = $items->pluck('section_instance_key')->filter()->unique()->values()->all();
     expect($instances)->toBe(['room-2', 'room-10']);

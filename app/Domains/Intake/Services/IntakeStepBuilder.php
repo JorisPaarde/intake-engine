@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
@@ -1142,7 +1143,7 @@ final class IntakeStepBuilder
 
             $display = $source === PrefillSources::DERIVED_LXW
                 && $answer->question_key === 'room_area_m2'
-                ? 'berekend uit L×B'
+                ? $this->displayDerivedAreaValue($answer, $answers)
                 : $this->displayAnswerValue($question, $answer->value);
             if ($display === null) {
                 continue;
@@ -1221,7 +1222,8 @@ final class IntakeStepBuilder
     }
 
     /**
-     * Ruimtelabel voor de klant: "Slaapkamer 2 van 3" (nummering per type + totaal).
+     * Ruimtelabel voor de klant: overall “Kamer N van M (type)” — niet per soort
+     * met een totaal dat niet bij dat soort hoort (klanttest run 3).
      *
      * @param  array<string, array<string, mixed>|null>  $answers
      */
@@ -1231,80 +1233,133 @@ final class IntakeStepBuilder
             return null;
         }
 
-        $base = $this->rawRoomName($intake, $sectionInstanceKey, $answers);
-        if ($base === null) {
-            return null;
-        }
-
         $total = $this->roomInstanceTotal($intake, $answers);
-        if ($total <= 1) {
-            return $base;
-        }
-
         $index = $this->roomInstanceIndex($sectionInstanceKey, $intake, $answers);
-        if ($index === null) {
-            return $base;
+
+        $explicit = $this->explicitRoomName($answers, $sectionInstanceKey)
+            ?? $this->customDossierRoomName($intake, $sectionInstanceKey);
+        if ($explicit !== null) {
+            if ($total <= 1 || $index === null) {
+                return $explicit;
+            }
+            if (preg_match('/ van \d+$/u', $explicit) === 1) {
+                return $explicit;
+            }
+
+            return $explicit.' · '.$index.' van '.$total;
         }
 
-        // Al "… van N" → niet verdubbelen.
-        if (preg_match('/ van \d+$/u', $base) === 1) {
-            return $base;
+        $type = $this->roomTypeForInstance($intake, $sectionInstanceKey, $answers);
+        $typeLower = RoomLabelResolver::typeLabelLower($type);
+
+        if ($total <= 1 || $index === null) {
+            return RoomLabelResolver::typeLabel($type);
         }
 
-        return $base.' van '.$total;
+        $label = 'Kamer '.$index.' van '.$total;
+        if ($typeLower !== null) {
+            $label .= ' ('.$typeLower.')';
+        }
+
+        return $label;
     }
 
-    /**
-     * Klant-eyebrow basisnaam: type+index of expliciete kamernaam — nooit de
-     * dossiernaam met aangeplakte verdieping (“Slaapkamer 1, kelder / souterrain”).
-     *
-     * @param  array<string, array<string, mixed>|null>  $answers
-     */
-    private function rawRoomName(Intake $intake, string $sectionInstanceKey, array $answers): ?string
+    private function customDossierRoomName(Intake $intake, string $sectionInstanceKey): ?string
     {
-        $explicit = $answers[VisibilityResolver::compositeKey('room_name', $sectionInstanceKey)] ?? null;
-        if (is_array($explicit)) {
-            $text = $explicit['text'] ?? $explicit['value'] ?? null;
-            if (is_string($text) && trim($text) !== '') {
-                return $this->stripAppendedFloorLabel(trim($text));
-            }
-        }
-
-        $types = RoomLabelResolver::typesByInstance($answers);
-        if ($types !== []) {
-            $typeCounts = [];
-            foreach ($types as $instance => $type) {
-                $label = RoomLabelResolver::label(is_string($type) ? $type : null, $typeCounts);
-                if ($instance === $sectionInstanceKey) {
-                    return $label;
-                }
-            }
-        }
-
         $intake->loadMissing('aircoRooms');
         $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
         if ($room === null) {
             return null;
         }
 
-        $useType = is_string($room->use_type) && $room->use_type !== '' ? $room->use_type : null;
-        if ($useType !== null) {
-            $typeCounts = [];
-            $ordered = $intake->aircoRooms->sortBy('key')->values();
-            foreach ($ordered as $candidate) {
-                $candidateType = is_string($candidate->use_type) && $candidate->use_type !== ''
-                    ? $candidate->use_type
-                    : 'other';
-                $label = RoomLabelResolver::label($candidateType, $typeCounts);
-                if ($candidate->key === $sectionInstanceKey) {
-                    return $label;
-                }
-            }
+        $name = $this->stripAppendedFloorLabel(trim($room->name));
+        if ($name === '' || RoomLabelResolver::isGeneratedPlaceholder($name)) {
+            return null;
         }
 
-        $name = trim($room->name);
+        return $name;
+    }
 
-        return $name !== '' ? $this->stripAppendedFloorLabel($name) : null;
+    /**
+     * Known-summary: toon het berekende m²-getal, met optionele L×B-toelichting.
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function displayDerivedAreaValue(IntakeAnswer $answer, array $answers): ?string
+    {
+        $area = is_array($answer->value) ? ($answer->value['number'] ?? null) : null;
+        if (! is_numeric($area)) {
+            return null;
+        }
+
+        $areaLabel = $this->formatMetersSquared((float) $area);
+        $instance = $answer->section_instance_key;
+        if (! is_string($instance) || $instance === '') {
+            return $areaLabel;
+        }
+
+        $lengthValue = $answers[VisibilityResolver::compositeKey('room_length_m', $instance)] ?? null;
+        $widthValue = $answers[VisibilityResolver::compositeKey('room_width_m', $instance)] ?? null;
+        $length = is_array($lengthValue) ? ($lengthValue['number'] ?? null) : null;
+        $width = is_array($widthValue) ? ($widthValue['number'] ?? null) : null;
+        if (! is_numeric($length) || ! is_numeric($width)) {
+            return $areaLabel;
+        }
+
+        return $areaLabel.' (berekend uit '.$this->formatMeterComponent((float) $length)
+            .' × '.$this->formatMeterComponent((float) $width).' m)';
+    }
+
+    private function formatMetersSquared(float $value): string
+    {
+        return $this->formatMeterComponent($value).' m²';
+    }
+
+    private function formatMeterComponent(float $value): string
+    {
+        if (abs($value - round($value)) < 0.00001) {
+            return (string) (int) round($value);
+        }
+
+        $formatted = number_format($value, 2, ',', '');
+
+        return rtrim(rtrim($formatted, '0'), ',');
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function explicitRoomName(array $answers, string $sectionInstanceKey): ?string
+    {
+        $explicit = $answers[VisibilityResolver::compositeKey('room_name', $sectionInstanceKey)] ?? null;
+        if (! is_array($explicit)) {
+            return null;
+        }
+        $text = $explicit['text'] ?? $explicit['value'] ?? null;
+        if (! is_string($text) || trim($text) === '') {
+            return null;
+        }
+
+        return $this->stripAppendedFloorLabel(trim($text));
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function roomTypeForInstance(Intake $intake, string $sectionInstanceKey, array $answers): ?string
+    {
+        $types = RoomLabelResolver::typesByInstance($answers);
+        if (array_key_exists($sectionInstanceKey, $types)) {
+            $type = $types[$sectionInstanceKey];
+
+            return is_string($type) && $type !== '' ? $type : null;
+        }
+
+        $intake->loadMissing('aircoRooms');
+        $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
+        $useType = is_string($room?->use_type) && $room->use_type !== '' ? $room->use_type : null;
+
+        return $useType;
     }
 
     /**

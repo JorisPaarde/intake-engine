@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.28 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.29 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Klanttest run 3 labels/teller/klembord (BL-161) | done | 2026-11-11 | Lokaal Playwright 390+1440: known-summary toont `15 m² (berekend uit 3 × 5 m)` + overall `Kamer N van M (type)`; foto-stap eyebrow idem; geen zichtbare “Vraag N” (alleen balk/%). Screenshots `/opt/cursor/artifacts/bl161-known-summary-390.png`, `…-1440.png`, `bl161-room-eyebrow-390.png`, `…-1440.png`. Pest `KlanttestRun3WizardLabelsTest`; E2E `20-klanttest-run3-labels`. |
 | Embed adresbevestiging + iframe resize (BL-160) | done | 2026-11-11 | Lokaal `/embed-test`: huisnummer `type=text`; confirm **Is dit je adres?**; iframe **krimpt** strak om de kaart (geen leeg grijs vlak); form 390 tot knop zonder horizontale scroll; één AVG-vinkje (geen dubbele toestemming t.o.v. BL-159). Screenshots `bl158-embed-form-390.png`, `bl158-embed-confirm-390.png`, `bl158-embed-confirm-1440.png`. Playwright `19-embed-iframe-resize`. Opruim: `intakes:purge-test` (niet op staging uitgevoerd door agent). |
 | Embed UX zon/glas + leidingen + AVG (BL-159) | todo | - | 390 + 1440: gedeelde zon/glas zonder fotoverwijzing (“deze ruimtes”); `pipe_visibility` met zichtwerk/weggewerkt-uitleg; embed-formulier AVG-vinkje (gegevens+foto’s, unchecked); wizard toont privacy_consent niet opnieuw; geen “Vraag X van Y” (alleen balk/%); **Verschilt per ruimte** → zon per kamer; ook op buitenunit-/meterkaststappen. |
 | Buitenunit-tip/drempel + meterkast-extra (BL-158) | done | 2026-11-11 | Lokaal Playwright viewport 390+1440: outdoor-stap één tip (“gevel of buitenmuur… herkenbaar”, zelfde op 390/1440); meterkast-override footer **Toch doorgaan** zonder DIN-rail (klantretake “scherpere foto… vrije plek…”). Screenshots `/opt/cursor/artifacts/bl158-outdoor-tip-390.png`, `…-outdoor-tip-1440.png`, `…-fusebox-override-390.png`, `…-fusebox-override-1440.png`. Pest dekt drempel + skip extra foto. |
