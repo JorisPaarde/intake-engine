@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-158 | Embed: huisnummer tekstveld + adresbevestiging + iframe auto-resize / geen mobiele overflow | E1/E5 | in_progress | high | klanttest 11 nov punten 8–9 · na BL-152/153 |
+| — | BL-158 | Embed: huisnummer tekstveld + adresbevestiging + iframe auto-resize / geen mobiele overflow | E1/E5 | done | high | klanttest 11 nov punten 8–9 · PR #311 · 2026-11-11 |
 | — | BL-157 | Foto-flow: Toch doorgaan écht door + sticky override-keuze (geen stille Volgende) | E1/E7 | done | high | klanttest 11 nov · foto-flow · PR #308 · 2026-11-11 · was parallel als BL-156 |
 | — | BL-156 | Embed/klantwizard: energielabel tonen + soft melding bij geen label/EP-fout | E1/E2/E7 | done | high | na BL-154 · klanttest 11 nov · PR #307 · 2026-11-11 |
 | — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | done | high | na BL-153 · staging 390 Joris · PR #306 · 2026-11-11 |
@@ -709,11 +709,10 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-158 — Embed adresbevestiging + iframe auto-resize
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E5 · **Band:** A · **Volgt op:** BL-152/153
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #311 · **Prioriteit:** high · **Epic:** E1/E5 · **Band:** A · **Volgt op:** BL-152/153
 - **Aanleiding:** klanttest 390+desktop: (8) `type=number` huisnummer veranderde via muiswiel (2→1) → verkeerd adres; (9) vaste iframe-hoogte 720 px gaf scroll-in-scroll en invoervelden liepen op mobiel rechts buiten de kaart.
 - **Doel:** tekstvelden met `inputmode`/`pattern`/autocomplete; na opzoeken bevestiging “Is dit je adres? …” met Ja/Aanpassen vóór create; host-snippet auto-resize via `postMessage`+origin-check; geen horizontale overflow op 320/360/390.
-- **Scope:** embed-form/confirm views, `EmbedIntakeController` twee-stapsflow, `EmbedIframeSnippet`, settings-snippet, `/embed-test`, docs/plans/embed-form.md. Pest: bevestigingsstap + snippet. Geen foto-/teller-/tekstwijzigingen in de klantwizard.
-- **Acceptatie:** Pest groen; browser `/embed-test` 390+1440 zonder horizontale overflow; iframe-hoogte volgt inhoud.
+- **Resultaat:** tekstvelden + bevestigingsstap; `EmbedIframeSnippet` in settings/`/embed-test`; Pest + lokale browser 390/1440. Geen veilige bestaande opruimroute voor willekeurige `@example.com`-testintakes (alleen `intakes:purge-demos` voor `is_demo`).
 
 ### BL-157 — Foto-flow: Toch doorgaan écht door + sticky override-keuze
 
