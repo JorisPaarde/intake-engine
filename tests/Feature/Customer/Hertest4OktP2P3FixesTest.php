@@ -136,7 +136,7 @@ test('P2-a: PhotoOverridePolicy is gedeelde bron voor wizard en follow-up', func
     ]);
 
     expect(PhotoOverridePolicy::needsOverride($upload))->toBeTrue()
-        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toBe('Kies: foto vervangen of toch doorgaan.');
+        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toBe('Niet alle foto’s zijn goed gelukt. Maak ze opnieuw of ga toch door.');
 
     // Persistente acceptatie vereist een opgeslagen upload; hier alleen de gedeelde flag-path.
     $assessment = PhotoContentAssessment::needsClearer(PhotoSubject::Fusebox, 'lage resolutie')

@@ -133,10 +133,10 @@
             @endforeach
         </ul>
 
-        {{-- Eén melding per fotovraag: soft-timeout óf override-keuze. --}}
+        {{-- Eén melding per fotovraag: soft-timeout óf override-uitleg (keuzeknoppen alleen in sticky footer, BL-156). --}}
         @if ($photoMismatchAssessment || $unresolvedOverrideCount > 0)
             <div
-                class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3"
+                class="space-y-2 rounded-xl border border-[#eac3b4] bg-white px-3 py-3"
                 role="alert"
                 data-testid="photo-mismatch-panel"
                 id="photo-mismatch-panel-{{ str_replace(['.', ' '], '-', $composite) }}"
@@ -151,27 +151,6 @@
                 <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-explain">
                     {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanationFor($existingUploads) }}
                 </p>
-                @if ($showMissing)
-                    <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
-                        {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
-                    </p>
-                @endif
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <button
-                        type="button"
-                        wire:click="acceptPhotoMismatch"
-                        wire:loading.attr="disabled"
-                        wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride"
-                        class="flex min-h-11 items-center justify-center rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
-                        data-testid="photo-accept-mismatch"
-                    >
-                        <span wire:loading.remove wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride">Toch doorgaan</span>
-                        <span wire:loading wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride" class="inline-flex items-center gap-2">
-                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
-                            Bezig…
-                        </span>
-                    </button>
-                </div>
             </div>
         @elseif ($showSoftTimeoutLine)
             <div

@@ -37,6 +37,8 @@ test.describe('Photo feedback', () => {
     await expect(page.getByTestId('footer-photo-override')).toBeVisible();
     await expect(page.getByTestId('footer-accept-mismatch')).toBeVisible();
     await expect(page.getByTestId('footer-replace-photos')).toBeVisible();
+    await expect(page.getByTestId('photo-accept-mismatch')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Toch doorgaan$/i })).toHaveCount(1);
     await expect(page.getByTestId('next-button')).toHaveCount(0);
     await expect(page.getByText(/Status:/i)).toHaveCount(0);
 

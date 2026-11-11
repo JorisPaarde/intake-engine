@@ -869,8 +869,9 @@ test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blij
         ->assertSet('activeStepKey', $stepBefore)
         ->assertSet('stepIndex', $indexBefore)
         ->assertDispatched('scroll-to-photo-mismatch')
-        ->assertSee('Kies: foto vervangen of toch doorgaan')
-        ->assertSeeHtml('data-testid="mismatch-next-warning"')
+        ->assertSee('Niet alle foto’s zijn goed gelukt')
+        ->assertDontSeeHtml('data-testid="mismatch-next-warning"')
+        ->assertDontSeeHtml('data-testid="photo-accept-mismatch"')
         ->assertSeeHtml('data-testid="photo-mismatch-panel"')
         ->assertSeeHtml('data-testid="footer-mismatch-warning"');
 });

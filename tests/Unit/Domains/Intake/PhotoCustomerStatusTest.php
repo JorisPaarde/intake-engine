@@ -210,9 +210,9 @@ it('names which photo the panel is about when another photo on the step is fine 
         ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $good, $wrong])))
         ->toBe('Foto 1 en 3 van 3 zijn nog niet goed.')
         ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good, $wrong])))
-        ->toBe('Je andere foto is goed ontvangen. Vervang deze foto’s of ga toch door; je installateur krijgt ze dan wel en kijkt er zelf naar.')
+        ->toBe('Je andere foto is goed ontvangen. Je installateur krijgt deze foto’s dan wel en kijkt er zelf naar.')
         ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good, statusUpload(['id' => 14])])))
-        ->toBe('Je andere foto’s zijn goed ontvangen. Vervang deze foto of ga toch door; je installateur krijgt hem dan wel en kijkt er zelf naar.')
+        ->toBe('Je andere foto’s zijn goed ontvangen. Je installateur krijgt deze foto dan wel en kijkt er zelf naar.')
         ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $wrong])))
         ->toBe('2 foto’s zijn nog niet goed.');
 });

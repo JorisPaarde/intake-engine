@@ -150,12 +150,14 @@ test('meerdere afgekeurde foto’s: meervoudskop en één Toch doorgaan', functi
 
     expect($html)->toContain('3 foto’s zijn nog niet goed.')
         ->and($html)->toContain(PhotoOverridePolicy::PANEL_EXPLAIN_MANY)
-        ->and(substr_count($html, 'data-testid="photo-accept-mismatch"'))->toBe(1)
+        ->and(substr_count($html, 'data-testid="photo-accept-mismatch"'))->toBe(0)
+        ->and(substr_count($html, 'data-testid="footer-accept-mismatch"'))->toBe(1)
+        ->and(substr_count($html, 'Toch doorgaan'))->toBe(1)
         ->and(substr_count($html, PhotoCustomerStatus::WRONG_SUBJECT))->toBe(3)
         ->and($html)->not->toContain('Status:');
 });
 
-test('bij foto-waarschuwing toont sticky footer Toch doorgaan i.p.v. Volgende', function () {
+test('bij foto-waarschuwing toont sticky footer één Toch doorgaan i.p.v. Volgende', function () {
     $intake = fotoStatusIntake();
     seedOneRoomForPhotos($intake);
     seedRejectedRoomPhoto($intake);
@@ -169,15 +171,21 @@ test('bij foto-waarschuwing toont sticky footer Toch doorgaan i.p.v. Volgende', 
         ->assertSeeHtml('data-testid="footer-mismatch-warning"')
         ->assertSeeHtml('data-testid="footer-accept-mismatch"')
         ->assertSeeHtml('data-testid="footer-replace-photos"')
+        ->assertSeeHtml('data-testid="photo-mismatch-panel"')
+        ->assertDontSeeHtml('data-testid="photo-accept-mismatch"')
         ->assertDontSeeHtml('data-testid="next-button"')
         ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
+        ->assertSeeHtml('pb-52')
+        ->assertSeeHtml('fixed inset-x-0 bottom-0')
         ->html();
 
     expect($html)->toContain('Opnieuw maken')
-        ->and(substr_count($html, 'Toch doorgaan'))->toBeGreaterThanOrEqual(2);
+        ->and(substr_count($html, 'Toch doorgaan'))->toBe(1)
+        ->and($html)->toContain('whitespace-nowrap')
+        ->and($html)->toContain('data-testid="footer-previous-link"');
 });
 
-test('Volgende zonder keuze bij override scrollt en toont OVERRIDE_MESSAGE in paneel', function () {
+test('Volgende zonder keuze bij override scrollt en toont OVERRIDE_MESSAGE in footer', function () {
     $intake = fotoStatusIntake();
     seedOneRoomForPhotos($intake);
     seedRejectedRoomPhoto($intake);
@@ -190,7 +198,7 @@ test('Volgende zonder keuze bij override scrollt en toont OVERRIDE_MESSAGE in pa
         ->call('next')
         ->assertSet('showMissing', true)
         ->assertDispatched('scroll-to-photo-mismatch')
-        ->assertSeeHtml('data-testid="mismatch-next-warning"')
+        ->assertDontSeeHtml('data-testid="mismatch-next-warning"')
         ->assertSeeHtml('data-testid="footer-mismatch-warning"')
         ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
         ->assertDontSeeHtml('data-testid="step-missing-alert"');
