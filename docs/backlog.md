@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-161 | Klanttest ronde 3: outdoor-drempel soepeler + meterkast-extra na Toch doorgaan echt weg | E1/E4/E7 | in_progress | high | na BL-158/#310 · klanttest 11 nov ronde 3 · outdoor-assessment-v9 |
+| — | BL-161 | Klanttest ronde 3: outdoor-drempel soepeler + meterkast-extra na Toch doorgaan echt weg | E1/E4/E7 | done | high | na BL-158/#310 · klanttest 11 nov ronde 3 · outdoor-assessment-v9 · PR #312 · 2026-11-11 |
 | — | BL-160 | Embed: huisnummer tekstveld + adresbevestiging + iframe auto-resize / geen mobiele overflow | E1/E5 | done | high | klanttest 11 nov punten 8–9 · PR #311 · 2026-11-11 · was parallel als BL-158 |
 | — | BL-159 | Klanttest 11 nov: zon/glas-tekst, leidinguitleg, embed-toestemming één keer + teller | E1/E7 | done | high | 2026-11-11 · PR #309 · airco v31 · was parallel als BL-156 |
 | — | BL-158 | Buitenunit-fototip + drempel; meterkast-extra na Toch doorgaan; jargon uit klantweergave | E1/E4/E7 | done | high | klanttest 11 nov ronde 2 · airco v30 · PR #310 · 2026-11-11 |
@@ -708,11 +708,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-161 — Klanttest ronde 3: outdoor-drempel + meterkast-extra echt weg
 
-- **Epic:** E1/E4/E7 · **Prioriteit:** high · **Status:** in_progress
+- **Epic:** E1/E4/E7 · **Prioriteit:** high · **Status:** done · **Datum:** 2026-11-11 · **PR:** #312
 - **Aanleiding:** (4) buitenunit: 0/7 tuin-/gevelfoto’s goedgekeurd over testruns — drempel na BL-158/#310 nog te streng (`detected=other` / retake). (5) meterkast: na **Toch doorgaan** kwam weer een (verplichte) `fusebox_photo_extra` — waiver un-requirede alleen; late AI zette `fusebox_clarity` terug.
 - **Doel:** normale tuin/gevel → `ok`; retake alleen zwart/wazig/binnen; na Toch doorgaan geen extra meterkastfoto meer (ook niet na herladen/late job).
 - **Scope:** `outdoor-assessment-v9`; `PhotoContentAssessment` outdoor-coerce; `AssessFuseboxPhotos` + `PhotoFollowUpWaiver` hide; Pest + eval-fixtures. Geen airco-templatebump; geen verschilt/kamernummering.
 - **Acceptatie:** Pest outdoor garden/facade fixtures → ok; kamer/fusebox blijft wrong; N73 late AI + override → geen `fusebox_photo_extra`; `composer check` groen.
+- **Resultaat:** PR #312; niet zelf mergen.
 
 ### BL-160 — Embed adresbevestiging + iframe auto-resize
 
