@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.50 · **Laatste update:** 2026-11-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.52 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -269,7 +269,7 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed` (of `partial` 
 - Elke AI-fotobeoordeling schrijft precies één complete `ai_traces`-rij (`call_type=photo_analysis`) gekoppeld aan haar `ai_run` (model/provider/ms). Upload-persist traceert geen losse `photo_analysis` meer.
 - **Routevragen (`pipe_route_photos`):** geaccepteerde categorieën zijn `pipe_route`, `room` (wand/plafond), `outdoor_unit` en `outdoor_location`. Wand/plafond/goot/doorvoer (ook met bestaande unit in beeld) telt als bruikbaar. Een herkende `pipe_route` **blokkeert nooit** (`wrong_subject`/`needs_clearer` worden onderdrukt). Prompt `pipe-route-assessment-v4`.
 - Overige derive/fusebox: `subject_match=no` → `wrong_subject` (detected of `other`), nooit `ok`. AI-fout, timeout of inference uit → `not_assessed` (nooit null) met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Klantmelding bij mismatch noemt het ontbrekende onderdeel (bij route: wand/plafond, goot of doorvoer).
-- Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** / **Toch doorgaan**. Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. Definitieve assessments worden niet overschreven; `not_assessed` wel herbeoordeeld.
+- Klant: `wrong_subject` / `needs_clearer` / onbruikbaar soft-blockt verplichte foto’s — sticky footer **Opnieuw maken** / **Toch doorgaan** (BL-157; groene Volgende verdwijnt; één bevestiging voor alle probleemfoto’s op de stap; auto-scroll naar paneel). Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. **Toch doorgaan** op `room_photos` zet `room_extra_overview_needed` op `complete` zodat geen verplichte `indoor_unit_position_photo` volgt. Definitieve assessments worden niet overschreven; `not_assessed` wel herbeoordeeld.
 - `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence), behalve op een geaccepteerde routefoto.
 - Meterkast-mismatch zet **geen** `fusebox_clarity=needs_clearer_photo`; één taak: vervang de foto.
 - Meterkastprompt `fusebox-assessment-v4` (BL-133): `empty_module_space` i.p.v. free_group-gok; wrong-subject → `confidence=low`; **nooit** `free_group_known` uit foto.

@@ -136,7 +136,7 @@ test('P2-a: PhotoOverridePolicy is gedeelde bron voor wizard en follow-up', func
     ]);
 
     expect(PhotoOverridePolicy::needsOverride($upload))->toBeTrue()
-        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toBe('Kies: foto vervangen of toch doorgaan.');
+        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toBe('Niet alle foto’s zijn goed gelukt. Maak ze opnieuw of ga toch door.');
 
     // Persistente acceptatie vereist een opgeslagen upload; hier alleen de gedeelde flag-path.
     $assessment = PhotoContentAssessment::needsClearer(PhotoSubject::Fusebox, 'lage resolutie')
@@ -340,7 +340,7 @@ test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', functi
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $html = $component->html();
-    // BL-156: adaptieve stappen → geen "X van Y" (totaal liep op); voortgang = balk/%.
+    // BL-159: adaptieve stappen → geen "X van Y" (totaal liep op); voortgang = balk/%.
     expect($html)->toMatch('/data-testid="progress-percent">\d+%/')
         ->and($html)->toMatch('/data-testid="step-counter"/')
         ->and($html)->not->toMatch('/Vraag\s+\d+\s+van\s+\d+/')

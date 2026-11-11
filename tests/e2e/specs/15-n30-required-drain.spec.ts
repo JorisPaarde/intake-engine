@@ -108,7 +108,7 @@ async function runN30Catchup(page: Page, payload: E2eScenarioPayload): Promise<v
   expect(after).toMatch(/bereikbaar/i);
   expect(after.toLowerCase()).not.toMatch(/koop|huur/);
 
-  // BL-156: voortgang via balk/% (geen "X van Y"); zichtbare stap blijft de h1.
+  // BL-159: voortgang via balk/% (geen "X van Y"); zichtbare stap blijft de h1.
   await expect(page.getByTestId('progress-percent')).toBeVisible();
   await expect(page.getByText(/Vraag\s+\d+\s+van\s+\d+/i)).toHaveCount(0);
   await expect(page.getByTestId('step-counter')).toBeVisible();

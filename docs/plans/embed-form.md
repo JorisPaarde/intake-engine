@@ -2,7 +2,7 @@
 
 > **Documentversie:** 1.3 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
-**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-156 (AVG één keer op het embed-formulier). Optioneel later: publieke adres-autocomplete, WP-plugin.
+**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer op het embed-formulier). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
 ## Wat er staat
 
@@ -21,7 +21,7 @@ Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-ma
 3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, dagplafond, Origin-check).
 4. Nieuw: `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + opslaan van het AVG-vinkje als `privacy_consent` (echt klantantwoord, intake blijft `sent`) + backup-mail → 303 `/o/{token}` (`target=_top`).
 5. Bestaande open opname (zelfde company + e-mail): opnieuw mailen + neutrale bevestiging in iframe (geen token-lek); telt niet mee voor dagplafond.
-6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden. Wizard vraagt `privacy_consent` niet opnieuw (BL-156); `truth_confirmation` blijft wel.
+6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden. Wizard vraagt `privacy_consent` niet opnieuw (BL-159); `truth_confirmation` blijft wel.
 
 ## Snippet
 
@@ -67,4 +67,12 @@ php artisan embed:smoke-bag-address
 
 Vaste case **2037GR 273** (Haarlem, Bernadottelaan): na embed-create moeten straat, plaats, bouwjaar en woningtype gevuld zijn (geen `Onbekend`). Onbekend adres **2037GR 1** moet een nette validatiemelding geven (`We konden dit adres niet vinden…`) zonder opname. Optioneel `--keep` om de testopname te bewaren voor een 390 px browsercheck van de klantwizard-header.
 
-Browser (aanvulling op `/embed-test`): postcode `2037GR`, huisnummer `273` → header toont `Bernadottelaan 273` + `Haarlem`; bouwjaar-/woningtypevragen vervallen. Herhaal met huisnummer `1` → formulierfout, geen redirect.
+Met `EP_ONLINE_ENABLED=true` + `EP_ONLINE_KEY` (shared `.env`, nooit in git): de klantkop toont ook **Energielabel** wanneer RVO een letter teruggeeft. Voorbeeld Warschaustraat 18:
+
+```bash
+php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A
+```
+
+Zonder geregistreerd label of bij EP-storing/timeout: soft melding “Geen energielabel gevonden…” — flow blijft open. Zonder key blijft BAG werken; de soft melding verschijnt wel (`energy_label_status=unavailable`).
+
+Browser (aanvulling op `/embed-test`): postcode `2037GR`, huisnummer `273` → header toont `Bernadottelaan 273` + `Haarlem`; bouwjaar-/woningtypevragen vervallen. Herhaal met huisnummer `1` → formulierfout, geen redirect. Met EP-key: `2034VL` / `18` → Energielabel A in de bekende-woninggegevenslijst.

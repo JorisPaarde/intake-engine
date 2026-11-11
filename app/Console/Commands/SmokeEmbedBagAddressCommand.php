@@ -23,9 +23,10 @@ final class SmokeEmbedBagAddressCommand extends Command
     protected $signature = 'embed:smoke-bag-address
         {--keep : Keep the created intake (marked as test; default deletes it)}
         {--postal-code=2037GR : Postcode for the known BAG check}
-        {--house-number=273 : House number for the known BAG check}';
+        {--house-number=273 : House number for the known BAG check}
+        {--expect-energy-label= : Optional expected EP-Online label letter (e.g. A); requires EP_ONLINE_ENABLED+key}';
 
-    protected $description = 'Smoke-test embed BAG enrichment (2037GR 273) + unknown-address message (local/staging)';
+    protected $description = 'Smoke-test embed BAG enrichment (2037GR 273) + unknown-address message (local/staging); optional EP-Online label check';
 
     public function handle(StartEmbedIntake $startEmbedIntake, HardDeleteIntake $hardDeleteIntake): int
     {
@@ -108,7 +109,22 @@ final class SmokeEmbedBagAddressCommand extends Command
         $this->line('  address_city: '.$intake->address_city);
         $this->line('  build_year: '.json_encode($year));
         $this->line('  building_type: '.json_encode($type));
+
+        $energyFact = $intake->externalFacts->firstWhere('fact_key', 'energy_label');
+        $energyClass = is_array($energyFact?->value) ? ($energyFact->value['value'] ?? null) : null;
+        $energyStatus = $intake->externalFacts->firstWhere('fact_key', 'energy_label_status');
+        $this->line('  energy_label: '.json_encode($energyClass));
+        $this->line('  energy_label_status: '.json_encode(is_array($energyStatus?->value) ? $energyStatus->value : null));
+        $this->line('  known_housing_lines: '.json_encode($intake->knownHousingFactLines()));
         $this->line('  customer_url: '.$intake->customerUrl());
+
+        $expectedLabel = strtoupper(trim((string) $this->option('expect-energy-label')));
+        if ($expectedLabel !== '') {
+            if (! is_string($energyClass) || strtoupper(trim($energyClass)) !== $expectedLabel) {
+                $failures[] = "verwacht energielabel {$expectedLabel}, kreeg: ".json_encode($energyClass)
+                    .' (EP_ONLINE_ENABLED+key gezet? status='.json_encode(is_array($energyStatus?->value) ? $energyStatus->value : null).')';
+            }
+        }
 
         $this->info('2) Onbekend adres 2037GR 1 moet nette 422-melding geven…');
         $unknownOk = false;

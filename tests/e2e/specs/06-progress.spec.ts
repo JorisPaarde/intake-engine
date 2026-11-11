@@ -42,7 +42,7 @@ test.describe('Progress percentage and question counter', () => {
     );
     expect(percentAfter).toBeLessThan(100);
 
-    // BL-156: adaptieve stappen → geen "X van Y"; voortgang = balk/% (<100 zolang open).
+    // BL-159: adaptieve stappen → geen "X van Y"; voortgang = balk/% (<100 zolang open).
     await expect(page.getByTestId('step-counter')).toBeVisible();
     expect(percentAfter).toBeLessThan(100);
   });

@@ -31,7 +31,7 @@ test.describe('Wizard preferred_indoor autosave sticky', () => {
 
     const headingBefore = await headingText(page);
     const percentBefore = await readProgressPercent(page);
-    // BL-156: geen "X van Y" meer (adaptief totaal); sticky = zelfde vraag + zelfde %.
+    // BL-159: geen "X van Y" meer (adaptief totaal); sticky = zelfde vraag + zelfde %.
     await expect(page.getByText(/Vraag\s+\d+\s+van\s+\d+/i)).toHaveCount(0);
 
     await fillTextAndBlur(page, 'Boven het bed');

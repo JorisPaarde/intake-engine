@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.48 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.50 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v30** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -116,7 +116,7 @@ Geen LLM in deze keten.
 
 ## Voortgang
 
-- Klantwizard-balk/% (BL-123/BL-129/BL-156): **één stappenmaat** — done/total over zichtbare wizardstappen; overgeslagen of beantwoord incl. “Weet ik niet” = done; `progressHighWater` voorkomt dalen; **100% alleen na afronden**. Geen “Vraag X van Y” meer (adaptieve stappen maakten het totaal onstabiel); voortgang alleen via balk/%. Geen aparte “taken afgerond”-teller in de klant-UI.
+- Klantwizard-balk/% (BL-123/BL-129/BL-159): **één stappenmaat** — done/total over zichtbare wizardstappen; overgeslagen of beantwoord incl. “Weet ik niet” = done; `progressHighWater` voorkomt dalen; **100% alleen na afronden**. Geen “Vraag X van Y” meer (adaptieve stappen maakten het totaal onstabiel); voortgang alleen via balk/%. Geen aparte “taken afgerond”-teller in de klant-UI.
 - `ProgressCalculator` (BL-022/BL-120: afgeronde klanttaken; `PrefillSources::shouldSkipPrefill`): blijft de bron voor CompletenessChecker / extra-taaknotities, niet voor de klantbalk.
 - `FollowUpProgressCalculator` (BL-120/BL-123): foto-items pas “beoordeeld” na bruikbare usability **én** zonder onopgeloste `wrong_subject`; anders “Nog te vervangen” / 0%
 - Follow-up soft-continue (BL-130): bekende `wrong_subject` blokkeert **Aanvulling versturen** tot **Vervang foto** of **Toch doorgaan** (BL-147: zelfde label als de hoofdwizard); `not_assessed` soft
@@ -210,7 +210,7 @@ Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun
 Runtime bovenop airco v19 (geen templatewijziging t.o.v. v18):
 
 - Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`) beoordeelt **elke upload zonder assessment**. `subject_match=no` → altijd `wrong_subject`; AI-fout of inference uit → `not_assessed` (nooit null na beoordelingspoging). Fabriek: `PhotoContentAssessment::fromModelOutput`.
-- Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** en **Toch doorgaan**. Banner verdwijnt via `PhotoContentSatisfaction`; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven.
+- Klant: niet-goede foto’s soft-blocken — sticky footer **Opnieuw maken** / **Toch doorgaan** i.p.v. stille Volgende (BL-157); één bevestiging per stap; paneel scrollt in beeld. Banner verdwijnt via `PhotoContentSatisfaction`; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven. Afgekeurde ruimtefoto + Toch doorgaan → geen verplichte extra wand/deur-foto.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routeconclusies via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS`.
 - Follow-up refrigerant accepteert `pipe_route` én `outdoor_unit`. Async follow-up → BL-121.
 
@@ -290,7 +290,7 @@ Niet alles hoort weg te vallen, ook niet als het "korter" kan:
 
 - `ownership`, `pipe_visibility`, `noise_sensitive` — juridische status en voorkeuren staan niet op een foto.
 - `floor_level` — een binnenfoto laat de verdieping niet betrouwbaar zien.
-- `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop. **Embed (BL-156):** AVG-toestemming (gegevens én foto’s) wordt op het startformulier gevraagd (verplicht vinkje, niet vooraf aangevinkt) en als echt `privacy_consent`-antwoord opgeslagen; de wizard toont die stap dan niet opnieuw. De waarheidsverklaring blijft een aparte wizardstap. Niet-embed-opnames vragen `privacy_consent` nog in de wizard. Geaccepteerde must-accept-vragen verdwijnen uit de stappenlijst (geen tellersprong N/N → N+1/N+1).
+- `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop. **Embed (BL-159):** AVG-toestemming (gegevens én foto’s) wordt op het startformulier gevraagd (verplicht vinkje, niet vooraf aangevinkt) en als echt `privacy_consent`-antwoord opgeslagen; de wizard toont die stap dan niet opnieuw. De waarheidsverklaring blijft een aparte wizardstap. Niet-embed-opnames vragen `privacy_consent` nog in de wizard. Geaccepteerde must-accept-vragen verdwijnen uit de stappenlijst (geen tellersprong N/N → N+1/N+1).
 - `insulation_indication` / `floor_insulation` blijven vragen zolang EP-Online geen label levert; met label vervallen ze (`skip_when_prefilled_by: epo`, fail-soft zonder key).
 - `crawl_space_present` (v12) — veilige ja/nee/weet-niet-waarneming; geen kruipinstructies.
 
@@ -365,9 +365,11 @@ Het neemt twee vragen over:
 
 **Bouwtype alleen bij herkenning.** EP-Online legt de waarden van `Gebouwtype` niet vast in de OpenAPI-spec, dus de omschrijving wordt op herkenbare woorden gematcht ("vrijstaand", "hoek", "tussen", "galerij"). Herkennen we hem niet, dan blijft de vraag staan in plaats van dat we gokken. `Gebouwklasse` "U" gaat rechtstreeks naar `commercial`.
 
-Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig.
+Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig. De verrijking bewaart dan `energy_label_status` (`not_found` of `unavailable` bij storing/uitgeschakeld) zodat de klantkop een soft melding kan tonen zonder de flow te blokkeren.
 
-De gewone dossierweergave vertaalt het afgeleide antwoord naar **Isolatie-indicatie: Goed, Gemiddeld of Matig** en toont de energiebehoefte ernaast wanneer die beschikbaar is. De integratie is fail-soft en draait alleen met `EP_ONLINE_ENABLED=true` én een geldige key in de omgeving; zonder configuratie of zonder label blijft `insulation_indication` een normale klantvraag. Na het activeren kan **Adres opnieuw controleren** een bestaand dossier opnieuw via BAG en EP-Online verrijken.
+De klantwizard toont de labelletter in **bekende woninggegevens** (`knownHousingFactLines`: Bouwjaar, Woningtype, Energielabel). Ontbreekt het label na een lookup (of faalt/ontbreekt EP-Online), dan verschijnt: “Geen energielabel gevonden voor dit adres. Dat is geen probleem; je kunt gewoon verder.”
+
+De gewone dossierweergave vertaalt het afgeleide antwoord naar **Isolatie-indicatie: Goed, Gemiddeld of Matig** en toont de energiebehoefte ernaast wanneer die beschikbaar is. De integratie is fail-soft en draait alleen met `EP_ONLINE_ENABLED=true` én een geldige key in de omgeving; zonder configuratie of zonder label blijft `insulation_indication` een normale klantvraag. Na het activeren kan **Adres opnieuw controleren** een bestaand dossier opnieuw via BAG en EP-Online verrijken. Staging-smoke: `php artisan embed:smoke-bag-address --postal-code=2034VL --house-number=18 --expect-energy-label=A` (alleen met key).
 
 Omdat `building_type` nu uit twee registers kan komen, accepteert `meta.skip_when_prefilled_by` sinds v8 ook een lijst bronnen.
 

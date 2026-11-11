@@ -34,6 +34,12 @@ test.describe('Photo feedback', () => {
     expect(await hintMatches.count()).toBeLessThanOrEqual(2);
 
     await expect(page.getByTestId('photo-mismatch-panel')).toBeVisible();
+    await expect(page.getByTestId('footer-photo-override')).toBeVisible();
+    await expect(page.getByTestId('footer-accept-mismatch')).toBeVisible();
+    await expect(page.getByTestId('footer-replace-photos')).toBeVisible();
+    await expect(page.getByTestId('photo-accept-mismatch')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Toch doorgaan$/i })).toHaveCount(1);
+    await expect(page.getByTestId('next-button')).toHaveCount(0);
     await expect(page.getByText(/Status:/i)).toHaveCount(0);
 
     await page.getByRole('button', { name: /Verwijderen/i }).first().click();
@@ -54,6 +60,32 @@ test.describe('Photo feedback', () => {
       );
       await expect(page.getByText(/klein|resolutie|scherper|duidelijker/i)).toHaveCount(0);
     }
+  });
+
+  test('override footer: one Toch doorgaan for all warned photos; no silent Volgende', async ({
+    page,
+    request,
+  }) => {
+    const payload = await createScenario(request, 'feedback');
+    await openCustomer(page, payload);
+
+    const confirm = page.getByRole('button', { name: /Klopt, verder/i });
+    if (await confirm.count()) {
+      await confirm.first().click();
+    }
+
+    await advanceUntil(page, /ruimte|overzicht|foto|woonkamer/i, 25);
+    await uploadPhoto(page, 'too-small-400.jpg');
+    await expect(page.getByTestId('footer-photo-override')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('next-button')).toHaveCount(0);
+
+    await page.getByTestId('footer-accept-mismatch').click();
+    await expect(page.getByText(/Foto bewaard|installateur kijkt mee/i).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    // Advances past room photo without forcing another required wall/door photo.
+    await expect(page.getByTestId('footer-photo-override')).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByText(/Extra foto: ontbrekende wand|ontbrekende wand of deur/i)).toHaveCount(0);
   });
 
   test('back after terminal assessment never shows looking on tiles', async ({ page, request }) => {
