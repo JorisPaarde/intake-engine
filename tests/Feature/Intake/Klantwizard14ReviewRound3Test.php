@@ -87,7 +87,7 @@ test('R3-3: follow-up OutdoorLocation met subject_match=no blijft accepted-set-w
     expect($assessment->status())->toBe(PhotoContentAssessment::STATUS_OK);
 });
 
-test('R3-3: derive-pad OutdoorLocation met subject_match=no blijft wrong_subject', function () {
+test('R3-3/BL-158: derive-pad OutdoorLocation met accepted subject blijft ok ondanks subject_match=no', function () {
     $accepted = PhotoSubject::acceptedSubjectsForPhotoQuestion('outdoor_location_photos', 'outdoor');
 
     $assessment = PhotoContentAssessment::fromModelOutput(
@@ -95,12 +95,14 @@ test('R3-3: derive-pad OutdoorLocation met subject_match=no blijft wrong_subject
         [
             'detected_subject' => 'outdoor_location',
             'subject_match' => 'no',
+            'retake_instruction' => 'Fotografeer één specifieke muur dichterbij.',
         ],
         $accepted,
         'outdoor_location_photos',
     );
 
-    expect($assessment->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT);
+    // BL-158: redelijke gevel/outdoor in accepted-set wint; retake blokkeert niet.
+    expect($assessment->status())->toBe(PhotoContentAssessment::STATUS_OK);
 });
 
 test('R3-4: caption drop trailing ,0', function () {

@@ -9,6 +9,7 @@ Doel — bepaal alleen wat werkelijk zichtbaar is:
 
 Regels:
 - **Nieuwe installatie:** een gevel, tuin of montageplek **zonder bestaande buitenunit** is een geldige `outdoor_location` met `subject_match=yes`. Eis geen bestaande airco op de foto.
+- **Redelijke gevel-/muurfoto’s accepteren:** toont de foto een gevel, buitenmuur, tuin of andere buitenplek waar een unit zou kunnen komen → `detected_subject=outdoor_location` (of `outdoor_unit` als die zichtbaar is), `subject_match=yes`, en **`retake_instruction` = null**. Geen retake omdat de foto “niet dichtbij genoeg”, “niet één specifieke muur”, “niet de hele gevel” of “montageplek onduidelijk” is — zet dan mount/accessibility op `unknown`.
 - **Toont de foto niet het gevraagde onderwerp, zeg dat dan gewoon.** Een meterkast, kamerinterieur of iets anders → alle velden `unknown`, `confidence` = `low`, `subject_match` = `no`, en een concrete `retake_instruction` die om gevel/tuin/buitenplek vraagt — niet om een willekeurige “buitenunit” als die er (nog) niet is.
 - Kies `unknown` voor elk veld zodra het beeld daar geen duidelijke aanwijzing voor geeft. Een gok is schadelijker dan een extra vraag.
 - **Geen montage-gok:** een algemeen gevel-/straatoverzicht zonder duidelijke unitplek → `outdoor_mount_type=unknown` en `outdoor_accessibility=unknown` (ook als `outdoor_location=facade`). Alleen als bevestiging (muurbeugelvlak, grondvlak, dakvlak) echt zichtbaar is mag je mount/accessibility invullen.
@@ -17,7 +18,7 @@ Regels:
 - Doe geen uitspraak over geluidsnormen, buren, vergunningen, leidinglengte, normconformiteit of definitieve installatie.
 - Verzín geen details buiten het beeld en neem geen persoonsgegevens, gezichten, kentekens of huisnummers over.
 - **Taal (verplicht):** schrijf alle vrije tekst — `evidence` én `retake_instruction` — in het Nederlands. Geen Engelse zinnen of mengvormen. Enum-tokens blijven Engels zoals in het schema.
+- **Retake alleen bij echt onbruikbaar of verkeerd onderwerp:** alleen dan één korte Nederlandse `retake_instruction`; anders altijd `null`. Gebruik in de retake altijd dezelfde klantvriendelijke tip: “Maak een duidelijke foto van de gevel of buitenmuur waar de buitenunit kan komen. Neem genoeg omgeving mee zodat de plek herkenbaar is.” Geen tegenstrijdige varianten (“hele gevel” vs “één specifieke muur”).
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert (Nederlands).
-- Geef bij onvoldoende beeld één concrete, korte Nederlandse instructie voor een betere foto in `retake_instruction`, anders `null`.
 - Output uitsluitend JSON met exact deze velden:
   `{ "outdoor_location": "garden|side_passage|facade|balcony|flat_roof|pitched_roof|dormer|unknown", "outdoor_mount_type": "wall|ground|roof|balcony|unknown", "outdoor_accessibility": "easy_ground|ladder|scaffolding|restricted|unknown", "detected_subject": "outdoor_location|outdoor_unit|room|fusebox|pipe_route|indoor_unit|other", "subject_match": "yes|no", "confidence": "high|medium|low", "evidence": "korte Nederlandse omschrijving", "retake_instruction": "concrete Nederlandse instructie of null" }`
