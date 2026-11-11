@@ -232,15 +232,27 @@ final class EnrichIntakeAddress
      */
     private function captureEnergyLabel(Intake $intake, AddressEnrichment $data): void
     {
+        if (! $this->epOnline->enabled()) {
+            // Zonder key/config geen stille leegte in de klantkop: soft melding, flow blijft open.
+            $this->storeEnergyLabelStatus($intake, 'unavailable');
+
+            return;
+        }
+
         try {
             $label = $this->epOnline->forAddressableObject($data->bagAddressableObjectId);
 
             if ($label === null) {
+                $this->clearEnergyLabelFacts($intake);
+                $this->storeEnergyLabelStatus($intake, 'not_found');
+
                 return;
             }
 
             $sourceUrl = $this->epOnline->labelUrl($data->bagAddressableObjectId);
             $reference = $label->registeredAt;
+
+            $this->clearEnergyLabelStatus($intake);
 
             if ($label->energyClass !== null) {
                 $this->upsertFact(
@@ -275,11 +287,43 @@ final class EnrichIntakeAddress
             $this->prefillFromEnergyLabel($intake, $label);
         } catch (Throwable $exception) {
             // Geen label of een storing betekent gewoon dat de vragen blijven staan.
+            $this->clearEnergyLabelFacts($intake);
+            $this->storeEnergyLabelStatus($intake, 'unavailable');
             Log::warning('EP-Online energy label lookup failed.', [
                 'intake_uuid' => $intake->uuid,
                 'exception' => $exception::class,
             ]);
         }
+    }
+
+    private function storeEnergyLabelStatus(Intake $intake, string $status): void
+    {
+        $this->upsertFact(
+            $intake,
+            'energy_label_status',
+            'Energielabel-status',
+            ['status' => $status],
+            'unknown',
+            null,
+            rtrim((string) config('services.ep_online.base_url'), '/'),
+            EpOnlineService::sourceName(),
+        );
+    }
+
+    private function clearEnergyLabelStatus(Intake $intake): void
+    {
+        $intake->externalFacts()
+            ->where('fact_key', 'energy_label_status')
+            ->where('source', EpOnlineService::sourceName())
+            ->delete();
+    }
+
+    private function clearEnergyLabelFacts(Intake $intake): void
+    {
+        $intake->externalFacts()
+            ->whereIn('fact_key', ['energy_label', 'energy_demand'])
+            ->where('source', EpOnlineService::sourceName())
+            ->delete();
     }
 
     private function prefillFromEnergyLabel(Intake $intake, EnergyLabel $label): void

@@ -1798,7 +1798,7 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Waarschuwingspaneel vaak boven de sticky knop: scroll in beeld (BL-156).
+        // Waarschuwingspaneel vaak boven de sticky knop: scroll in beeld (BL-157).
         if ($questionKey !== '' && PhotoContentSatisfaction::unresolvedOverride(
             $this->intake()->uploads->filter(
                 static function (IntakeUpload $upload) use ($questionKey, $instanceKey): bool {
@@ -2946,7 +2946,7 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Afgekeurde ruimtefoto + Toch doorgaan: geen verplichte extra wand/deur-foto (BL-156).
+        // Afgekeurde ruimtefoto + Toch doorgaan: geen verplichte extra wand/deur-foto (BL-157).
         if ($question->key === 'room_photos') {
             $this->clearForcedExtraRoomOverview($step['section_instance_key']);
         }
@@ -2970,7 +2970,7 @@ class IntakeWizard extends Component
 
     /**
      * Na Toch doorgaan op een afgekeurde ruimtefoto: zet needs_photo terug naar
-     * complete zodat indoor_unit_position_photo verdwijnt (BL-156).
+     * complete zodat indoor_unit_position_photo verdwijnt (BL-157).
      */
     private function clearForcedExtraRoomOverview(?string $sectionInstanceKey): void
     {

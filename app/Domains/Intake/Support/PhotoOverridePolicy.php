@@ -22,7 +22,7 @@ use Illuminate\Support\Collection;
  */
 final class PhotoOverridePolicy
 {
-    /** Melding bij override-keuze in de sticky footer (BL-156); één term “Toch doorgaan”. */
+    /** Melding bij override-keuze in de sticky footer (BL-157); één term “Toch doorgaan”. */
     public const OVERRIDE_MESSAGE = 'Niet alle foto’s zijn goed gelukt. Maak ze opnieuw of ga toch door.';
 
     /** Korte bevestiging na “Toch doorgaan” vóór auto-advance (BL-153). */
@@ -35,7 +35,7 @@ final class PhotoOverridePolicy
 
     public const PANEL_HEADING_ONE = 'Deze foto is nog niet goed.';
 
-    /** Alleen uitleg in het paneel; keuzeknoppen staan in de footer (BL-156). */
+    /** Alleen uitleg in het paneel; keuzeknoppen staan in de footer (BL-157). */
     public const PANEL_EXPLAIN_ONE = 'Je installateur krijgt de foto dan wel en kijkt er zelf naar.';
 
     public const PANEL_EXPLAIN_MANY = 'Je installateur krijgt de foto’s dan wel en kijkt er zelf naar.';

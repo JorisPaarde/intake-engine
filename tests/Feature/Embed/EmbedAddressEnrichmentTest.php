@@ -11,6 +11,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -237,6 +238,11 @@ test('embed intake with valid address gets BAG building year and skips build_yea
     expect($stepKeys)->not->toContain('build_year')
         ->and($stepKeys)->not->toContain('building_type');
 
+    // EP-Online staat in deze suite uit → soft klantmelding, geen labelletter.
+    expect($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
+        ->toBe(['status' => 'unavailable'])
+        ->and($intake->energyLabelCustomerNote())->toContain('Geen energielabel gevonden');
+
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertOk()
         ->assertSee('Bernadottelaan 273', false)
@@ -247,6 +253,7 @@ test('embed intake with valid address gets BAG building year and skips build_yea
         ->assertSee('1971', false)
         ->assertSee('Woningtype', false)
         ->assertSee('Tussenwoning', false)
+        ->assertSee('Geen energielabel gevonden voor dit adres', false)
         ->assertDontSee('Beantwoord de vragen hieronder — dat kan ook op je telefoon', false);
 
     Mail::assertSent(CustomerIntakeLinkMail::class, function (CustomerIntakeLinkMail $mail) use ($intake): bool {
@@ -307,5 +314,214 @@ test('wizard copy omits known-housing claim when BAG facts are missing', functio
         ->assertOk()
         ->assertDontSee('We gebruiken al bekende woninggegevens', false)
         ->assertDontSee('Jij laat alleen zien wat we nog nodig hebben', false)
+        ->assertDontSee('Geen energielabel gevonden voor dit adres', false)
         ->assertSee('Beantwoord de vragen hieronder — dat kan ook op je telefoon', false);
+});
+
+/**
+ * @param  list<array<string, mixed>>|null  $labels
+ */
+function fakeBernadotteBagWithEpOnline(?array $labels, int $epStatus = 200, bool $epTimeout = false): void
+{
+    config()->set('services.ep_online.enabled', true);
+    config()->set('services.ep_online.key', 'epo-embed-test-key');
+    config()->set('services.ep_online.base_url', 'https://ep-online.test');
+
+    Http::fake(function (Request $request) use ($labels, $epStatus, $epTimeout) {
+        if (str_contains($request->url(), 'ep-online.test')) {
+            if ($epTimeout) {
+                throw new ConnectionException('Connection timed out');
+            }
+
+            if ($epStatus !== 200) {
+                return Http::response([], $epStatus);
+            }
+
+            return $labels === null
+                ? Http::response([], 404)
+                : Http::response($labels);
+        }
+
+        $data = $request->data();
+
+        if (str_contains($request->url(), '/suggest')) {
+            return Http::response([
+                'response' => ['docs' => [[
+                    'id' => 'adr-47f56cda8f286d7ec9475e170e375ba6',
+                    'weergavenaam' => 'Bernadottelaan 273, 2037GR Haarlem',
+                    'straatnaam' => 'Bernadottelaan',
+                    'huisnummer' => 273,
+                    'postcode' => '2037GR',
+                    'woonplaatsnaam' => 'Haarlem',
+                ]]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/lookup') || str_contains($request->url(), '/free')) {
+            return Http::response([
+                'response' => ['docs' => [[
+                    'id' => 'adr-47f56cda8f286d7ec9475e170e375ba6',
+                    'weergavenaam' => 'Bernadottelaan 273, 2037GR Haarlem',
+                    'straatnaam' => 'Bernadottelaan',
+                    'huisnummer' => 273,
+                    'postcode' => '2037GR',
+                    'woonplaatsnaam' => 'Haarlem',
+                    'gemeentenaam' => 'Haarlem',
+                    'provincienaam' => 'Noord-Holland',
+                    'adresseerbaarobject_id' => '0392010000005891',
+                    'gekoppeld_perceel' => ['HLM02-X-1693'],
+                ]]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items') && isset($data['identificatie'])) {
+            return Http::response([
+                'features' => [[
+                    'properties' => [
+                        'identificatie' => '0392010000005891',
+                        'oppervlakte' => 149,
+                        'gebruiksdoel' => 'woonfunctie',
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-bern'],
+                    ],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.66584971, 52.35367818]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items/pand-bern')) {
+            return Http::response([
+                'properties' => [
+                    'identificatie' => '0392100000073249',
+                    'bouwjaar' => 1971,
+                ],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items') && isset($data['identificatie'])) {
+            return Http::response(['features' => [embedEnrichmentBuildingFeature('pand-bern', '0392100000073249', 0, 0, 6, 10)]]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items')) {
+            return Http::response([
+                'numberMatched' => 3,
+                'numberReturned' => 3,
+                'links' => [],
+                'features' => [
+                    embedEnrichmentBuildingFeature('left-feature', '0392100000073248', -6, 0, 0, 10),
+                    embedEnrichmentBuildingFeature('pand-bern', '0392100000073249', 0, 0, 6, 10),
+                    embedEnrichmentBuildingFeature('right-feature', '0392100000073250', 6, 0, 12, 10),
+                ],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'numberMatched' => 1,
+                'numberReturned' => 1,
+                'links' => [],
+                'features' => [[
+                    'properties' => [
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-bern'],
+                        'gebruiksdoel' => ['woonfunctie'],
+                    ],
+                ]],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+}
+
+test('embed shows energielabel A when EP-Online returns a registered label', function () {
+    Mail::fake();
+    Queue::fake();
+    fakeBernadotteBagWithEpOnline([[
+        'Registratiedatum' => '2024-03-01T00:00:00',
+        'Geldig_tot' => '2034-03-01T00:00:00',
+        'Energieklasse' => 'A',
+        'Energiebehoefte' => 42.0,
+        'Gebouwtype' => 'Rijwoning tussen',
+        'Gebouwklasse' => 'W',
+    ]]);
+
+    $ctx = embedBagCompany();
+
+    $this->withHeaders([
+        'Origin' => 'https://www.example.nl',
+        'Referer' => 'https://www.example.nl/airco',
+    ])->post(route('embed.store', ['public_key' => $ctx['key']]), embedBagPayload($ctx['key'], [
+        'customer_email' => 'label.gevonden@example.com',
+    ]))->assertRedirect();
+
+    $intake = Intake::query()->where('customer_email', 'label.gevonden@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'energy_label')->firstOrFail()->value['value'])->toBe('A')
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->exists())->toBeFalse()
+        ->and(collect($intake->knownHousingFactLines())->firstWhere('label', 'Energielabel')['value'] ?? null)->toBe('A')
+        ->and($intake->energyLabelCustomerNote())->toBeNull();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertOk()
+        ->assertSee('Energielabel', false)
+        ->assertSee('A', false)
+        ->assertDontSee('Geen energielabel gevonden voor dit adres', false);
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'ep-online.test')
+        && $request->hasHeader('Authorization', 'epo-embed-test-key')
+        && str_contains($request->url(), '/AdresseerbaarObject/0392010000005891')
+        && ! str_contains(strtolower($request->header('Authorization')[0] ?? ''), 'bearer'));
+});
+
+test('embed shows a soft note when EP-Online has no registered label', function () {
+    Mail::fake();
+    Queue::fake();
+    fakeBernadotteBagWithEpOnline(null);
+
+    $ctx = embedBagCompany();
+
+    $this->withHeaders([
+        'Origin' => 'https://www.example.nl',
+        'Referer' => 'https://www.example.nl/airco',
+    ])->post(route('embed.store', ['public_key' => $ctx['key']]), embedBagPayload($ctx['key'], [
+        'customer_email' => 'label.afwezig@example.com',
+    ]))->assertRedirect();
+
+    $intake = Intake::query()->where('customer_email', 'label.afwezig@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'energy_label')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
+        ->toBe(['status' => 'not_found'])
+        ->and($intake->hasKnownHousingFacts())->toBeTrue();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertOk()
+        ->assertSee('Bouwjaar', false)
+        ->assertSee('Geen energielabel gevonden voor dit adres', false)
+        ->assertSee('Dat is geen probleem', false);
+});
+
+test('embed keeps flowing when EP-Online times out and shows the soft note', function () {
+    Mail::fake();
+    Queue::fake();
+    fakeBernadotteBagWithEpOnline([], epTimeout: true);
+
+    $ctx = embedBagCompany();
+
+    $this->withHeaders([
+        'Origin' => 'https://www.example.nl',
+        'Referer' => 'https://www.example.nl/airco',
+    ])->post(route('embed.store', ['public_key' => $ctx['key']]), embedBagPayload($ctx['key'], [
+        'customer_email' => 'label.timeout@example.com',
+    ]))->assertRedirect();
+
+    $intake = Intake::query()->where('customer_email', 'label.timeout@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
+        ->toBe(['status' => 'unavailable']);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertOk()
+        ->assertSee('Geen energielabel gevonden voor dit adres', false);
 });

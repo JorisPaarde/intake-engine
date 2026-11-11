@@ -133,7 +133,7 @@
             @endforeach
         </ul>
 
-        {{-- Eén melding per fotovraag: soft-timeout óf override-uitleg (keuzeknoppen alleen in sticky footer, BL-156). --}}
+        {{-- Eén melding per fotovraag: soft-timeout óf override-uitleg (keuzeknoppen alleen in sticky footer, BL-157). --}}
         @if ($photoMismatchAssessment || $unresolvedOverrideCount > 0)
             <div
                 class="space-y-2 rounded-xl border border-[#eac3b4] bg-white px-3 py-3"

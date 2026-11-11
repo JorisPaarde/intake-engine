@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.12 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.13 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,13 +40,14 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25, #144). **BL-140** = sticky wizard step-id na kamernaam-autosave (#142). **BL-141** = PHP `memory_limit` 256M + CLI/queue + 12 MP piektest (#146). **BL-142** = prefill confidence % + stated-quote validatie (buren/cooling, #143). **BL-143** = upload 503-recovery + async variants (#140). **BL-144** = AI-trace gaps afronden (provider_request_id/skip/seed/queued_at/export). **BL-145** = klanttaken bundelen + klanttekst sanitizen. **BL-146** = werkplek-labels/CTA (#149; geen detailsectie). **BL-147** = UX-pakket werkplek/klantkant (Notion #15/#16). **BL-148** = tekstinterpretatie terug naar het model (ADR-0016, #173). **BL-149** = klantwizard overbodige vragen punten 2/3 (airco v28, #176). **BL-150** = #177 (publieke demo leftovers). **BL-151–153** = embed-formulier (PR1 settings / PR2 publiek / PR3 AI+badge). Nieuwe items starten bij BL-154.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25, #144). **BL-140** = sticky wizard step-id na kamernaam-autosave (#142). **BL-141** = PHP `memory_limit` 256M + CLI/queue + 12 MP piektest (#146). **BL-142** = prefill confidence % + stated-quote validatie (buren/cooling, #143). **BL-143** = upload 503-recovery + async variants (#140). **BL-144** = AI-trace gaps afronden (provider_request_id/skip/seed/queued_at/export). **BL-145** = klanttaken bundelen + klanttekst sanitizen. **BL-146** = werkplek-labels/CTA (#149; geen detailsectie). **BL-147** = UX-pakket werkplek/klantkant (Notion #15/#16). **BL-148** = tekstinterpretatie terug naar het model (ADR-0016, #173). **BL-149** = klantwizard overbodige vragen punten 2/3 (airco v28, #176). **BL-150** = #177 (publieke demo leftovers). **BL-151–153** = embed-formulier (PR1 settings / PR2 publiek / PR3 AI+badge). **BL-154** BAG-embed. **BL-155** ruimte-eyebrow. Nieuwe items starten bij BL-156.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-156 | Foto-flow: Toch doorgaan écht door + sticky override-keuze (geen stille Volgende) | E1/E7 | done | high | klanttest 11 nov · foto-flow · PR #308 · 2026-11-11 |
-| — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | in_progress | high | na BL-153 · staging 390 Joris · 3 slaapkamers 2037GR 273 |
-| — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | in_progress | high | na BL-152/153 · staging bug Joris · parallel #304 |
+| — | BL-157 | Foto-flow: Toch doorgaan écht door + sticky override-keuze (geen stille Volgende) | E1/E7 | done | high | klanttest 11 nov · foto-flow · PR #308 · 2026-11-11 · was parallel als BL-156 |
+| — | BL-156 | Embed/klantwizard: energielabel tonen + soft melding bij geen label/EP-fout | E1/E2/E7 | done | high | na BL-154 · klanttest 11 nov · PR #307 · 2026-11-11 |
+| — | BL-155 | Klantwizard: ruimte-eyebrow zonder verdieping + aaneengesloten teller (geen gaten) | E7 | done | high | na BL-153 · staging 390 Joris · PR #306 · 2026-11-11 |
+| — | BL-154 | Embed BAG-verrijking: geen stil Onbekend; 2037GR 273 vult straat/plaats/bouwjaar/type | E1/E2 | done | high | na BL-152/153 · staging bug Joris · PR #305 · 2026-11-11 |
 | — | BL-151 | Embed-formulier PR1: datamodel + bedrijfsinstellingen (sleutel/domeinen/limiet/snippet) | E1/E5 | done | high | A · PR #300 · 2026-11-09 · volgt BL-152/153 |
 | — | BL-152 | Embed-formulier PR2: publieke GET/POST + beveiliging + CreateIntake zonder AI | E1/E2/E5 | done | high | na BL-151 · PR #301 · 2026-11-09 · frame-ancestors / limiet / honeypot / dedup |
 | — | BL-153 | Embed-formulier PR3: AI-trigger bij klantstart + dashboardbadge + docs/staging | E3/E4/E5 | done | medium | na BL-152 · PR #302 · 2026-11-09 · zie docs/plans/embed-form.md |
@@ -705,31 +706,43 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
 
-### BL-156 — Foto-flow: Toch doorgaan écht door + sticky override-keuze
+### BL-157 — Foto-flow: Toch doorgaan écht door + sticky override-keuze
 
 - **Status:** done · **Datum:** 2026-11-11 · **PR:** #308 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-139/147 · **Ref:** klanttest 11 nov (desktop + 390 px)
-- **Aanleiding:** (A) afgekeurde slaapkamerfoto + **Toch doorgaan** landde op verplichte extra wand/deur-foto; (B) buitenfoto’s met waarschuwing: groene Volgende leek actief maar deed niets, instructie buiten beeld; op 390 px leek meerdere keren bevestigen nodig.
+- **Aanleiding:** (A) afgekeurde slaapkamerfoto + **Toch doorgaan** landde op verplichte extra wand/deur-foto; (B) buitenfoto’s met waarschuwing: groene Volgende leek actief maar deed niets, instructie buiten beeld; op 390 px leek meerdere keren bevestigen nodig. Parallel gestart als BL-156; energielabel behield BL-156 in #307 → hernummerd naar BL-157.
 - **Doel:** Toch doorgaan gaat naar de volgende inhoudelijke vraag (geen verplichte extra overzichtsfoto na override); sticky footer toont **Opnieuw maken** / **Toch doorgaan** i.p.v. stille Volgende; één bevestiging voor alle probleemfoto’s op de stap; auto-scroll naar meldingspaneel.
-- **Scope:** `IntakeWizard` (acceptPhotoMismatch + clearForcedExtraRoomOverview + footer/scroll); `intake-wizard.blade.php`; Pest `KlantwizardFotoStatusTest`; E2E `05-photo-feedback`. Geen templatebump; geen overlap met energielabel-/vraagtekst-agents.
+- **Scope:** `IntakeWizard` (acceptPhotoMismatch + clearForcedExtraRoomOverview + footer/scroll); `intake-wizard.blade.php`; Pest `KlantwizardFotoStatusTest`; E2E `05-photo-feedback`. Geen templatebump.
 - **Acceptatie:** Pest/E2E groen; browser 390 + 1440 screenshots; CI groen; geen tag/prod.
 - **Resultaat:** sticky footer-override; room override → `room_extra_overview_needed=complete` (+ form-sync); screenshots in artifacts. PR #308.
 
+### BL-156 — Embed/klantwizard energielabel tonen + soft melding
+
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #307 · **Prioriteit:** high · **Epic:** E1/E2/E7 · **Band:** A · **Volgt op:** BL-154
+- **Aanleiding:** klanttest 11 nov op staging embed: na adres verschenen straat/plaats/bouwjaar/woningtype wel, maar geen energielabel (Warschaustraat 18 / 2034VL Haarlem heeft label A; Grote Markt 2 idem leeg).
+- **Oorzaak:** (1) `Intake::knownHousingFactLines()` toonde alleen bouwjaar + woningtype — ook als `energy_label` wél in `intake_external_facts` stond. (2) Bij geen label / EP-fout / EP uit werd geen status vastgelegd, dus geen klantmelding. Endpoint/auth (`/api/v5/PandEnergielabel/AdresseerbaarObject/{BAG-VBO-id}`, `Authorization: EP_ONLINE_KEY`) bleven correct.
+- **Doel:** labelletter in de bekende-woninggegevenslijst; bij `not_found`/`unavailable` soft NL-melding zonder flowblokkade; Pest met gemockte EP-responses (gevonden / geen label / timeout).
+- **Scope:** `knownHousingFactLines` + `energyLabelCustomerNote`; `EnrichIntakeAddress::captureEnergyLabel` statusfeit; wizard-blade; smoke `--expect-energy-label=`; docs. Geen echte secrets in code/logs.
+- **Acceptatie:** Pest groen; met `EP_ONLINE_ENABLED`+key toont Warschaustraat 18 label A; zonder label/storing geen blokkade + soft melding.
+- **Resultaat:** PR #307; live Warschaustraat-A-check op staging vereist geconfigureerde EP-key (niet in deze cloud-run).
+
 ### BL-155 — Klantwizard ruimte-eyebrow + aaneengesloten teller
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** A · **Volgt op:** BL-153
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #306 · **Prioriteit:** high · **Epic:** E7 · **Band:** A · **Volgt op:** BL-153
 - **Aanleiding:** staging 390 (3 slaapkamers, 2037GR 273): eyebrow `SLAAPKAMER 1, KELDER / SOUTERRAIN VAN 3 · VRAAG …`; teller sprong 25→27 (26 ontbrak) terwijl totaal 29 bleef.
 - **Doel:** eyebrow `Slaapkamer N van M` zonder verdieping ertussen; “Kelder / souterrain” bleek uit `floor_level`-antwoord (dossier `appendFloorLabel`), niet uit bedroom-default — eyebrow gebruikt type-label i.p.v. dossiernaam. Teller pruned ordinals van weggevallen stappen (aaneengesloten); totaal mag omlaag met de live lijst.
 - **Scope:** `IntakeStepBuilder::rawRoomName` + `IntakeWizard::resolveStableStepDisplay`/prune; Pest `RoomEyebrowLabelTest` + `StableStepCounterTest`.
 - **Acceptatie:** Pest groen; E2E groen; geen tag/prod.
+- **Resultaat:** gemerged in #306.
 
 ### BL-154 — Embed BAG-verrijking (stil Onbekend / 2037GR 273)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E2 · **Band:** A · **Volgt op:** BL-152/153
+- **Status:** done · **Datum:** 2026-11-11 · **PR:** #305 · **Prioriteit:** high · **Epic:** E1/E2 · **Band:** A · **Volgt op:** BL-152/153
 - **Aanleiding:** staging embed (`/embed-test`) met `2037GR` liet header `… 2037GR Onbekend` zien; bouwjaar/type/BAG-velden leeg; vragen bleven staan. Oorzaak: placeholder-plaats `Onbekend` blokkeerde `matchesIntake` (stad ≠ Haarlem) waardoor PDOK/BAG fail-soft `not_found` werd; onbekend huisnummer `1` werd stil geaccepteerd.
 - **Doel:** embed lost straat/plaats via PDOK suggest vóór create; onbekend adres → nette 422; structured match negeert placeholder-stad; wizard/mail-copy over “bekende woninggegevens” alleen mét BAG-feiten; vaste smoke `2037GR 273`.
 - **Scope:** `StartEmbedIntake` + `PdokAddressService::matchesIntake` + voorwaardelijke klantcopy; Pest `EmbedAddressEnrichmentTest`; `php artisan embed:smoke-bag-address` (live PDOK, local/staging). Minimale overlap met parallel PR #304 (alleen kleine blade-copy).
 - **Acceptatie:** Pest: embed `2037GR 273` → Bernadottelaan/Haarlem + bouwjaar + woningtype, vragen skippen; `2037GR 1` → 422 NL zonder intake. Staging-smoke-command groen. 390 px screenshot met straat/plaats/bouwjaar/type.
 - **Testadressen:** bekend `2037GR 273` (Bernadottelaan, Haarlem); onbekend `2037GR 1`.
+- **Resultaat:** gemerged in #305.
 
 ### BL-151 — Embed-formulier PR1: datamodel + bedrijfsinstellingen
 

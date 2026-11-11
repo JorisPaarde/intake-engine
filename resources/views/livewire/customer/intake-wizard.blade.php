@@ -2,7 +2,7 @@
     $company = $intake->company;
 @endphp
 
-{{-- Onderpadding = footerhoogte zodat fixed footer geen content afdekt (BL-156). --}}
+{{-- Onderpadding = footerhoogte zodat fixed footer geen content afdekt (BL-157). --}}
 <div
     class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ! empty($photoNeedsOverride) ? 'pb-52' : (($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-36') }}"
     data-testid="customer-wizard-shell"
@@ -33,6 +33,7 @@
                     <p>Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende woninggegevens. Jij laat alleen zien wat we nog nodig hebben.</p>
                     @php
                         $knownHousingLines = $intake->knownHousingFactLines();
+                        $energyLabelNote = $intake->energyLabelCustomerNote();
                     @endphp
                     @if ($knownHousingLines !== [])
                         <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
@@ -43,6 +44,11 @@
                                 </div>
                             @endforeach
                         </dl>
+                    @endif
+                    @if ($energyLabelNote !== null)
+                        <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="energy-label-note" role="status">
+                            {{ $energyLabelNote }}
+                        </p>
                     @endif
                 @else
                     <p>Met jouw hulp kunnen we sneller je airco plaatsen. Beantwoord de vragen hieronder — dat kan ook op je telefoon. Je kunt later gewoon verdergaan.</p>
@@ -731,7 +737,7 @@
         >
             <div class="mx-auto max-w-lg px-4 py-4 sm:px-6">
             @if (! empty($photoNeedsOverride))
-                {{-- BL-156 polish: één bevestiging in de footer; Vorige als tekstlink; knoppen zonder afbreken. --}}
+                {{-- BL-157 polish: één bevestiging in de footer; Vorige als tekstlink; knoppen zonder afbreken. --}}
                 <div class="flex flex-col gap-3" data-testid="footer-photo-override">
                     <p
                         class="text-center text-sm font-medium leading-snug text-[#a84832]"
