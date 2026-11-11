@@ -1,43 +1,52 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
-**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding na Joris-stagingtest (sync-prefill freeze, ruimtelabels, maten-overslaan). Optioneel later: publieke adres-autocomplete, WP-plugin.
+**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding na Joris-stagingtest; BL-158 adresbevestiging + iframe auto-resize. Optioneel later: publieke adres-autocomplete, WP-plugin.
 
 ## Wat er staat
 
-Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-mail, postcode+huisnummer (+ optioneel toevoeging/telefoon) en AVG-vinkje in. Intake Engine maakt een opname **zonder AI**, mailt de klantlink als backup, en stuurt de browser in het top-window door naar `/o/{token}`. De hele intake blijft op IE.
+Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-mail, postcode+huisnummer (+ optioneel toevoeging/telefoon) en AVG-vinkje in, bevestigt het gevonden adres, en Intake Engine maakt een opname **zonder AI**, mailt de klantlink als backup, en stuurt de browser in het top-window door naar `/o/{token}`. De hele intake blijft op IE.
 
 | Onderdeel | BL | Inhoud |
 |-----------|----|--------|
 | Settings | BL-151 | `companies.embed_*`, sleutel/domeinen/limiet/snippet in bedrijfsinstellingen |
 | Publiek formulier | BL-152 | `GET/POST /embed/{public_key}`, CSP, limieten, dedup, CreateIntake zonder AI |
 | AI + badge + smoke | BL-153 | request-prefill bij eerste klantstap/foto; dashboardbadge; staging-testpagina |
+| Adresbevestiging + resize | BL-158 | tekstvelden huisnummer/toevoeging; “Is dit je adres?”; iframe auto-hoogte via `postMessage` |
 
 ## Flow
 
-1. Installateur zet formulier aan, registreert hostnames, kopieert snippet.
-2. Klant opent installateurssite → iframe laadt `/embed/{key}` (`frame-ancestors` allowlist + `'self'`).
-3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, dagplafond, Origin-check).
-4. Nieuw: `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + backup-mail → 303 `/o/{token}` (`target=_top`).
+1. Installateur zet formulier aan, registreert hostnames, kopieert snippet (iframe + resize-script).
+2. Klant opent installateurssite → iframe laadt `/embed/{key}` (`frame-ancestors` allowlist + `'self'`). De embedded pagina stuurt zijn hoogte via `postMessage` (`source=intake-engine-embed`, `type=resize`); het host-script past de iframe-hoogte aan na origin-check.
+3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, Origin-check) blijft in het iframe: PDOK-lookup → bevestiging **Is dit je adres?** met **Ja, klopt** / **Aanpassen**.
+4. **Ja, klopt** (met `address_confirmed=1`, `target=_top`): dagplafond-check + `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + backup-mail → 303 `/o/{token}`.
 5. Bestaande open opname (zelfde company + e-mail): opnieuw mailen + neutrale bevestiging in iframe (geen token-lek); telt niet mee voor dagplafond.
 6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden.
 
 ## Snippet
 
+De snippet in bedrijfsinstellingen bevat iframe **én** host-script (auto-resize). Conceptueel:
+
 ```html
 <iframe
+  id="intake-embed-…"
   src="https://intake-engine.nl/embed/{public_key}"
   title="Opname starten"
   width="100%"
-  height="720"
-  style="border:0;max-width:40rem;"
+  height="480"
+  style="border:0;width:100%;max-width:40rem;min-height:320px;display:block;"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"
 ></iframe>
+<script>
+  /* luistert op postMessage van de iframe-origin; past iframe.style.height aan */
+</script>
 ```
 
-Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe op de app-host (`'self'`).
+Huisnummer en toevoeging zijn `type="text"` met `inputmode="numeric"` / passend `pattern` (geen muiswiel-spin). Op smalle viewports: `box-sizing:border-box`, `min-width:0` op grids/inputs, geen horizontale overflow.
+
+Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe + resize-snippet op de app-host (`'self'`).
 
 ## Beveiliging (kort)
 
@@ -52,9 +61,10 @@ Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-de
 
 1. Na staging-deploy is `/embed-test` klaar (prepare zit in `deploy/activate.sh`). Alleen bij ontbrekende company: `php artisan embed:prepare-staging-test`.
 2. Open `https://staging.intake-engine.nl/embed-test`
-3. Invullen → top-window op `/o/{token}` → eerste vraag beantwoorden
-4. Inloggen als `embed-staging-test@example.com` / `password` → badge **Nieuw via website**
-5. Negatief (optioneel): verkeerd domein, honeypot, limiet — zie `docs/functional-test-status.md`
+3. Invullen → **Is dit je adres?** → **Ja, klopt** → top-window op `/o/{token}` → eerste vraag beantwoorden
+4. Controleer op 390 px: geen horizontale overflow; iframe-hoogte volgt de inhoud (geen vaste 720 px scroll-in-scroll)
+5. Inloggen als `embed-staging-test@example.com` / `password` → badge **Nieuw via website**
+6. Negatief (optioneel): verkeerd domein, honeypot, limiet — zie `docs/functional-test-status.md`
 
 ### Vaste BAG-check (live PDOK — niet in CI)
 

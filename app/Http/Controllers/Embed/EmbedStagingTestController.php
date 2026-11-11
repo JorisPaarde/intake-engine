@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Embed;
 
+use App\Domains\Intake\Services\EmbedIframeSnippet;
 use App\Domains\Intake\Support\EmbedStagingTest;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
@@ -34,7 +35,10 @@ final class EmbedStagingTestController extends Controller
             'company' => $company,
             'publicKey' => $publicKey,
             'iframeSrc' => $iframeSrc,
-            'iframeSnippet' => '<iframe src="'.e($iframeSrc).'" title="Opname starten" width="100%" height="720" style="border:0;max-width:40rem;" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>',
+            'iframeSnippet' => app(EmbedIframeSnippet::class)->forSrc($iframeSrc, [
+                'id' => 'intake-embed-staging-test',
+                'title' => 'Opname starten via websiteformulier',
+            ]),
         ]);
     }
 

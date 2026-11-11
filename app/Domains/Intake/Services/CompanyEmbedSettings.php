@@ -93,6 +93,9 @@ final class CompanyEmbedSettings
 
         $src = url('/embed/'.$key);
 
-        return '<iframe src="'.e($src).'" title="Opname starten" width="100%" height="720" style="border:0;" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+        return app(EmbedIframeSnippet::class)->forSrc($src, [
+            'id' => 'intake-embed-'.substr(hash('sha256', $key), 0, 12),
+            'title' => 'Opname starten',
+        ]);
     }
 }

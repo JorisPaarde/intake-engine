@@ -65,6 +65,15 @@ final class EmbedIntakeController extends Controller
         }
 
         $normalized = StoreEmbedIntakeRequest::normalize($request->all());
+
+        if (StoreEmbedIntakeRequest::wantsAddressEdit($normalized)) {
+            return $this->formResponse(
+                $company,
+                $public_key,
+                oldInput: $normalized,
+            );
+        }
+
         $validator = Validator::make(
             $normalized,
             StoreEmbedIntakeRequest::ruleSet(),
@@ -99,6 +108,27 @@ final class EmbedIntakeController extends Controller
             'address_house_number',
             'address_house_number_addition',
         ]);
+
+        if (! StoreEmbedIntakeRequest::addressIsConfirmed($normalized)) {
+            try {
+                $resolved = $startEmbedIntake->resolveAddressPreview($data);
+            } catch (ValidationException $exception) {
+                return $this->formResponse(
+                    $company,
+                    $public_key,
+                    status: 422,
+                    fieldErrors: $exception->validator->errors(),
+                    oldInput: $normalized,
+                );
+            }
+
+            return $this->addressConfirmResponse(
+                $company,
+                $public_key,
+                $normalized,
+                $resolved['summary'],
+            );
+        }
 
         $refererHost = $this->originValidator->hostFromRequest($request);
 
@@ -173,6 +203,26 @@ final class EmbedIntakeController extends Controller
         ])->render();
 
         return $this->framedHtml($company, $html, $status);
+    }
+
+    /**
+     * @param  array<string, mixed>  $oldInput
+     */
+    private function addressConfirmResponse(
+        Company $company,
+        string $publicKey,
+        array $oldInput,
+        string $addressSummary,
+    ): Response {
+        $html = view('embed.address-confirm', [
+            'company' => $company,
+            'publicKey' => $publicKey,
+            'embedFormToken' => $this->formToken->issue($publicKey),
+            'oldInput' => $oldInput,
+            'addressSummary' => $addressSummary,
+        ])->render();
+
+        return $this->framedHtml($company, $html, 200);
     }
 
     private function confirmationResponse(Company $company): Response

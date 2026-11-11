@@ -27,6 +27,31 @@ final class StartEmbedIntake
     ) {}
 
     /**
+     * Preview a resolved postal address for the embed confirmation step (no intake create).
+     *
+     * @param  array{
+     *     address_postal_code: string,
+     *     address_house_number: int|string,
+     *     address_house_number_addition?: string|null,
+     * }  $data
+     * @return array{lookup_id: string, address_line: string, city: string, summary: string}
+     */
+    public function resolveAddressPreview(array $data): array
+    {
+        [$postalCode, $houseNumber, $addition] = $this->normalizePostalParts($data);
+        $resolved = $this->resolvePostalAddress($postalCode, $houseNumber, $addition);
+
+        return [
+            ...$resolved,
+            'summary' => $this->formatAddressSummary(
+                $resolved['address_line'],
+                $postalCode,
+                $resolved['city'],
+            ),
+        ];
+    }
+
+    /**
      * @param  array{
      *     customer_name: string,
      *     customer_email: string,
@@ -54,10 +79,7 @@ final class StartEmbedIntake
 
         $this->assertWithinDailyLimit($company);
 
-        $postalCode = strtoupper((string) preg_replace('/\s+/', '', trim((string) $data['address_postal_code'])));
-        $houseNumber = (int) $data['address_house_number'];
-        $addition = strtoupper(trim((string) ($data['address_house_number_addition'] ?? '')));
-        $addition = $addition === '' ? null : $addition;
+        [$postalCode, $houseNumber, $addition] = $this->normalizePostalParts($data);
 
         // Resolve street/city via PDOK before create so the wizard never shows the
         // temporary "Onbekend" placeholder, and unknown addresses get a clear 422.
@@ -101,6 +123,33 @@ final class StartEmbedIntake
         $this->sendCustomerIntakeLink->handle($fresh, $creator);
 
         return ['intake' => $fresh, 'created' => true];
+    }
+
+    /**
+     * @param  array{
+     *     address_postal_code: string,
+     *     address_house_number: int|string,
+     *     address_house_number_addition?: string|null,
+     * }  $data
+     * @return array{0: string, 1: int, 2: string|null}
+     */
+    private function normalizePostalParts(array $data): array
+    {
+        $postalCode = strtoupper((string) preg_replace('/\s+/', '', trim((string) $data['address_postal_code'])));
+        $houseNumber = (int) $data['address_house_number'];
+        $addition = strtoupper(trim((string) ($data['address_house_number_addition'] ?? '')));
+        $addition = $addition === '' ? null : $addition;
+
+        return [$postalCode, $houseNumber, $addition];
+    }
+
+    private function formatAddressSummary(string $addressLine, string $postalCode, string $city): string
+    {
+        $displayPostal = strlen($postalCode) === 6
+            ? substr($postalCode, 0, 4).' '.substr($postalCode, 4, 2)
+            : $postalCode;
+
+        return trim($addressLine).', '.$displayPostal.' '.trim($city);
     }
 
     /**
