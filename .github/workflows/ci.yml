@@ -168,7 +168,7 @@ jobs:
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -207,7 +207,9 @@ jobs:
         run: npm run build
 
       - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+        # Skip --with-deps: apt against archive.ubuntu.com flakes (DNS) and can
+        # burn the whole job timeout. ubuntu-latest already has Chromium libs.
+        run: npx playwright install chromium
 
       - name: Generate E2E photo fixtures
         run: npm run e2e:fixtures
