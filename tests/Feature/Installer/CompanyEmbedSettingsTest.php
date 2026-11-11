@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\CompanyEmbedSettings;
+use App\Domains\Intake\Services\EmbedIframeSnippet;
 use App\Enums\IntakeSource;
 use App\Models\Company;
 use App\Models\User;
@@ -10,6 +12,7 @@ use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
+    $this->withoutVite();
     $this->seed(IntakeTemplateSeeder::class);
 });
 
@@ -50,7 +53,9 @@ test('installer can generate an embed public key for own company only', function
         ->assertOk()
         ->assertSee($company->embed_public_key, false)
         ->assertSee('/embed/'.$company->embed_public_key, false)
-        ->assertSee('Snippet voor je website');
+        ->assertSee('Snippet voor je website')
+        ->assertSee('intake-engine-embed', false)
+        ->assertDontSee('height="720"', false);
 });
 
 test('generating twice without rotate is rejected', function () {
@@ -186,6 +191,25 @@ test('embed settings only change the authenticated users company', function () {
         ->and($other->fresh()->embed_daily_limit)->toBe(20)
         ->and($other->fresh()->embedAllowedOrigins())->toBe(['www.ander.nl'])
         ->and($other->fresh()->embed_public_key)->toBe('foreign-key-eeeeeeeeeeeeeeeeee');
+});
+
+test('iframe snippet includes auto-resize postMessage listener with origin check', function () {
+    $company = Company::factory()->withEmbedKey('snippet-key-ffffffffffffffffff')->create();
+    $snippet = app(CompanyEmbedSettings::class)->iframeSnippet($company);
+
+    expect($snippet)->toBeString()
+        ->and($snippet)->toContain('/embed/snippet-key-ffffffffffffffffff')
+        ->and($snippet)->toContain('intake-engine-embed')
+        ->and($snippet)->toContain('addEventListener("message"')
+        ->and($snippet)->toContain('event.origin!==expectedOrigin')
+        ->and($snippet)->toContain('data.type!=="resize"')
+        ->and($snippet)->not->toContain('height="720"')
+        ->and($snippet)->not->toContain('min-height:320px')
+        ->and($snippet)->toContain('height="480"')
+        ->and($snippet)->toContain('iframe.removeAttribute("height")');
+
+    expect(EmbedIframeSnippet::MESSAGE_SOURCE)->toBe('intake-engine-embed')
+        ->and(EmbedIframeSnippet::MESSAGE_TYPE_RESIZE)->toBe('resize');
 });
 
 test('intakes source defaults to installer for existing creates', function () {

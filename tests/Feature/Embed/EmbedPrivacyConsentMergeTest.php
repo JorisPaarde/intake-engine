@@ -109,6 +109,7 @@ test('embed-toestemming wordt opgeslagen en privacy_consent verdwijnt uit de wiz
         'address_postal_code' => '1234AB',
         'address_house_number' => 12,
         'privacy_consent' => '1',
+        'address_confirmed' => '1',
         'website' => '',
         EmbedFormToken::FIELD => app(EmbedFormToken::class)->issue($ctx['key']),
     ]);
@@ -179,6 +180,7 @@ test('pipe_visibility toont klantvriendelijke uitleg en labels', function () {
         'address_postal_code' => '1234AB',
         'address_house_number' => 12,
         'privacy_consent' => '1',
+        'address_confirmed' => '1',
         'website' => '',
         EmbedFormToken::FIELD => app(EmbedFormToken::class)->issue($ctx['key']),
     ])->assertStatus(303);

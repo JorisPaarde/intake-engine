@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Data\AddressEnrichment;
 use App\Domains\Intake\Data\BagAddressAttributes;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\E2eEmbedAddressStub;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +27,10 @@ final class PdokAddressService
      */
     public function suggestForPostalAddress(string $postalCode, int $houseNumber, ?string $addition = null): array
     {
+        if (E2eEmbedAddressStub::enabled()) {
+            return E2eEmbedAddressStub::suggestionsFor($postalCode, $houseNumber, $addition);
+        }
+
         $normalizedPostalCode = strtoupper((string) preg_replace('/\s+/', '', trim($postalCode)));
         $displayPostalCode = substr($normalizedPostalCode, 0, 4).' '.substr($normalizedPostalCode, 4, 2);
         $normalizedAddition = strtoupper(trim((string) $addition));

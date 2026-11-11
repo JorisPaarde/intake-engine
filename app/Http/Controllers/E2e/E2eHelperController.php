@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\E2e;
 
 use App\Domains\AI\Support\E2eAiScenario;
+use App\Domains\Intake\Actions\PrepareEmbedStagingTest;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\E2eEmbedAddressStub;
 use App\Support\E2e\E2eScenarioFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +75,29 @@ final class E2eHelperController
                 ->values()
                 ->all(),
         ]);
+    }
+
+    public function prepareEmbed(PrepareEmbedStagingTest $prepare): JsonResponse
+    {
+        $this->guard();
+
+        $result = $prepare->handle();
+        E2eEmbedAddressStub::enableDefault();
+
+        return response()->json([
+            'ok' => true,
+            'public_key' => $result['company']->embed_public_key,
+            'embed_test_path' => '/embed-test',
+            'address_stub' => true,
+        ]);
+    }
+
+    public function enableEmbedAddressStub(): JsonResponse
+    {
+        $this->guard();
+        E2eEmbedAddressStub::enableDefault();
+
+        return response()->json(['ok' => true, 'address_stub' => true]);
     }
 
     private function guard(): void

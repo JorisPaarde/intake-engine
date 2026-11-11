@@ -19,21 +19,35 @@
             --embed-danger-border: #f0c2c2;
             --embed-danger-bg: #fff1f1;
         }
-        * { box-sizing: border-box; }
-        body {
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
             margin: 0;
+            max-width: 100%;
+            overflow-x: hidden;
+            height: auto;
+            min-height: 0;
+        }
+        body {
             font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
             background: var(--embed-bg);
             color: var(--embed-text);
             line-height: 1.45;
         }
-        main { max-width: 32rem; margin: 0 auto; padding: 1.5rem 1rem; }
+        main {
+            max-width: 32rem;
+            width: 100%;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+            min-width: 0;
+        }
         .card {
             background: var(--embed-card);
             border: 1px solid var(--embed-border);
             border-radius: 0.75rem;
             padding: 1.25rem;
             box-shadow: 0 1px 2px rgba(24, 32, 29, 0.04);
+            min-width: 0;
+            max-width: 100%;
         }
         .eyebrow { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--embed-muted); }
         h1 { margin: 0.25rem 0 0; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
@@ -43,19 +57,23 @@
             border-radius: 0.75rem;
             padding: 0.75rem 1rem;
             font-size: 0.875rem;
+            min-width: 0;
+            overflow-wrap: anywhere;
         }
         .alert-warn { border: 1px solid #f5d38a; background: #fff8e8; color: #7a4e00; }
         .alert-error { border: 1px solid var(--embed-danger-border); background: var(--embed-danger-bg); color: var(--embed-danger); }
         .alert-error ul { margin: 0; padding-left: 1.1rem; }
-        form { margin-top: 1.25rem; display: grid; gap: 1rem; }
+        form { margin-top: 1.25rem; display: grid; gap: 1rem; min-width: 0; }
         label { display: block; font-size: 0.875rem; font-weight: 600; }
         .hint { font-weight: 400; color: var(--embed-muted); }
         input[type="text"],
         input[type="email"],
-        input[type="tel"],
-        input[type="number"] {
+        input[type="tel"] {
             margin-top: 0.35rem;
+            display: block;
             width: 100%;
+            max-width: 100%;
+            min-width: 0;
             min-height: 2.75rem;
             border: 1px solid var(--embed-border);
             border-radius: 0.75rem;
@@ -75,16 +93,23 @@
             margin: 0.35rem 0 0;
             font-size: 0.8125rem;
             color: var(--embed-danger);
+            overflow-wrap: anywhere;
         }
-        .row { display: grid; gap: 1rem; }
+        .row {
+            display: grid;
+            gap: 1rem;
+            min-width: 0;
+        }
+        .row > * { min-width: 0; max-width: 100%; }
         @media (min-width: 640px) {
-            .row { grid-template-columns: 1.1fr 0.9fr 0.9fr; }
+            .row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr); }
         }
         .consent {
             border: 1px solid var(--embed-border);
             background: var(--embed-soft);
             border-radius: 0.75rem;
             padding: 0.85rem 1rem;
+            min-width: 0;
         }
         .consent.is-invalid { border-color: var(--embed-danger); }
         .consent label {
@@ -92,8 +117,10 @@
             gap: 0.75rem;
             align-items: flex-start;
             font-weight: 400;
+            min-width: 0;
         }
-        .consent input { margin-top: 0.2rem; }
+        .consent label > span { min-width: 0; overflow-wrap: anywhere; }
+        .consent input { margin-top: 0.2rem; flex-shrink: 0; }
         .hp {
             position: absolute;
             left: -9999px;
@@ -104,6 +131,8 @@
         button[type="submit"] {
             min-height: 2.75rem;
             width: 100%;
+            max-width: 100%;
+            min-width: 0;
             border: 0;
             border-radius: 0.75rem;
             background: var(--embed-primary);
@@ -155,8 +184,8 @@
             <form
                 method="POST"
                 action="{{ route('embed.store', ['public_key' => $publicKey]) }}"
-                target="_top"
                 novalidate
+                data-testid="embed-form"
             >
                 <input type="hidden" name="embed_form_token" value="{{ $embedFormToken }}">
 
@@ -226,6 +255,7 @@
                             maxlength="7"
                             value="{{ $oldValue('address_postal_code') }}"
                             autocomplete="postal-code"
+                            inputmode="text"
                             placeholder="1234 AB"
                             @if ($hasError('address_postal_code')) aria-invalid="true" aria-describedby="{{ $errorId('address_postal_code') }}" @endif
                         >
@@ -238,11 +268,13 @@
                         <input
                             id="address_house_number"
                             name="address_house_number"
-                            type="number"
+                            type="text"
                             required
-                            min="1"
-                            max="999999"
+                            maxlength="6"
                             value="{{ $oldValue('address_house_number') }}"
+                            inputmode="numeric"
+                            pattern="[1-9][0-9]{0,5}"
+                            autocomplete="address-line2"
                             @if ($hasError('address_house_number')) aria-invalid="true" aria-describedby="{{ $errorId('address_house_number') }}" @endif
                         >
                         @if ($hasError('address_house_number'))
@@ -257,6 +289,9 @@
                             type="text"
                             maxlength="20"
                             value="{{ $oldValue('address_house_number_addition') }}"
+                            inputmode="text"
+                            pattern="[A-Za-z0-9\-\s]*"
+                            autocomplete="address-line3"
                             @if ($hasError('address_house_number_addition')) aria-invalid="true" aria-describedby="{{ $errorId('address_house_number_addition') }}" @endif
                         >
                         @if ($hasError('address_house_number_addition'))
@@ -286,9 +321,10 @@
                     @endif
                 </div>
 
-                <button type="submit" data-testid="embed-submit">Start opname</button>
+                <button type="submit" data-testid="embed-submit">Controleer adres</button>
             </form>
         </div>
     </main>
+    @include('embed.partials.resize-reporter')
 </body>
 </html>

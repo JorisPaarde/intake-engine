@@ -111,10 +111,11 @@ function embedPrefillPayload(string $key, array $overrides = []): array
         'customer_email' => 'embed.prefill@example.com',
         'customer_phone' => '0611111111',
         'address_postal_code' => '1234AB',
-        'address_house_number' => 12,
+        'address_house_number' => '12',
         'address_house_number_addition' => null,
         'privacy_consent' => '1',
         'website' => '',
+        'address_confirmed' => '1',
         EmbedFormToken::FIELD => app(EmbedFormToken::class)->issue($key),
     ], $overrides);
 }

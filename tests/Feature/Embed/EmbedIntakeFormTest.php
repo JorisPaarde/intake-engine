@@ -126,10 +126,11 @@ function embedPayload(string $key, array $overrides = []): array
         'customer_email' => 'sara.klant@example.com',
         'customer_phone' => '0612345678',
         'address_postal_code' => '1234AB',
-        'address_house_number' => 10,
+        'address_house_number' => '10',
         'address_house_number_addition' => null,
         'privacy_consent' => '1',
         'website' => '',
+        'address_confirmed' => '1',
     ], $overrides);
 
     if ($hasTokenOverride) {
@@ -168,7 +169,14 @@ test('embed form shows for enabled key with frame-ancestors header and signed to
         ->assertSee('name="embed_form_token"', false)
         ->assertDontSee('@csrf', false)
         ->assertDontSee('name="_token"', false)
-        ->assertSee('target="_top"', false)
+        ->assertDontSee('type="number"', false)
+        ->assertSee('id="address_house_number"', false)
+        ->assertSee('inputmode="numeric"', false)
+        ->assertSee('autocomplete="address-line2"', false)
+        ->assertSee('autocomplete="address-line3"', false)
+        ->assertSee('Controleer adres', false)
+        ->assertSee('intake-engine-embed', false)
+        ->assertDontSee('target="_top"', false)
         ->assertHeader('Content-Security-Policy');
 
     // Explicit AVG checkbox must start unchecked (no checked attribute on privacy_consent).
@@ -186,6 +194,43 @@ test('unknown or disabled embed key returns 404', function () {
     $disabled = embedCompanyReady(['embed_enabled' => false]);
     $this->get(route('embed.show', ['public_key' => $disabled['key']]))->assertNotFound();
     postEmbed($disabled['key'])->assertNotFound();
+});
+
+test('first submit shows address confirmation without creating an intake', function () {
+    Mail::fake();
+    $ctx = embedCompanyReady();
+
+    $response = postEmbed($ctx['key'], ['address_confirmed' => null]);
+
+    $response->assertOk()
+        ->assertSee('Is dit je adres?', false)
+        ->assertSee('Voorbeeldstraat 10, 1234 AB Voorbeeldstad', false)
+        ->assertSee('Ja, klopt', false)
+        ->assertSee('Aanpassen', false)
+        ->assertSee('name="address_confirmed"', false)
+        ->assertSee('target="_top"', false)
+        ->assertSee('intake-engine-embed', false);
+
+    expect(Intake::query()->count())->toBe(0);
+    Mail::assertNothingSent();
+});
+
+test('aanpassen returns to the form with preserved fields', function () {
+    $ctx = embedCompanyReady();
+
+    $response = postEmbed($ctx['key'], [
+        'address_confirmed' => null,
+        'embed_action' => 'edit',
+        'customer_name' => 'Sara Bewerkt',
+    ]);
+
+    $response->assertOk()
+        ->assertSee('Start je opname', false)
+        ->assertSee('value="Sara Bewerkt"', false)
+        ->assertSee('Controleer adres', false)
+        ->assertDontSee('Is dit je adres?', false);
+
+    expect(Intake::query()->count())->toBe(0);
 });
 
 test('happy path creates embed intake without AI and redirects to customer link', function () {
@@ -237,6 +282,25 @@ test('happy path creates embed intake without AI and redirects to customer link'
         ->and($created->properties['embed_referer_host'] ?? null)->toBe('www.example.nl')
         ->and(json_encode($created->properties))->not->toContain('sara.klant@example.com')
         ->and(json_encode($created->properties))->not->toContain($intake->access_token);
+});
+
+test('wheel-safe house number rejects non-numeric text and accepts digit string', function () {
+    Mail::fake();
+    $ctx = embedCompanyReady();
+
+    postEmbed($ctx['key'], [
+        'address_house_number' => '12a',
+        'address_confirmed' => null,
+    ])->assertStatus(422)
+        ->assertSee('Vul een geldig huisnummer in', false);
+
+    expect(Intake::query()->count())->toBe(0);
+
+    postEmbed($ctx['key'], [
+        'address_house_number' => '10',
+        'address_confirmed' => null,
+    ])->assertOk()
+        ->assertSee('Is dit je adres?', false);
 });
 
 test('honeypot filled silently skips intake creation', function () {

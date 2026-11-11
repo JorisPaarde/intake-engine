@@ -62,10 +62,11 @@ function embedBagPayload(string $key, array $overrides = []): array
         'customer_email' => 'joris.bag@example.com',
         'customer_phone' => null,
         'address_postal_code' => '2037GR',
-        'address_house_number' => 273,
+        'address_house_number' => '273',
         'address_house_number_addition' => null,
         'privacy_consent' => '1',
         'website' => '',
+        'address_confirmed' => '1',
         EmbedFormToken::FIELD => app(EmbedFormToken::class)->issue($key),
     ], $overrides);
 }

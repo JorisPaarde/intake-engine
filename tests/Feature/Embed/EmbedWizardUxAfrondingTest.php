@@ -117,10 +117,11 @@ function embedUxPayload(string $key, array $overrides = []): array
         'customer_email' => 'embed.ux@example.com',
         'customer_phone' => '0612345678',
         'address_postal_code' => '1234AB',
-        'address_house_number' => 12,
+        'address_house_number' => '12',
         'address_house_number_addition' => null,
         'privacy_consent' => '1',
         'website' => '',
+        'address_confirmed' => '1',
         EmbedFormToken::FIELD => app(EmbedFormToken::class)->issue($key),
     ], $overrides);
 }

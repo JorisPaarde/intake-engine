@@ -11,4 +11,6 @@ Route::prefix('__e2e__')->group(function (): void {
     Route::post('/ai-scenario', [E2eHelperController::class, 'setAiScenario'])->name('e2e.ai-scenario');
     Route::get('/intakes/{intakeId}/uploads', [E2eHelperController::class, 'uploads'])->name('e2e.uploads');
     Route::get('/intakes/{intakeId}/answers', [E2eHelperController::class, 'answers'])->name('e2e.answers');
+    Route::post('/embed/prepare', [E2eHelperController::class, 'prepareEmbed'])->name('e2e.embed.prepare');
+    Route::post('/embed/address-stub', [E2eHelperController::class, 'enableEmbedAddressStub'])->name('e2e.embed.address-stub');
 });
