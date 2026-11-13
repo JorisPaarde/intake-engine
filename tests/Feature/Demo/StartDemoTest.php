@@ -333,9 +333,9 @@ it('continues as customer on the full production wizard without sending mail', f
     expect($html)
         ->toContain('Demo — wat de klant ziet')
         ->not->toContain('Vraag 2 van 2')
-        // Zonder ruimtes/known-summary nog geen “van N” (stabiele teller); wel “Vraag N”.
+        // BL-163: nooit zichtbare “Vraag N” — voortgang alleen via balk/%.
         ->toContain('data-testid="step-counter"')
-        ->toMatch('/Vraag\s+\d+/')
+        ->not->toMatch('/Vraag\s+\d+/')
         ->not->toMatch('/Vraag\s+\d+\s+van\s+\d+/');
 });
 
