@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-169 | UX-review embed: fotostappen (8s soft-timeout, afkeurkader, uploadknop) + bedankscherm | E1/E7 | in_progress | high | UX-review 13 nov punten 1+3 · parallel andere UX-punten · branch `cursor/ux-photo-thankyou-7201` |
+| — | BL-169 | UX-review embed: fotostappen (8s soft-timeout, afkeurkader, uploadknop) + bedankscherm | E1/E7 | done | high | UX-review 13 nov punten 1+3 · PR #321 · 2026-11-13 · Pest `Bl169PhotoSoftTimeoutAndThankYouTest`; E2E `25-bl169-photo-thankyou-ux` |
 | — | BL-168 | Verschilt per ruimte op zon: verdieping/glas in volgorde + Afronden-terugsprong | E1/E7 | done | high | na BL-164/#315 · klant-hertest 13 nov embed 2037GR 273 · prod v1.4.97 · PR #318 · 2026-11-13 · was parallel als BL-165; embed-test behield BL-165 via #317; coëxisteert met BL-166/#316 + BL-167/#319 |
 | — | BL-167 | Klantwizard: intro + demobanner alleen op eerste stap + known-summary | E1/E7 | done | high | na BL-164 · parallel #316/#318 · PR #319 · 2026-11-13 |
 | — | BL-166 | Klant-hertest 13 nov: bedankscherm, bedrijfspand, teksten, huur-verhuurder (airco v32) | E1/E7 | done | high | na BL-164 · staging embed-wizard hertest 13 nov · PR #316 · 2026-11-13 |
