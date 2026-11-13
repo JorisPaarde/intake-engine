@@ -44,6 +44,9 @@ $intake = Intake::factory()->create([
 ]);
 
 $save = app(SaveIntakeAnswer::class);
+$save->handle($intake, 'request_reason', null, [
+    'text' => '3 kamers van 3 bij 5 meter — slaapkamer, woonkamer, slaapkamer',
+], PrefillSources::AI_TEXT);
 $save->handle($intake, 'indoor_unit_count', null, ['number' => 3], PrefillSources::AI_TEXT);
 $save->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
 $save->handle($intake, 'room_type', 'room-2', ['value' => 'living_room'], PrefillSources::AI_TEXT);
