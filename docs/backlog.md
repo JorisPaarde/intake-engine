@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.22 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.23 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-166 | Klant-hertest 13 nov: bedankscherm, bedrijfspand, teksten, huur-verhuurder (airco v32) | E1/E7 | in_progress | high | na BL-164 · staging embed-wizard hertest 13 nov |
+| — | BL-166 | Klant-hertest 13 nov: bedankscherm, bedrijfspand, teksten, huur-verhuurder (airco v32) | E1/E7 | done | high | na BL-164 · staging embed-wizard hertest 13 nov · PR #316 · 2026-11-13 |
 | — | BL-164 | Voortgang % springt niet naar ~97% vóór kamerfoto’s (Verschilt per ruimte / stale knownStepKeys) | E1/E7 | done | high | na BL-163/#314 · klanttest embed 2037GR 273 · 3 kamers differs · PR #315 · 2026-11-13 |
 | — | BL-163 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · PR #314 · 2026-11-13 · was parallel als BL-161; outdoor/#312 behield BL-161, differs/#313 → BL-162 |
 | — | BL-162 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | done | high | klanttest 11 nov run 3 · PR #313 · 2026-11-11 · parallel als BL-161 met #312 |
@@ -712,10 +712,11 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-166 — Klant-hertest 13 nov: bedankt, pand, teksten, huur
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-164 · **Ref:** staging embed-wizard / airco-flow hertest 13 nov
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #316 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-164 · **Ref:** staging embed-wizard / airco-flow hertest 13 nov
 - **Aanleiding:** (1) bedankscherm zonder termijn of overzicht; (2) Grote Markt 2 (Haarlem) als bedrijfspand onder “woninggegevens” zonder waarschuwing; (3) interne stopcontact-/merkteksten, bank-voorbeeld in slaapkamer, verkeerde geluid-help, dubbele merkuitleg; (4) bij Huur geen vraag over verhuurderstoestemming.
 - **Doel:** bedankt met configureerbare termijn + klantoverzicht; BAG niet-woonfunctie → “pandgegevens” + melding; energielabel alleen uit EP-Online; airco **v32** teksten + optionele `landlord_permission` in wizard/rapport; Pest + screenshots 390/1440.
 - **Scope:** `CustomerCompletionSummary`, `Intake` housing helpers, airco v32, closing/known-summary copy, SharedRoomAnswers (geen room_outlet share), E2E `23-bl166-klant-hertest`.
+- **Resultaat:** merge-kandidaat #316; Pest + E2E screenshots 390/1440.
 
 ### BL-164 — Voortgang % niet naar ~97% vóór kamerfoto’s
 
