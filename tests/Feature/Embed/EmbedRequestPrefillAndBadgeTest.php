@@ -293,9 +293,18 @@ test('embed staging test page works after prepare command and is blocked in prod
 
     $this->get(route('embed.staging-test'))
         ->assertOk()
-        ->assertSee('Embed staging-test', false)
-        ->assertSee(EmbedStagingTest::PUBLIC_KEY, false)
+        ->assertSee('Zo ziet het opnameformulier eruit op jouw website', false)
+        ->assertSee('data-testid="embed-staging-test-intro"', false)
         ->assertSee('data-testid="embed-staging-test-frame"', false)
+        ->assertSee('Probeer het hieronder gerust uit', false)
+        ->assertDontSee("('self' in frame-ancestors)", false)
+        ->assertDontSee('Iframe-src:', false)
+        ->assertDontSee('Sleutel:', false)
+        ->assertDontSee('Happy path:', false)
+        ->assertDontSee('Testbedrijf:', false)
+        // Technisch alleen in HTML-comment / iframe-src-attribuut, niet als zichtbare meta.
+        ->assertSee('<!-- embed-staging-smoke', false)
+        ->assertSee(EmbedStagingTest::PUBLIC_KEY, false)
         ->assertSee('/embed/'.EmbedStagingTest::PUBLIC_KEY, false);
 
     // Idempotent prepare: tweede artisan-run + action mogen geen dubbele company/user maken.

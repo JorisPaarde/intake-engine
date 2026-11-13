@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Embed-test introtekst voor installateurs (BL-165):** `/embed-test` toont geen frame-ancestors-/sleutel-/iframe-src-uitleg meer; kop “Zo ziet het opnameformulier eruit op jouw website” + korte NL-uitleg (je/jij). Technisch blijft in HTML-comment + docs. Pest: `EmbedRequestPrefillAndBadgeTest`. Pagina blijft 404 op production.
+
 ### Fixed
 
 - **Voortgang springt niet meer naar ~97% vóór kamerfoto’s (BL-164):** na groei van de stappenlijst (ruimtes/prefill) bleef `knownStepKeys` stale; bij verdwijnen van een `_shared`-stap viel `realignToActiveStep` terug op de laatste oude key (vaak Afronden) → `stepIndex` hoog → `progressHighWater` ≈ 97% terwijl verplichte kamerfoto’s nog open waren. Fix: `knownStepKeys` verversen in `landOnStepIndex`; realign-anker op huidige index i.p.v. “laatste oude key”; high-water-cap onder 90% zolang verplichte stappen zonder antwoord open zijn. Pest: `Bl164ProgressHighWaterDiffersTest`; E2E: `22-bl164-progress-differs` (screenshots 390 Kamer 1-foto + Afronding).
