@@ -47,14 +47,21 @@ test('known-summary toont berekend oppervlak als getal met L×B-toelichting', fu
         $intake->templateVersion,
     );
     $summary = collect($steps)->firstWhere('question_key', '_known_summary');
-    // BL-169: één rij per ruimte; m² staat als display_value op die rij.
-    $roomRow = collect($summary['known_items'] ?? [])
-        ->first(static fn (array $item): bool => ($item['section_instance_key'] ?? null) === 'room-1');
+    $items = collect($summary['known_items'] ?? []);
+    $identity = $items->first(
+        static fn (array $item): bool => ($item['section_instance_key'] ?? null) === 'room-1'
+            && in_array($item['question_key'] ?? '', ['room_name', 'room_type'], true),
+    );
+    $area = $items->first(
+        static fn (array $item): bool => ($item['question_key'] ?? '') === 'room_area_m2'
+            && ($item['section_instance_key'] ?? null) === 'room-1',
+    );
 
-    expect($roomRow)->not->toBeNull()
-        ->and($roomRow['display_value'])->toBe('15 m² (berekend uit 3 × 5 m)')
-        ->and($roomRow['display_value'])->not->toBe('berekend uit L×B')
-        ->and($roomRow['label'])->not->toContain('Hoe heet deze ruimte');
+    expect($identity)->not->toBeNull()
+        ->and($identity['label'])->not->toContain('Hoe heet deze ruimte')
+        ->and($area)->not->toBeNull()
+        ->and($area['display_value'])->toBe('15 m² (berekend uit 3 × 5 m)')
+        ->and($area['display_value'])->not->toBe('berekend uit L×B');
 });
 
 test('ruimte-eyebrow nummert overall: Kamer N van M (type) bij gemengde types', function () {

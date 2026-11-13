@@ -1241,8 +1241,8 @@ final class IntakeStepBuilder
             static fn (array $keys): bool => isset($keys['room_area_m2']) || (isset($keys['room_length_m']) && isset($keys['room_width_m'])),
         );
 
-        /** @var array<string, array{question_key: string, section_instance_key: string, label: string, display_value: string, prefill_source: string, _section_order: int, _question_order: int}> $roomRows */
-        $roomRows = [];
+        /** @var array<string, array{question_key: string, section_instance_key: string, label: string, display_value: string, prefill_source: string, _section_order: int, _question_order: int}> $roomIdentityRows */
+        $roomIdentityRows = [];
 
         foreach ($intake->answers as $answer) {
             $source = $answer->prefill_source;
@@ -1264,42 +1264,26 @@ final class IntakeStepBuilder
             $instanceKey = $answer->section_instance_key;
             $isRoomScoped = is_string($instanceKey) && str_starts_with($instanceKey, 'room-');
 
-            // Één rij per ruimte (naam + optioneel m²); geen “Woonkamer — Hoe heet…? Woonkamer”.
-            if ($isRoomScoped) {
+            // BL-169: room_name + room_type → één identiteitsrij (“Woonkamer”), geen
+            // “Woonkamer · 1 van 2 — Hoe heet deze ruimte? Woonkamer”. Overige
+            // kamer-vragen (verdieping, glas, m², …) blijven aparte Wijzigen-rijen.
+            if ($isRoomScoped && in_array($answer->question_key, ['room_name', 'room_type'], true)) {
                 $roomLabel = $this->roomSummaryLabel($intake, $instanceKey, $answers);
                 if ($roomLabel === '') {
                     continue;
                 }
 
-                $existing = $roomRows[$instanceKey] ?? null;
-                $display = (string) ($existing['display_value'] ?? '');
-                if ($answer->question_key === 'room_area_m2') {
-                    $areaDisplay = $source === PrefillSources::DERIVED_LXW
-                        ? $this->displayDerivedAreaValue($answer, $answers)
-                        : $this->displayAnswerValue($question, $answer->value);
-                    if (is_string($areaDisplay) && $areaDisplay !== '') {
-                        $display = $areaDisplay;
-                    }
-                }
-
-                // Wijzigen: oppervlak als die bekend is (N37), anders naam/type.
-                $editKey = $existing['question_key'] ?? $answer->question_key;
-                if ($answer->question_key === 'room_area_m2') {
-                    $editKey = 'room_area_m2';
-                } elseif ($answer->question_key === 'room_name'
-                    && ! in_array($editKey, ['room_area_m2'], true)) {
-                    $editKey = 'room_name';
-                } elseif ($answer->question_key === 'room_type'
-                    && ! in_array($editKey, ['room_area_m2', 'room_name'], true)) {
-                    $editKey = 'room_type';
-                }
+                $existing = $roomIdentityRows[$instanceKey] ?? null;
+                $editKey = ($existing['question_key'] ?? null) === 'room_name' || $answer->question_key === 'room_name'
+                    ? 'room_name'
+                    : 'room_type';
 
                 $sectionKey = $questionSection[$editKey] ?? ($questionSection[$answer->question_key] ?? '');
-                $roomRows[$instanceKey] = [
+                $roomIdentityRows[$instanceKey] = [
                     'question_key' => $editKey,
                     'section_instance_key' => $instanceKey,
                     'label' => $roomLabel,
-                    'display_value' => $display,
+                    'display_value' => (string) ($existing['display_value'] ?? ''),
                     'prefill_source' => (string) ($existing['prefill_source'] ?? $source),
                     '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
                     '_question_order' => $questionOrder[$editKey] ?? ($questionOrder[$answer->question_key] ?? PHP_INT_MAX),
@@ -1316,11 +1300,19 @@ final class IntakeStepBuilder
                 continue;
             }
 
+            $label = $question->label;
+            if ($isRoomScoped) {
+                $instanceLabel = $this->instanceLabel($intake, $instanceKey, $answers);
+                if ($instanceLabel !== null) {
+                    $label = $instanceLabel.' — '.$label;
+                }
+            }
+
             $sectionKey = $questionSection[$answer->question_key] ?? '';
             $items[] = [
                 'question_key' => $answer->question_key,
                 'section_instance_key' => $answer->section_instance_key,
-                'label' => $question->label,
+                'label' => $label,
                 'display_value' => $display,
                 'prefill_source' => (string) $source,
                 '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
@@ -1328,7 +1320,7 @@ final class IntakeStepBuilder
             ];
         }
 
-        foreach ($roomRows as $roomRow) {
+        foreach ($roomIdentityRows as $roomRow) {
             $items[] = $roomRow;
         }
 

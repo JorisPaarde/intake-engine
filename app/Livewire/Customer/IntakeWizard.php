@@ -3313,6 +3313,7 @@ class IntakeWizard extends Component
         }
 
         if (($step['kind'] ?? 'question') === 'closing_wishes') {
+            $this->persistDefaultBrandPreferenceIfNeeded();
             $keys = $step['bundle_question_keys'] ?? IntakeStepBuilder::CLOSING_WISH_KEYS;
             foreach ($keys as $questionKey) {
                 $composite = VisibilityResolver::compositeKey($questionKey, null);
@@ -3565,11 +3566,29 @@ class IntakeWizard extends Component
             ))
             : [];
 
+        // Alleen UI-keuze syncen; lege `values` blijven [] tot de klant kiest of afrondt
+        // (anders bindt multi_choice verkeerd én faalt de lege-array-invariant).
         if ($this->brandPreferenceChoice === 'auto') {
             $this->brandPreferenceChoice = $specific !== [] ? 'prefer' : 'none';
         }
+    }
 
-        if ($this->brandPreferenceChoice === 'none' && (! is_array($values) || $values === [] || $specific === [])) {
+    /**
+     * Bij opslaan van closing_wishes: lege merkvoorkeur → no_preference (radio-default).
+     */
+    private function persistDefaultBrandPreferenceIfNeeded(): void
+    {
+        $this->ensureAnswerShapeForKey('brand_preference', null);
+        $values = $this->form['brand_preference']['values'] ?? null;
+        $specific = is_array($values)
+            ? array_values(array_filter(
+                $values,
+                static fn (mixed $value): bool => is_string($value) && $value !== '' && $value !== 'no_preference',
+            ))
+            : [];
+
+        if ($this->brandPreferenceChoice !== 'prefer' && $specific === []) {
+            $this->brandPreferenceChoice = 'none';
             $this->form['brand_preference']['values'] = ['no_preference'];
         }
     }
