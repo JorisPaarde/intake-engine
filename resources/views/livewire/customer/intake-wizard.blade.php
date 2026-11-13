@@ -8,8 +8,9 @@
     class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ! empty($photoNeedsOverride) ? 'pb-56' : (($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-52') }}"
     data-testid="customer-wizard-shell"
 >
-    @if ($intake->is_demo && ! $completed)
-        <x-demo-scope-notice variant="banner" :short-customer="$demoShortCustomer ?? false" />
+    {{-- BL-167: demobanner + intro/BAG/bedrijfspand alleen op eerste stap + known-summary. --}}
+    @if (($showWizardIntro ?? false) && $intake->is_demo && ! $completed)
+        <x-demo-scope-notice variant="banner" :short-customer="$demoShortCustomer ?? false" data-testid="demo-scope-banner" />
     @endif
 
     <header class="mb-6">
@@ -29,38 +30,41 @@
         </div>
 
         <div class="mt-4">
-            <div class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]">
-                @if ($intake->hasKnownHousingFacts())
-                    <p data-testid="known-property-intro">{{ $intake->knownPropertyFactsIntro() }}</p>
-                    @php
-                        $knownHousingLines = $intake->knownHousingFactLines();
-                        $energyLabelNote = $intake->energyLabelCustomerNote();
-                        $nonResidentialNote = $intake->nonResidentialCustomerNote();
-                    @endphp
-                    @if ($nonResidentialNote !== null)
-                        <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="non-residential-note" role="status">
-                            {{ $nonResidentialNote }}
-                        </p>
+            {{-- BL-167: intro alleen op start/known-summary; BL-166: pandgegevens + bedrijfspandmelding. --}}
+            @if ($showWizardIntro ?? false)
+                <div class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]" data-testid="wizard-intro">
+                    @if ($intake->hasKnownHousingFacts())
+                        <p data-testid="known-property-intro">{{ $intake->knownPropertyFactsIntro() }}</p>
+                        @php
+                            $knownHousingLines = $intake->knownHousingFactLines();
+                            $energyLabelNote = $intake->energyLabelCustomerNote();
+                            $nonResidentialNote = $intake->nonResidentialCustomerNote();
+                        @endphp
+                        @if ($nonResidentialNote !== null)
+                            <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="non-residential-note" role="status">
+                                {{ $nonResidentialNote }}
+                            </p>
+                        @endif
+                        @if ($knownHousingLines !== [])
+                            <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
+                                @foreach ($knownHousingLines as $knownLine)
+                                    <div class="flex items-baseline justify-between gap-3">
+                                        <dt class="text-[#5e6862]">{{ $knownLine['label'] }}</dt>
+                                        <dd class="font-semibold text-[#18201d]">{{ $knownLine['value'] }}</dd>
+                                    </div>
+                                @endforeach
+                            </dl>
+                        @endif
+                        @if ($energyLabelNote !== null)
+                            <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="energy-label-note" role="status">
+                                {{ $energyLabelNote }}
+                            </p>
+                        @endif
+                    @else
+                        <p>Met jouw hulp kunnen we sneller je airco plaatsen. Beantwoord de vragen hieronder — dat kan ook op je telefoon. Je kunt later gewoon verdergaan.</p>
                     @endif
-                    @if ($knownHousingLines !== [])
-                        <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
-                            @foreach ($knownHousingLines as $knownLine)
-                                <div class="flex items-baseline justify-between gap-3">
-                                    <dt class="text-[#5e6862]">{{ $knownLine['label'] }}</dt>
-                                    <dd class="font-semibold text-[#18201d]">{{ $knownLine['value'] }}</dd>
-                                </div>
-                            @endforeach
-                        </dl>
-                    @endif
-                    @if ($energyLabelNote !== null)
-                        <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="energy-label-note" role="status">
-                            {{ $energyLabelNote }}
-                        </p>
-                    @endif
-                @else
-                    <p>Met jouw hulp kunnen we sneller je airco plaatsen. Beantwoord de vragen hieronder — dat kan ook op je telefoon. Je kunt later gewoon verdergaan.</p>
-                @endif
-            </div>
+                </div>
+            @endif
             <div class="flex items-center justify-between text-sm text-[#5e6862]">
                 <span>Voortgang</span>
                 <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
