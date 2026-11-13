@@ -476,8 +476,11 @@ final class IntakeStepBuilder
                 $forceShow,
             );
 
+            // BL-161: na Toch doorgaan op fusebox_photo de extra foto helemaal
+            // verbergen (niet alleen un-require) — ook als fusebox_clarity per
+            // ongeluk weer needs_clearer_photo is.
             if (PhotoFollowUpWaiver::waives($intake, $intake->templateVersion, $question, $sectionInstanceKey)) {
-                $presentation['required'] = false;
+                continue;
             }
 
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
@@ -1222,7 +1225,7 @@ final class IntakeStepBuilder
     }
 
     /**
-     * Ruimtelabel voor de klant: overall “Kamer N van M (type)” — niet per soort
+     * Ruimtelabel voor de klant: overall “Kamer N van M (type)” (BL-163) — niet per soort
      * met een totaal dat niet bij dat soort hoort (klanttest run 3).
      *
      * @param  array<string, array<string, mixed>|null>  $answers

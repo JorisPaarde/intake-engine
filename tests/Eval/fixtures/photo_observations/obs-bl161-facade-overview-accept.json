@@ -1,0 +1,31 @@
+{
+  "id": "obs-bl161-facade-overview-accept",
+  "kind": "photo_observation",
+  "origin": "klanttest 11 nov ronde 3 outdoor-assessment (BL-161)",
+  "source_kind": "reconstructed",
+  "slot": "outdoor_location_photos",
+  "room": null,
+  "text": "Achtergevel van een rijtjeswoning vanaf de tuin; bakstenen muur en ramen, geen buitenunit, geen specifieke montageplek aangewezen.",
+  "model_fields": {
+    "outdoor_location": "facade",
+    "outdoor_mount_type": "unknown",
+    "outdoor_accessibility": "unknown",
+    "detected_subject": "other",
+    "subject_match": "yes",
+    "confidence": "low",
+    "evidence": "Achtergevel vanaf de tuin; montagevlak niet aangewezen.",
+    "retake_instruction": null
+  },
+  "expected": {
+    "outdoor_location": "facade",
+    "existing_outdoor_unit_visible": false,
+    "mount_position_known": false
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "BL-161: lage confidence + detected=other mag gevelfoto niet afkeuren; PhotoContentAssessment pipeline → ok (zie OutdoorPhotoPipelineFixtureTest).",
+  "disputed_facts": {}
+}

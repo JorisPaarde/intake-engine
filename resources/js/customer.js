@@ -16,7 +16,7 @@ registerPollPauseWhileBusy();
 registerClientPhotoDownscale();
 
 /**
- * BL-161: Vorige mag geen tekstselectie/klembord-side-effect hebben.
+ * BL-163: Vorige mag geen tekstselectie/klembord-side-effect hebben.
  * De klantwizard schrijft nergens naar het klembord; wel kan een geselecteerd
  * invoerveld bij blur/morph per ongeluk in het klembord belanden.
  */

@@ -118,7 +118,7 @@
         <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
-                {{-- BL-161: nooit “Vraag N” / “X van Y” — alleen balk/%. --}}
+                {{-- BL-163: nooit “Vraag N” / “X van Y” — alleen balk/%. --}}
                 <span data-testid="step-counter" class="sr-only">Voortgang via balk</span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
@@ -155,7 +155,7 @@
         <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
-                {{-- BL-161: nooit “Vraag N” / “X van Y” — alleen balk/%. --}}
+                {{-- BL-163: nooit “Vraag N” / “X van Y” — alleen balk/%. --}}
                 <span data-testid="step-counter" class="sr-only">Voortgang via balk</span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
@@ -237,7 +237,7 @@
         <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
-                {{-- BL-161: nooit “Vraag N” / “X van Y” — alleen balk/%. --}}
+                {{-- BL-163: nooit “Vraag N” / “X van Y” — alleen balk/%. --}}
                 <span data-testid="step-counter" class="sr-only">Voortgang via balk</span>
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">

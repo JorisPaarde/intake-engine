@@ -65,6 +65,8 @@ php artisan queue:work --queue=ai-photo,default --sleep=1 --tries=2
 | `specs/07-drain-and-facade-reuse.spec.ts` | Afvoer-tekst + gevel-hergebruik |
 | `specs/08-room-name-autosave.spec.ts` | Kamernaam-autosave verschuift vraag niet (BL-140 sticky) |
 | `specs/19-embed-iframe-resize.spec.ts` | Embed iframe krimpt na adresbevestiging (BL-158) |
+| `specs/20-differs-per-room-floors.spec.ts` | Verschilt per ruimte → per-kamer verdieping/zon tot Afronden (BL-162; screenshots `bl161-*`) |
+| `specs/21-klanttest-run3-labels.spec.ts` | Geen “Vraag N”; % daalt niet; Vorige zonder klembord (BL-163) |
 
 ## Helpers
 

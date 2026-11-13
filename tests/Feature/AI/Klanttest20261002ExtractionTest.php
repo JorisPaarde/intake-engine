@@ -359,7 +359,7 @@ test('case 81: alle expliciete feiten opgeslagen met bron; stroom/condens niet u
     expect($photoSteps)->toHaveCount(2)
         ->and($photoSteps[0]['title'])->toBe('Foto’s van de ruimte')
         ->and($photoSteps[1]['title'])->toBe('Foto’s van de ruimte')
-        // Eyebrow: kamernaam + overall N van M, zonder dossier-verdieping ertussen (BL-155/BL-161).
+        // Eyebrow: kamernaam + overall N van M, zonder dossier-verdieping ertussen (BL-155/BL-163).
         ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders · 1 van 2')
         ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer · 2 van 2')
         ->and($summaryKeys)->not->toContain('fusebox_clarity')

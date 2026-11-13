@@ -52,13 +52,13 @@ test.describe('Klanttest run 3: labels, teller, Vorige/klembord', () => {
     test.skip((await previous.count()) === 0, 'Geen Vorige op deze stap');
 
     await page.evaluate(async () => {
-      await navigator.clipboard.writeText('BL161-CLIPBOARD-MARKER');
+      await navigator.clipboard.writeText('BL163-CLIPBOARD-MARKER');
     });
 
     await previous.click();
     await page.waitForTimeout(500);
 
     const clip = await page.evaluate(async () => navigator.clipboard.readText());
-    expect(clip).toBe('BL161-CLIPBOARD-MARKER');
+    expect(clip).toBe('BL163-CLIPBOARD-MARKER');
   });
 });

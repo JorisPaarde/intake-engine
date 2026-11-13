@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Bootstrap intake for BL-161 screenshots: 3 rooms (bedroom/living/bedroom),
+ * Bootstrap intake for BL-163 screenshots: 3 rooms (bedroom/living/bedroom),
  * L×B 3×5 → derived 15 m², known-summary ready.
  */
 
@@ -25,7 +25,7 @@ $app->make(IntakeTemplateSeeder::class)->run();
 
 $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 $user = User::factory()->create([
-    'email' => 'bl161-run3-'.uniqid('', true).'@example.com',
+    'email' => 'bl163-run3-'.uniqid('', true).'@example.com',
     'password' => bcrypt('password'),
 ]);
 
@@ -35,7 +35,7 @@ $intake = Intake::factory()->create([
     'intake_template_version_id' => $version->id,
     'status' => IntakeStatus::Sent,
     'customer_name' => 'Joris Test',
-    'customer_email' => 'bl161-customer@example.com',
+    'customer_email' => 'bl163-customer@example.com',
     'address_line' => 'Bernadottelaan',
     'address_postal_code' => '2037GR',
     'address_house_number' => '273',
@@ -55,7 +55,7 @@ foreach (['room-1', 'room-2', 'room-3'] as $room) {
 app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
 $intake = $intake->fresh();
-$path = storage_path('framework/bl161-run3-token.txt');
+$path = storage_path('framework/bl163-run3-token.txt');
 file_put_contents($path, $intake->access_token);
 
 echo json_encode([
