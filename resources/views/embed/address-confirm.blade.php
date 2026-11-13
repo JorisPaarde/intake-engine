@@ -7,7 +7,7 @@
     <title>Adres bevestigen — {{ $company->name }}</title>
     <style>
         :root {
-            --embed-bg: #eef1ec;
+            --embed-bg: #ffffff;
             --embed-card: #ffffff;
             --embed-border: #dde2da;
             --embed-text: #18201d;
@@ -34,15 +34,15 @@
             max-width: 32rem;
             width: 100%;
             margin: 0 auto;
-            padding: 1.5rem 1rem;
+            padding: 1rem 1rem 1.25rem;
             min-width: 0;
         }
         .card {
-            background: var(--embed-card);
-            border: 1px solid var(--embed-border);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            box-shadow: 0 1px 2px rgba(24, 32, 29, 0.04);
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
             min-width: 0;
             max-width: 100%;
         }

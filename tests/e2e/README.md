@@ -71,6 +71,7 @@ php artisan queue:work --queue=ai-photo,default --sleep=1 --tries=2
 | `specs/23-bl165-differs-floor-glass.spec.ts` | Zon-differs houdt verdieping/glas in volgorde + Afronden-terugsprong (BL-168; screenshots `bl165-*-390`; was parallel als BL-165) |
 | `specs/24-bl166-klant-hertest.spec.ts` | Bedankt/pand/huur/teksten screenshots 390+1440 (BL-166) |
 | `specs/25-bl169-photo-thankyou-ux.spec.ts` | Foto leeg/afkeur/soft-timeout + bedankt screenshots 390+1440 (BL-169) |
+| `specs/25-bl169-ux-review-embed-landlord-differs.spec.ts` | UX-review punten 7–9: embed-test/AVG, verhuurder, differs-link + Opgeslagen (BL-171; screenshots `ux169-*`; parallel gestart als BL-169) |
 
 ## Helpers
 

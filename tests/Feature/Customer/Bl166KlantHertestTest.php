@@ -71,6 +71,7 @@ test('bedankscherm toont termijn en overzicht zonder interne keys', function () 
         ->and($summary['room_count'])->toBeGreaterThanOrEqual(1)
         ->and($summary['photo_count'])->toBe(1)
         ->and(collect($summary['highlights'])->pluck('label')->all())->toContain('Koop of huur', 'Toestemming verhuurder')
+        ->and(collect($summary['highlights'])->firstWhere('label', 'Toestemming verhuurder')['value'] ?? null)->toBe('Nog niet gevraagd')
         ->and(json_encode($summary))->not->toContain('outdoor_mount_type')
         ->and(json_encode($summary))->not->toContain('cooling_heating');
 
@@ -163,7 +164,7 @@ test('v32 teksten: geluid-help, slaapkamer-voorbeeld, één merkuitleg, geen roo
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
-    expect($version->version)->toBe(32);
+    expect($version->version)->toBeGreaterThanOrEqual(32);
 
     $noise = $version->sections->flatMap(fn ($s) => $s->questions)->firstWhere('key', 'noise_sensitive');
     expect($noise?->help_text)->toContain('buren')
@@ -211,15 +212,17 @@ test('huur toont verhuurderstoestemming en antwoord komt in klantantwoorden/rapp
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('stepIndex', $landlordIndex)
         ->set('activeStepKey', $steps[$landlordIndex]['key'])
-        ->assertSee('verhuurder')
+        ->assertSee('Weet je verhuurder ervan?')
         ->assertSee('Nog niet gevraagd')
-        ->assertSee('toestemming');
+        ->assertSee('Ja, die vindt het goed')
+        ->assertSee('Nee, die is tegen')
+        ->assertSee('meestal toestemming nodig');
 
     $save->handle($intake, 'landlord_permission', null, ['value' => 'yes']);
     $blocks = CustomerAnswerBlocks::forIntake($intake->fresh(['answers', 'templateVersion.sections.questions.options']) ?? $intake);
     $flat = collect($blocks)->flatMap(fn (array $block) => $block['items']);
     expect($flat->first(fn (array $item): bool => str_contains(mb_strtolower($item['label']), 'verhuurder'))['value'] ?? null)
-        ->toBe('Ja');
+        ->toBe('Ja, die vindt het goed');
 
     // Koop → geen verhuurvraag.
     $owned = bl166Intake(['customer_email' => 'bl166-owned@example.com']);

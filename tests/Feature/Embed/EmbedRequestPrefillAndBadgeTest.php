@@ -297,6 +297,7 @@ test('embed staging test page works after prepare command and is blocked in prod
         ->assertSee('data-testid="embed-staging-test-intro"', false)
         ->assertSee('data-testid="embed-staging-test-frame"', false)
         ->assertSee('Probeer het hieronder gerust uit', false)
+        ->assertDontSee('Vul het formulier in. Na bevestiging', false)
         ->assertDontSee("('self' in frame-ancestors)", false)
         ->assertDontSee('Iframe-src:', false)
         ->assertDontSee('Sleutel:', false)

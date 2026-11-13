@@ -7,7 +7,7 @@
     <title>Opname starten — {{ $company->name }}</title>
     <style>
         :root {
-            --embed-bg: #eef1ec;
+            --embed-bg: #ffffff;
             --embed-card: #ffffff;
             --embed-border: #dde2da;
             --embed-text: #18201d;
@@ -37,15 +37,16 @@
             max-width: 32rem;
             width: 100%;
             margin: 0 auto;
-            padding: 1.5rem 1rem;
+            padding: 1rem 1rem 1.25rem;
             min-width: 0;
         }
+        /* Geen tweede witte kaart in de iframe: body is al wit (BL-169 /embed-test). */
         .card {
-            background: var(--embed-card);
-            border: 1px solid var(--embed-border);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            box-shadow: 0 1px 2px rgba(24, 32, 29, 0.04);
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
             min-width: 0;
             max-width: 100%;
         }
@@ -99,10 +100,28 @@
             display: grid;
             gap: 1rem;
             min-width: 0;
+            align-items: end;
         }
         .row > * { min-width: 0; max-width: 100%; }
         @media (min-width: 640px) {
-            .row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr); }
+            .row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.7fr); }
+        }
+        .consent a {
+            color: var(--embed-primary);
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
         .consent {
             border: 1px solid var(--embed-border);
@@ -282,7 +301,10 @@
                         @endif
                     </div>
                     <div>
-                        <label for="address_house_number_addition">Toevoeging <span class="hint">(optioneel)</span></label>
+                        <label for="address_house_number_addition">
+                            <span aria-hidden="true">Toev.</span>
+                            <span class="sr-only">Toevoeging, optioneel</span>
+                        </label>
                         <input
                             id="address_house_number_addition"
                             name="address_house_number_addition"
@@ -292,6 +314,7 @@
                             inputmode="text"
                             pattern="[A-Za-z0-9\-\s]*"
                             autocomplete="address-line3"
+                            aria-label="Toevoeging, optioneel"
                             @if ($hasError('address_house_number_addition')) aria-invalid="true" aria-describedby="{{ $errorId('address_house_number_addition') }}" @endif
                         >
                         @if ($hasError('address_house_number_addition'))
@@ -300,6 +323,9 @@
                     </div>
                 </div>
 
+                @php
+                    $privacyPolicyUrl = trim((string) config('intake.embed.privacy_policy_url', ''));
+                @endphp
                 <div @class(['consent', 'is-invalid' => $hasError('privacy_consent')])>
                     <label for="privacy_consent">
                         <input
@@ -312,8 +338,12 @@
                             @if ($hasError('privacy_consent')) aria-invalid="true" aria-describedby="{{ $errorId('privacy_consent') }}" @endif
                         >
                         <span>
-                            Ik geef {{ $company->name }} toestemming om mijn gegevens en foto’s te verwerken voor deze opname.
-                            {{ $company->name }} is verwerkingsverantwoordelijke. Zonder dit vinkje kunnen we de opname niet starten.
+                            Ik geef {{ $company->name }} toestemming om mijn gegevens en foto’s voor deze opname te gebruiken.
+                            @if ($privacyPolicyUrl !== '')
+                                <a href="{{ $privacyPolicyUrl }}" target="_blank" rel="noopener noreferrer">Privacy</a>
+                            @else
+                                Privacy
+                            @endif
                         </span>
                     </label>
                     @if ($hasError('privacy_consent'))
