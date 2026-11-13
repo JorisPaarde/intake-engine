@@ -1241,7 +1241,7 @@ final class IntakeStepBuilder
             static fn (array $keys): bool => isset($keys['room_area_m2']) || (isset($keys['room_length_m']) && isset($keys['room_width_m'])),
         );
 
-        /** @var array<string, array{question_key: string, section_instance_key: string, label: string, display_value: string, prefill_source: string, _section_order: int, _question_order: int}> $roomIdentityRows */
+        /** @var array<string, array{question_key: string, section_instance_key: string, label: string, display_value: string, prefill_source: string, _section_order: int, _question_order: int, _instance_order: string}> $roomIdentityRows */
         $roomIdentityRows = [];
 
         foreach ($intake->answers as $answer) {
@@ -1287,7 +1287,7 @@ final class IntakeStepBuilder
                     'prefill_source' => (string) ($existing['prefill_source'] ?? $source),
                     '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
                     '_question_order' => $questionOrder[$editKey] ?? ($questionOrder[$answer->question_key] ?? PHP_INT_MAX),
-                    '_instance_order' => $instanceKey,
+                    '_instance_order' => (string) $instanceKey,
                 ];
 
                 continue;
@@ -1325,25 +1325,25 @@ final class IntakeStepBuilder
         if ($roomIdentityRows !== []) {
             uasort(
                 $roomIdentityRows,
-                static fn (array $a, array $b): int => strnatcmp((string) ($a['_instance_order'] ?? ''), (string) ($b['_instance_order'] ?? '')),
+                static fn (array $a, array $b): int => strnatcmp($a['_instance_order'], $b['_instance_order']),
             );
             $names = [];
             foreach ($roomIdentityRows as $roomRow) {
-                $name = trim((string) ($roomRow['label'] ?? ''));
+                $name = trim($roomRow['label']);
                 if ($name !== '' && ! in_array($name, $names, true)) {
                     $names[] = $name;
                 }
             }
             $firstRoom = reset($roomIdentityRows);
-            if ($names !== [] && is_array($firstRoom)) {
+            if ($names !== [] && $firstRoom !== false) {
                 $items[] = [
-                    'question_key' => (string) ($firstRoom['question_key'] ?? 'room_type'),
-                    'section_instance_key' => $firstRoom['section_instance_key'] ?? null,
+                    'question_key' => $firstRoom['question_key'],
+                    'section_instance_key' => $firstRoom['section_instance_key'],
                     'label' => 'Ruimtes',
                     'display_value' => implode(', ', $names),
-                    'prefill_source' => (string) ($firstRoom['prefill_source'] ?? PrefillSources::AI_TEXT),
-                    '_section_order' => (int) ($firstRoom['_section_order'] ?? PHP_INT_MAX),
-                    '_question_order' => (int) ($firstRoom['_question_order'] ?? PHP_INT_MAX),
+                    'prefill_source' => $firstRoom['prefill_source'],
+                    '_section_order' => $firstRoom['_section_order'],
+                    '_question_order' => $firstRoom['_question_order'],
                 ];
             }
         }
