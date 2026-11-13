@@ -12,10 +12,10 @@ import {
 } from '../helpers/app';
 
 /**
- * BL-165: Verschilt per ruimte op zon mag verdieping/glas niet stil overslaan;
+ * BL-168: Verschilt per ruimte op zon mag verdieping/glas niet stil overslaan;
  * Afronden-link keert terug zonder ~20 beantwoorde stappen opnieuw.
  */
-test.describe('BL-165 differs sun keeps floor + glass in order', () => {
+test.describe('BL-168 differs sun keeps floor + glass in order', () => {
   test('sun differs → floor + glass before photos; Afronden return skips rewalk', async ({
     page,
     request,

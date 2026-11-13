@@ -1089,7 +1089,7 @@ class IntakeWizard extends Component
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
             $this->realignToActiveStep();
-            // BL-165: ontbrekende stap verdween na antwoord (bijv. gedeelde verdieping
+            // BL-168: ontbrekende stap verdween na antwoord (bijv. gedeelde verdieping
             // via Afronden-link) — meteen terug, niet realign naar kamerfoto’s.
             $stepAfter = $this->currentStep();
             $stillOnAnswered = is_array($stepAfter)
@@ -5338,7 +5338,7 @@ class IntakeWizard extends Component
         $this->showMissing = false;
         $this->completionMissing = [];
 
-        // BL-165: terug van Afronden-link → opnieuw Afronden-check (bedankt of
+        // BL-168: terug van Afronden-link → opnieuw Afronden-check (bedankt of
         // volgende ontbrekende), zonder beantwoorde stappen opnieuw te tonen.
         if ($index === count($steps) - 1) {
             $this->complete();

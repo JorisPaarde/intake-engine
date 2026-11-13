@@ -135,7 +135,7 @@ final class E2eScenarioFactory
     }
 
     /**
-     * BL-165: cursor op gedeelde zon (vóór glas/verdieping in sort_order), plafond al beantwoord.
+     * BL-168: cursor op gedeelde zon (vóór glas/verdieping in sort_order), plafond al beantwoord.
      * Reproduceert: Verschilt per ruimte op zon mag glas/verdieping niet stil overslaan.
      *
      * @return array<string, mixed>
