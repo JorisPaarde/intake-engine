@@ -17,6 +17,7 @@ use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\InstallerDisplayLabels;
+use App\Domains\Intake\Support\LandlordPermissionLabels;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
@@ -947,6 +948,13 @@ final class GenerateIntakeReportHtml
 
     private function optionLabel(IntakeQuestion $question, string $optionValue): string
     {
+        if ($question->key === LandlordPermissionLabels::QUESTION_KEY) {
+            $mapped = LandlordPermissionLabels::forValue($optionValue);
+            if ($mapped !== null) {
+                return $mapped;
+            }
+        }
+
         $question->loadMissing('options');
 
         foreach ($question->options as $option) {

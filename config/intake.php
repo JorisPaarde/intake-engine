@@ -134,6 +134,8 @@ return [
 
     'embed' => [
         'throttle_per_hour' => (int) env('EMBED_THROTTLE_PER_HOUR', 30),
+        // Link achter “Privacy” op het embed-AVG-vinkje (opent in nieuw tabblad).
+        'privacy_policy_url' => env('EMBED_PRIVACY_POLICY_URL', 'https://jpwebcreation.nl/privacybeleid'),
     ],
 
     /*

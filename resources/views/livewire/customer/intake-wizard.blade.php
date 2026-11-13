@@ -65,9 +65,24 @@
                     @endif
                 </div>
             @endif
-            <div class="flex items-center justify-between text-sm text-[#5e6862]">
+            <div class="flex items-center justify-between gap-3 text-sm text-[#5e6862]">
                 <span>Voortgang</span>
-                <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
+                <div class="flex items-center gap-2.5">
+                    @if ($saveMessage !== '')
+                        <span
+                            class="inline-flex items-center gap-1 text-xs font-medium text-[#5e6862]"
+                            wire:key="save-{{ $saveMessage }}-{{ now()->timestamp }}"
+                            aria-live="polite"
+                            data-testid="save-message"
+                        >
+                            <svg class="h-3.5 w-3.5 shrink-0 text-[#5e6862]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.333a1 1 0 0 1-1.432.012l-3.25-3.167a1 1 0 1 1 1.394-1.434l2.53 2.465 6.538-6.617a1 1 0 0 1 1.464-.006Z" clip-rule="evenodd" />
+                            </svg>
+                            {{ $saveMessage }}
+                        </span>
+                    @endif
+                    <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
+                </div>
             </div>
             <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van wizardstappen">
                 <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
@@ -80,12 +95,6 @@
             @endif
             {{-- N73: "Jouw deel is compleet…" staat alleen in het bedankblok, niet ook in de kop. --}}
         </div>
-
-        @if ($saveMessage !== '')
-            <p class="mt-3 text-sm font-medium text-[var(--tenant-primary)]" wire:key="save-{{ $saveMessage }}-{{ now()->timestamp }}" aria-live="polite">
-                {{ $saveMessage }}
-            </p>
-        @endif
     </header>
 
     @if ($waitingForPrefill ?? false)
@@ -629,16 +638,18 @@
                                     @if ($state['required']) required @endif
                                 >
                                 @if (! empty($step['shared_scope']))
-                                    <button
-                                        type="button"
-                                        wire:click="chooseSharedDiffers"
-                                        wire:loading.attr="disabled"
-                                        wire:target="chooseSharedDiffers,next"
-                                        class="mt-3 min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-60"
-                                        data-testid="shared-differs"
-                                    >
-                                        {{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}
-                                    </button>
+                                    <p class="mt-3">
+                                        <button
+                                            type="button"
+                                            wire:click="chooseSharedDiffers"
+                                            wire:loading.attr="disabled"
+                                            wire:target="chooseSharedDiffers,next"
+                                            class="text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)] disabled:opacity-60"
+                                            data-testid="shared-differs"
+                                        >
+                                            {{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}
+                                        </button>
+                                    </p>
                                 @endif
                                 @break
 
@@ -655,19 +666,21 @@
                                             <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
                                     @endforeach
-                                    @if (! empty($step['shared_scope']))
+                                </div>
+                                @if (! empty($step['shared_scope']))
+                                    <p class="mt-3">
                                         <button
                                             type="button"
                                             wire:click="chooseSharedDiffers"
                                             wire:loading.attr="disabled"
                                             wire:target="chooseSharedDiffers,next"
-                                            class="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-[#dde2da] bg-white px-3 py-2 text-left disabled:opacity-60"
+                                            class="text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)] disabled:opacity-60"
                                             data-testid="shared-differs"
                                         >
-                                            <span class="text-sm font-medium">{{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}</span>
+                                            {{ $step['share_differs_label'] ?? \App\Domains\Intake\Support\SharedRoomAnswers::DIFFERS_LABEL }}
                                         </button>
-                                    @endif
-                                </div>
+                                    </p>
+                                @endif
                                 @break
 
                             @case('multi_choice')
