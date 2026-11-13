@@ -129,7 +129,7 @@ final class CustomerCompletionSummary
         return match ($key) {
             'cooling_heating' => 'Koelen / verwarmen',
             'ownership' => 'Koop of huur',
-            'landlord_permission' => 'Verhuurder',
+            'landlord_permission' => LandlordPermissionLabels::QUESTION_LABEL,
             'outdoor_location' => 'Plek buitenunit',
             'noise_sensitive' => 'Geluidsgevoelig',
             'brand_preference' => 'Merkvoorkeur',
@@ -160,6 +160,13 @@ final class CustomerCompletionSummary
     {
         if ($value === null || $value === '') {
             return null;
+        }
+
+        if ($question->key === LandlordPermissionLabels::QUESTION_KEY) {
+            $mapped = LandlordPermissionLabels::forValue($value);
+            if ($mapped !== null) {
+                return $mapped;
+            }
         }
 
         $label = $question->options->firstWhere('value', $value)?->label;

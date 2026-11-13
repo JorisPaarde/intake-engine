@@ -46,7 +46,9 @@ test.describe('BL-166 klant-hertest screenshots', () => {
     // 2) Huur / verhuurder
     const landlord = await createScenario(request, 'bl166-landlord');
     await openCustomer(page, landlord);
-    await expect(page.getByText(/verhuurder/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Weet je verhuurder ervan/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Ja, die vindt het goed', { exact: true })).toBeVisible();
+    await expect(page.getByText('Nee, die is tegen', { exact: true })).toBeVisible();
     const notAsked = page.getByText('Nog niet gevraagd', { exact: true });
     await expect(notAsked).toBeVisible();
     // Scroll zodat de derde optie boven de sticky Volgende valt; viewport-shot (fullPage plakt sticky over content).

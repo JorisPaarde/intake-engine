@@ -163,7 +163,13 @@ test('embed form shows for enabled key with frame-ancestors header and signed to
     $response->assertOk()
         ->assertSee('Start je opname', false)
         ->assertSee('Voorbeeld Koeling', false)
-        ->assertSee('verwerkingsverantwoordelijke', false)
+        ->assertDontSee('verwerkingsverantwoordelijke', false)
+        ->assertDontSee('Zonder dit vinkje kunnen we de opname niet starten.', false)
+        ->assertSee('toestemming om mijn gegevens en foto', false)
+        ->assertSee('>Privacy</a>', false)
+        ->assertSee('aria-label="Toevoeging, optioneel"', false)
+        ->assertSee('>Toev.</span>', false)
+        ->assertSee('Toevoeging, optioneel', false)
         ->assertSee('gegevens en foto', false)
         ->assertSee('name="website"', false)
         ->assertSee('name="embed_form_token"', false)
@@ -497,4 +503,23 @@ test('validation failure without session returns 422 with messages and preserved
 
     expect($response->headers->get('Location'))->toBeNull()
         ->and(Intake::query()->count())->toBe(0);
+});
+
+test('privacy consent missing shows zonder-vinkje foutmelding only in error', function () {
+    Mail::fake();
+    $ctx = embedCompanyReady();
+
+    $ok = $this->get(route('embed.show', ['public_key' => $ctx['key']]));
+    $ok->assertOk()
+        ->assertDontSee('Zonder dit vinkje kunnen we de opname niet starten.', false);
+
+    $response = postEmbed($ctx['key'], [
+        'privacy_consent' => null,
+    ]);
+
+    $response->assertStatus(422)
+        ->assertSee('Zonder dit vinkje kunnen we de opname niet starten.', false)
+        ->assertDontSee('verwerkingsverantwoordelijke', false);
+
+    expect(Intake::query()->count())->toBe(0);
 });

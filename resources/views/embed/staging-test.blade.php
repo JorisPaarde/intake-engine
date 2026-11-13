@@ -35,21 +35,12 @@
         }
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
         .lead { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.95rem; }
-        .card {
-            margin-top: 1.25rem;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 0.75rem;
-            padding: 1rem 1.25rem;
-            min-width: 0;
-            max-width: 100%;
-        }
         .frame-wrap {
+            margin-top: 1.25rem;
             min-width: 0;
             max-width: 100%;
             overflow-x: hidden;
         }
-        .hint { margin-top: 0.75rem; font-size: 0.875rem; color: var(--muted); }
     </style>
 </head>
 <body>
@@ -64,13 +55,8 @@
         Probeer het hieronder gerust uit; het is een testomgeving, er gaat niets naar echte klanten.
     </p>
 
-    <div class="card" data-testid="embed-staging-test-frame">
-        <div class="frame-wrap">
-            {!! $iframeSnippet !!}
-        </div>
-        <p class="hint">
-            Vul het formulier in. Na bevestiging van het adres ga je door naar de opname.
-        </p>
+    <div class="frame-wrap" data-testid="embed-staging-test-frame">
+        {!! $iframeSnippet !!}
     </div>
 </main>
 </body>

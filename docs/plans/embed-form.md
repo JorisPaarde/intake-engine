@@ -1,8 +1,8 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
-**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer) + BL-160 (adresbevestiging + iframe auto-resize). Optioneel later: publieke adres-autocomplete, WP-plugin.
+**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer) + BL-160 (adresbevestiging + iframe auto-resize) + BL-169 (embed-test/form polish). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
 ## Wat er staat
 
@@ -20,7 +20,7 @@ Installateur plakt een iframe-snippet op de eigen site. De klant vult naam, e-ma
 
 1. Installateur zet formulier aan, registreert hostnames, kopieert snippet (iframe + resize-script).
 2. Klant opent installateurssite → iframe laadt `/embed/{key}` (`frame-ancestors` allowlist + `'self'`). De embedded pagina stuurt zijn hoogte via `postMessage` (`source=intake-engine-embed`, `type=resize`); het host-script past de iframe-hoogte aan na origin-check.
-3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, Origin-check) blijft in het iframe: PDOK-lookup → bevestiging **Is dit je adres?** met **Ja, klopt** / **Aanpassen**. Eén AVG-vinkje op het formulier (geen tweede in de wizard).
+3. POST (same-origin t.o.v. IE; HMAC `embed_form_token`, honeypot, throttle, Origin-check) blijft in het iframe: PDOK-lookup → bevestiging **Is dit je adres?** met **Ja, klopt** / **Aanpassen**. Eén AVG-vinkje op het formulier (geen tweede in de wizard): “Ik geef [bedrijf] toestemming om mijn gegevens en foto’s voor deze opname te gebruiken. Privacy” (Privacy-link = `EMBED_PRIVACY_POLICY_URL`); “Zonder dit vinkje…” alleen bij validatiefout. Toevoeging-label: **Toev.** (`aria-label` Toevoeging, optioneel).
 4. **Ja, klopt** (met `address_confirmed=1`, `target=_top`): dagplafond-check + `CreateIntake` (`source=embed`, `created_by` = oudste company-user) + `EnrichIntakeAddress` + opslaan van het AVG-vinkje als `privacy_consent` (echt klantantwoord, intake blijft `sent`) + backup-mail → 303 `/o/{token}`.
 5. Bestaande open opname (zelfde company + e-mail): opnieuw mailen + neutrale bevestiging in iframe (geen token-lek); telt niet mee voor dagplafond.
 6. Eerste echte klantstap of foto in de wizard: eerst antwoord opslaan, daarna precies één `DeriveIntentFromRequestJob` als die nog ontbreekt (geen sync `DeriveIntentFromRequest` in de Livewire-request — dat blokkeerde Volgende ~20 s). Pending job → wachtscherm **Even geduld, we zetten je vragen klaar**; daarna known-summary. Mount/GET alleen triggert geen AI. Niet-embed-opnames blijven create-time prefill houden. Wizard vraagt `privacy_consent` niet opnieuw (BL-159); `truth_confirmation` blijft wel.
@@ -49,7 +49,7 @@ Huisnummer en toevoeging zijn `type="text"` met `inputmode="numeric"` / passend 
 
 Op staging voor smoke: `https://staging.intake-engine.nl/embed-test` (404 op production). Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe + resize-snippet op de app-host (`'self'`).
 
-**Zichtbare tekst (installateur, BL-165):** kop “Zo ziet het opnameformulier eruit op jouw website” + korte uitleg in je/jij (geen we/wij/ons); geen testsleutel, iframe-src of frame-ancestors in de UI. Technisch: HTML-comment `embed-staging-smoke` + constante `EmbedStagingTest::PUBLIC_KEY` (`ie_embed_staging_smoke_v1`) + artisan-output.
+**Zichtbare tekst (installateur, BL-165/BL-169):** kop “Zo ziet het opnameformulier eruit op jouw website” + korte uitleg in je/jij (geen we/wij/ons); geen testsleutel, iframe-src of frame-ancestors in de UI; geen grijze tussenkaart om de iframe en geen hintregel eronder (iframe-body is wit). Technisch: HTML-comment `embed-staging-smoke` + constante `EmbedStagingTest::PUBLIC_KEY` (`ie_embed_staging_smoke_v1`) + artisan-output.
 
 ### Test-intakes opruimen (staging/local)
 

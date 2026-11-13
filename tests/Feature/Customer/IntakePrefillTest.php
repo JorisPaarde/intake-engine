@@ -53,7 +53,7 @@ test('met meerdere ruimtes is floor_level een gedeelde stap', function () {
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('activeStepKey', 'rooms::_shared::floor_level')
         ->assertSee('Geldt voor alle ruimtes', false)
-        ->assertSee('Verschilt per ruimte', false);
+        ->assertSee('Verschilt dit per ruimte?', false);
 });
 
 test('gedeeld floor_level-antwoord wordt naar alle ruimtes geschreven', function () {
