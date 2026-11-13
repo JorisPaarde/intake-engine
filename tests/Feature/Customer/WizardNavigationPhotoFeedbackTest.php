@@ -24,6 +24,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
@@ -39,7 +40,7 @@ beforeEach(function () {
     ]);
     // ShouldBeUnique op ProcessIntakePhotoVariantsJob hergebruikt upload-id 1…N per test
     // in hetzelfde Pest-process (array-cache) → stil overgeslagen job + hangende "assessing".
-    Illuminate\Support\Facades\Cache::flush();
+    Cache::flush();
 });
 
 afterEach(function () {
