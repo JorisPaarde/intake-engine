@@ -67,6 +67,7 @@ php artisan queue:work --queue=ai-photo,default --sleep=1 --tries=2
 | `specs/19-embed-iframe-resize.spec.ts` | Embed iframe krimpt na adresbevestiging (BL-158) |
 | `specs/20-differs-per-room-floors.spec.ts` | Verschilt per ruimte → per-kamer verdieping/zon tot Afronden (BL-162; screenshots `bl161-*`) |
 | `specs/21-klanttest-run3-labels.spec.ts` | Geen “Vraag N”; % daalt niet; Vorige zonder klembord (BL-163) |
+| `specs/22-bl164-progress-differs.spec.ts` | Verschilt per ruimte: % monotoon &lt;90% tot kamerfoto’s; 100% na Afronden (BL-164) |
 
 ## Helpers
 

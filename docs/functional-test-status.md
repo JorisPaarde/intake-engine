@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.31 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.32 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Voortgang differs/high-water (BL-164) | done | 2026-11-13 | Lokaal Playwright 390: Verschilt per ruimte (scenario 2037GR 273, 3 kamers) → bij **Foto’s van de ruimte / Kamer 1 van 3** voortgang **19%** (niet ~97%); na Afronden **100%**. Screenshots `/opt/cursor/artifacts/bl164-kamer1-foto-progress-390.png`, `bl164-afronding-progress-390.png`. Pest `Bl164ProgressHighWaterDiffersTest`; E2E `22-bl164-progress-differs`; regressie 06/20/21 groen. |
 | Klanttest run 3 labels/teller/klembord (BL-163) | done | 2026-11-13 | Lokaal Playwright 390+1440: known-summary toont `15 m² (berekend uit 3 × 5 m)` + overall `Kamer N van M (type)`; foto-stap eyebrow idem; geen zichtbare “Vraag N” (alleen balk/%); Vorige zonder klembord; **Verschilt per ruimte** per kamer nog intact. Screenshots `/opt/cursor/artifacts/bl163-known-summary-390.png`, `…-1440.png`, `bl163-room-eyebrow-390.png`, `…-1440.png`, `bl163-differs-per-room-390.png`, `…-1440.png`. Pest `KlanttestRun3WizardLabelsTest`; E2E `21-klanttest-run3-labels`. |
 | Verschilt per ruimte per kamer + Afronden-links (BL-162) | done | 2026-11-11 | Playwright E2E `20-differs-per-room-floors` (scenario 2037GR 273, 3 slaapkamers): **Verschilt per ruimte** → `SLAAPKAMER 1 VAN 3` + verdieping zonder shared-differs; flow tot bedankt 100%. Screenshots `/opt/cursor/artifacts/bl161-per-room-floor-390.png`, `…-floor-1440.png`, `…-complete-390.png`, `…-complete-1440.png`. |
 | Outdoor-drempel + meterkast-extra (BL-161) | todo | - | Staging/embed: normale achtertuin- of gevelfoto op `outdoor_location_photos` → goedgekeurd (geen retake om montage); kamerfoto blijft afgekeurd. Meterkast: afgekeurde foto + **Toch doorgaan** → volgende inhoudelijke stap, géén `fusebox_photo_extra` (ook niet na poll/herladen). |
