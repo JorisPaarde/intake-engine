@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-164 | Voortgang % springt niet naar ~97% vóór kamerfoto’s (Verschilt per ruimte / stale knownStepKeys) | E1/E7 | in_progress | high | na BL-163/#314 · klanttest embed 2037GR 273 · 3 kamers differs |
+| — | BL-164 | Voortgang % springt niet naar ~97% vóór kamerfoto’s (Verschilt per ruimte / stale knownStepKeys) | E1/E7 | done | high | na BL-163/#314 · klanttest embed 2037GR 273 · 3 kamers differs · PR #315 · 2026-11-13 |
 | — | BL-163 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · PR #314 · 2026-11-13 · was parallel als BL-161; outdoor/#312 behield BL-161, differs/#313 → BL-162 |
 | — | BL-162 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | done | high | klanttest 11 nov run 3 · PR #313 · 2026-11-11 · parallel als BL-161 met #312 |
 | — | BL-161 | Klanttest ronde 3: outdoor-drempel soepeler + meterkast-extra na Toch doorgaan echt weg | E1/E4/E7 | done | high | na BL-158/#310 · klanttest 11 nov ronde 3 · outdoor-assessment-v9 · PR #312 · 2026-11-11 
@@ -711,11 +711,11 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-164 — Voortgang % niet naar ~97% vóór kamerfoto’s
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-163/#314 · **Ref:** staging embed-test 2037GR 273, 3 kamers, Verschilt per ruimte (verdieping + zon) na main@44550da
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #315 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-163/#314 · **Ref:** staging embed-test 2037GR 273, 3 kamers, Verschilt per ruimte (verdieping + zon) na main@44550da
 - **Aanleiding:** voortgang 0% → 6% → 12% → **97%** en bleef daar staan t/m kamerfoto’s en Afronding.
 - **Oorzaak:** na groei van de stappenlijst (ruimtes) bleef `knownStepKeys` de korte pre-rooms-lijst; bij verdwijnen van een `_shared`-stap (antwoord voor alle kamers) zocht `realignToActiveStep` de verdwenen key niet in die stale lijst en viel terug op de **laatste** overlevende oude key (vaak `truth_confirmation`) → hoog `stepIndex` → `progressHighWater` ≈ 97%. High-water daalde daarna niet meer.
 - **Doel:** % stijgt monotoon; nooit terug; nooit ≥~90% zolang verplichte stappen (kamerfoto’s) open zijn; 100% alleen na afronden; per-kamer-expansie mag % niet laten dalen.
-- **Scope:** `IntakeWizard` (`landOnStepIndex` ververst `knownStepKeys`; veilige realign-anker; high-water-cap onder 90% bij open required); Pest `Bl164ProgressHighWaterDiffersTest`; E2E `22-bl164-progress-differs` + screenshots 390. Geen templateversie. Bestaande `06-progress` / `20-differs` / `21-klanttest-run3-labels` groen houden.
+- **Resultaat:** `landOnStepIndex` ververst `knownStepKeys`; veilige realign-anker; high-water-cap onder 90% bij open required; Pest `Bl164ProgressHighWaterDiffersTest`; E2E `22-bl164-progress-differs` + screenshots 390 (Kamer 1-foto 19%, Afronding 100%). Regressie 06/20/21 groen.
 
 ### BL-163 — Klanttest run 3: oppervlak, kamernummering, teller, Vorige/klembord
 
