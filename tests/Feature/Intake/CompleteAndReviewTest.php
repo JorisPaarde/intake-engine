@@ -234,7 +234,7 @@ test('customer wizard complete refuses incomplete and succeeds when filled', fun
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->call('complete')
         ->assertSet('completed', true)
-        ->assertSee('Bedankt');
+        ->assertSee('Je aanvraag is verstuurd');
 
     expect($intake->fresh()->status)->toBe(IntakeStatus::Completed);
 });

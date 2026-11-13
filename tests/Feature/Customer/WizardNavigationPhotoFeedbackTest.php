@@ -655,11 +655,15 @@ test('upload on current wall_outlet step + sync poll renders assessment (no skip
             wizardNavFixture('woonkamer-1440.jpg'),
         );
 
+    $html = $component->html();
     expect($component->effects)->toHaveKey('html')
         ->and($component->get('activeStepKey'))->toBe('rooms::room-1::wall_outlet_photo')
-        ->and($component->html())->toContain('data-photo-status="1"')
-        ->and($component->html())->toMatch(
-            '/Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i',
+        ->and(
+            str_contains($html, 'data-photo-status="1"')
+            || str_contains($html, 'data-testid="photo-mismatch-panel"'),
+        )->toBeTrue()
+        ->and($html)->toMatch(
+            '/Goed te zien|Niet goed te zien|Je installateur kijkt hier zelf naar|photo-mismatch-panel|Deze foto laat/i',
         );
 });
 

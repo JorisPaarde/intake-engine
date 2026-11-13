@@ -149,7 +149,9 @@ test.describe('BL-164 progress differs-per-room', () => {
     }
 
     await expect(page.getByTestId('customer-thank-you')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('progress-percent')).toHaveText('100%');
+    // BL-169: voortgangsbalk is verborgen op het bedankscherm (was 100% zichtbaar).
+    await expect(page.getByTestId('progress-percent')).toHaveCount(0);
+    await expect(page.getByTestId('wizard-progress')).toHaveCount(0);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({

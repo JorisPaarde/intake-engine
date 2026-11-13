@@ -713,9 +713,15 @@ test('N3: dirty keuze + fotopoll op huidige stap rendert beoordeling (geen skipR
     $component->call('pollPendingAssessments', 'drain_photo');
 
     // Huidige-stap-poll mag niet skipRender-en: morph toont terminal status.
+    // BL-169: afkeurcaption “Niet de gevraagde foto.” staat niet meer op de tegel;
+    // afkeur gaat via photo-mismatch-panel (data-photo-status alleen bij niet-afkeur).
+    $html = $component->html();
     expect($component->effects)->toHaveKey('html')
-        ->and($component->html())->toContain('data-photo-status="1"')
-        ->and($component->html())->toMatch('/Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i')
+        ->and(
+            str_contains($html, 'data-photo-status="1"')
+            || str_contains($html, 'data-testid="photo-mismatch-panel"'),
+        )->toBeTrue()
+        ->and($html)->toMatch('/Goed te zien|Niet goed te zien|Je installateur kijkt hier zelf naar|photo-mismatch-panel|Deze foto laat/i')
         ->and($component->get('form.drain_location'))->toBe(['value' => 'outside_nearby']);
 });
 
