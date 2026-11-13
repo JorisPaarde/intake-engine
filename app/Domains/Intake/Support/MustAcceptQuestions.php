@@ -54,7 +54,7 @@ final class MustAcceptQuestions
     public static function refusalMessage(?string $questionKey = null): string
     {
         return match ($questionKey) {
-            'truth_confirmation' => 'Bevestig dat je de gegevens naar waarheid hebt ingevuld.',
+            'truth_confirmation' => 'Vink dit aan om te versturen.',
             default => 'Zonder je toestemming kunnen we je gegevens niet gebruiken. Neem contact op met je installateur.',
         };
     }
@@ -71,7 +71,7 @@ final class MustAcceptQuestions
     {
         return match ($question->key) {
             'privacy_consent' => 'Ik geef toestemming',
-            'truth_confirmation' => 'Ik bevestig dit',
+            'truth_confirmation' => 'Ik heb alles naar waarheid ingevuld.',
             default => 'Ik ga akkoord',
         };
     }

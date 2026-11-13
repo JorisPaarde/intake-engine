@@ -47,11 +47,14 @@ test('known-summary toont berekend oppervlak als getal met L×B-toelichting', fu
         $intake->templateVersion,
     );
     $summary = collect($steps)->firstWhere('question_key', '_known_summary');
-    $area = collect($summary['known_items'] ?? [])->firstWhere('question_key', 'room_area_m2');
+    // BL-169: één rij per ruimte; m² staat als display_value op die rij.
+    $roomRow = collect($summary['known_items'] ?? [])
+        ->first(static fn (array $item): bool => ($item['section_instance_key'] ?? null) === 'room-1');
 
-    expect($area)->not->toBeNull()
-        ->and($area['display_value'])->toBe('15 m² (berekend uit 3 × 5 m)')
-        ->and($area['display_value'])->not->toBe('berekend uit L×B');
+    expect($roomRow)->not->toBeNull()
+        ->and($roomRow['display_value'])->toBe('15 m² (berekend uit 3 × 5 m)')
+        ->and($roomRow['display_value'])->not->toBe('berekend uit L×B')
+        ->and($roomRow['label'])->not->toContain('Hoe heet deze ruimte');
 });
 
 test('ruimte-eyebrow nummert overall: Kamer N van M (type) bij gemengde types', function () {

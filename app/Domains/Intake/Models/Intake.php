@@ -292,12 +292,52 @@ class Intake extends Model
         return $this->status->isCustomerAccessible();
     }
 
+    /**
+     * Dutch postcode with a space (e.g. "2011 RD"). Stored value may be "2011RD".
+     */
+    public function formattedPostalCode(): string
+    {
+        $raw = strtoupper((string) preg_replace('/\s+/', '', (string) ($this->address_postal_code ?? '')));
+        if (strlen($raw) === 6 && preg_match('/^[1-9]\d{3}[A-Z]{2}$/', $raw) === 1) {
+            return substr($raw, 0, 4).' '.substr($raw, 4);
+        }
+
+        return trim((string) ($this->address_postal_code ?? ''));
+    }
+
     public function fullAddress(): string
     {
         return collect([
             $this->address_line,
-            trim(($this->address_postal_code ?? '').' '.($this->address_city ?? '')),
+            trim($this->formattedPostalCode().' '.($this->address_city ?? '')),
         ])->filter()->implode(', ');
+    }
+
+    /**
+     * One-line property summary above step 1 (address · bouwjaar …). No soft warnings.
+     */
+    public function customerPropertySummaryLine(): ?string
+    {
+        $address = $this->fullAddress();
+        $parts = [];
+        if ($address !== '') {
+            $parts[] = $address;
+        }
+
+        foreach ($this->knownHousingFactLines() as $line) {
+            $label = mb_strtolower(trim($line['label']));
+            $value = trim($line['value']);
+            if ($label === '' || $value === '') {
+                continue;
+            }
+            $parts[] = $label.' '.$value;
+        }
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(' · ', $parts);
     }
 
     /**

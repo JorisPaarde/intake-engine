@@ -692,6 +692,7 @@ final class IntakeStepBuilder
             // Ruimtelabel alleen in section_title (eyebrow), niet herhaald in de vraagtitel.
             $title = $question->label;
             $helpText = $question->help_text;
+            $description = $section->description;
 
             if ($question->key === 'indoor_unit_position_photo') {
                 $helpText = $this->extraRoomOverviewHelp($context['answers'], $sectionInstanceKey, $helpText);
@@ -706,6 +707,13 @@ final class IntakeStepBuilder
                 );
             }
 
+            // Afronden: korte kop, geen verouderde sectie-subtekst “Laatste opmerkingen…”.
+            if ($question->key === 'truth_confirmation') {
+                $title = 'Klaar om te versturen?';
+                $helpText = null;
+                $description = null;
+            }
+
             $steps[] = [
                 'key' => $section->key.$instanceSuffix.'::'.$question->key,
                 'section_key' => $section->key,
@@ -713,7 +721,7 @@ final class IntakeStepBuilder
                 'question_key' => $question->key,
                 'title' => $title,
                 'section_title' => $sectionTitle,
-                'description' => $section->description,
+                'description' => $description,
                 'help_text' => $helpText,
                 'is_repeatable' => $section->is_repeatable,
                 'is_required' => $presentation['required'],
@@ -1069,6 +1077,11 @@ final class IntakeStepBuilder
             $answerFact,
             is_array($answerValue) ? $answerValue : null,
         );
+        // Merk/planning/opmerkingen blijven altijd in het closing-scherm (geen stille skip
+        // na AI-prefill of afgebroken Livewire-update tijdens een eerdere upload).
+        if ($prefilledSkipped && in_array($question->key, self::CLOSING_WISH_KEYS, true)) {
+            $prefilledSkipped = false;
+        }
         // Klant koos expliciet “Verschilt per ruimte”: AI-/fotoprefill mag de
         // per-kamer-vraag niet stil overslaan — die moet per ruimte gesteld worden.
         if ($prefilledSkipped
@@ -1228,6 +1241,9 @@ final class IntakeStepBuilder
             static fn (array $keys): bool => isset($keys['room_area_m2']) || (isset($keys['room_length_m']) && isset($keys['room_width_m'])),
         );
 
+        /** @var array<string, array{question_key: string, section_instance_key: string, label: string, display_value: string, prefill_source: string, _section_order: int, _question_order: int}> $roomRows */
+        $roomRows = [];
+
         foreach ($intake->answers as $answer) {
             $source = $answer->prefill_source;
             $question = $allQuestions->get($answer->question_key);
@@ -1245,6 +1261,53 @@ final class IntakeStepBuilder
                 continue;
             }
 
+            $instanceKey = $answer->section_instance_key;
+            $isRoomScoped = is_string($instanceKey) && str_starts_with($instanceKey, 'room-');
+
+            // Één rij per ruimte (naam + optioneel m²); geen “Woonkamer — Hoe heet…? Woonkamer”.
+            if ($isRoomScoped) {
+                $roomLabel = $this->roomSummaryLabel($intake, $instanceKey, $answers);
+                if ($roomLabel === '') {
+                    continue;
+                }
+
+                $existing = $roomRows[$instanceKey] ?? null;
+                $display = (string) ($existing['display_value'] ?? '');
+                if ($answer->question_key === 'room_area_m2') {
+                    $areaDisplay = $source === PrefillSources::DERIVED_LXW
+                        ? $this->displayDerivedAreaValue($answer, $answers)
+                        : $this->displayAnswerValue($question, $answer->value);
+                    if (is_string($areaDisplay) && $areaDisplay !== '') {
+                        $display = $areaDisplay;
+                    }
+                }
+
+                // Wijzigen: oppervlak als die bekend is (N37), anders naam/type.
+                $editKey = $existing['question_key'] ?? $answer->question_key;
+                if ($answer->question_key === 'room_area_m2') {
+                    $editKey = 'room_area_m2';
+                } elseif ($answer->question_key === 'room_name'
+                    && ! in_array($editKey, ['room_area_m2'], true)) {
+                    $editKey = 'room_name';
+                } elseif ($answer->question_key === 'room_type'
+                    && ! in_array($editKey, ['room_area_m2', 'room_name'], true)) {
+                    $editKey = 'room_type';
+                }
+
+                $sectionKey = $questionSection[$editKey] ?? ($questionSection[$answer->question_key] ?? '');
+                $roomRows[$instanceKey] = [
+                    'question_key' => $editKey,
+                    'section_instance_key' => $instanceKey,
+                    'label' => $roomLabel,
+                    'display_value' => $display,
+                    'prefill_source' => (string) ($existing['prefill_source'] ?? $source),
+                    '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
+                    '_question_order' => $questionOrder[$editKey] ?? ($questionOrder[$answer->question_key] ?? PHP_INT_MAX),
+                ];
+
+                continue;
+            }
+
             $display = $source === PrefillSources::DERIVED_LXW
                 && $answer->question_key === 'room_area_m2'
                 ? $this->displayDerivedAreaValue($answer, $answers)
@@ -1253,22 +1316,20 @@ final class IntakeStepBuilder
                 continue;
             }
 
-            $instanceLabel = $this->instanceLabel($intake, $answer->section_instance_key, $answers);
-            $label = $question->label;
-            if ($instanceLabel !== null) {
-                $label = $instanceLabel.' — '.$label;
-            }
-
             $sectionKey = $questionSection[$answer->question_key] ?? '';
             $items[] = [
                 'question_key' => $answer->question_key,
                 'section_instance_key' => $answer->section_instance_key,
-                'label' => $label,
+                'label' => $question->label,
                 'display_value' => $display,
                 'prefill_source' => (string) $source,
                 '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
                 '_question_order' => $questionOrder[$answer->question_key] ?? PHP_INT_MAX,
             ];
+        }
+
+        foreach ($roomRows as $roomRow) {
+            $items[] = $roomRow;
         }
 
         if ($items === []) {
@@ -1304,7 +1365,7 @@ final class IntakeStepBuilder
             'title' => 'Dit hebben we al uit je aanvraag',
             'section_title' => 'Bekende gegevens',
             'description' => 'Klopt dit? Je kunt iets wijzigen; verder gaan mag meteen.',
-            'help_text' => 'Alleen echte onzekerheid vragen we later nog apart.',
+            'help_text' => 'De rest vragen we hierna.',
             'is_repeatable' => false,
             'is_required' => false,
             'kind' => 'known_summary',
@@ -1366,6 +1427,27 @@ final class IntakeStepBuilder
         }
 
         return $label;
+    }
+
+    /**
+     * Known-summary room row: plain name without “· N van M — Hoe heet…”.
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function roomSummaryLabel(Intake $intake, string $sectionInstanceKey, array $answers): string
+    {
+        $explicit = $this->explicitRoomName($answers, $sectionInstanceKey)
+            ?? $this->customDossierRoomName($intake, $sectionInstanceKey);
+        if ($explicit !== null && $explicit !== '') {
+            // Strip trailing “ · N van M” if a previous label carried it.
+            $stripped = preg_replace('/\s·\s*\d+\s+van\s+\d+$/u', '', $explicit);
+
+            return is_string($stripped) && $stripped !== '' ? $stripped : $explicit;
+        }
+
+        $type = $this->roomTypeForInstance($intake, $sectionInstanceKey, $answers);
+
+        return RoomLabelResolver::typeLabel($type);
     }
 
     private function customDossierRoomName(Intake $intake, string $sectionInstanceKey): ?string

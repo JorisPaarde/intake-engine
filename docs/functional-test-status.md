@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.37 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.38 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| UX-review stap 1/Afronden/merk/known-summary (BL-169) | todo | - | 390 + 1440: stap 1 één pandregel + spatie-postcode, geen woonfunctie-/energielabel-melding; leeg reden-veld blokkeert met veldmelding; known-summary één rij/ruimte + “De rest vragen we hierna.”; merkstap radio+select, sticky balk dekt geen opties; Afronden “Klaar om te versturen?” / “Versturen naar …” / één “Vink dit aan…”. Screenshots `bl169-stap1-390.png`, `…-1440.png`, `bl169-known-summary-390.png`, `…-1440.png`, `bl169-merkstap-390.png`, `…-1440.png`, `bl169-afronden-390.png`, `…-1440.png`. |
 | Klant-hertest bedankt/pand/huur/teksten (BL-166) | done | 2026-11-13 | Playwright 390+1440: bedankt termijn+overzicht; Grote Markt 2 → pandgegevens + melding (geen demo-energielabel); huur → verhuurderstoestemming; slaapkamer “boven het bed”; geluid-help buren/slaapkamer; één merkuitleg. Screenshots `/opt/cursor/artifacts/bl166-thank-you-390.png`, `…-1440.png`, `bl166-landlord-390.png`, `…-1440.png`, `bl166-commercial-390.png`, `…-1440.png`, `bl166-bedroom-indoor-390.png`, `…-1440.png`, `bl166-noise-390.png`, `…-1440.png`, `bl166-closing-390.png`, `…-1440.png`. |
 | Verschilt per ruimte zon → verdieping/glas (BL-168) | done | 2026-11-13 | Lokaal Playwright 390 (scenario `bl165-differs-sun-floor-glass`, 2037GR 273): **Verschilt per ruimte** op gedeelde zon → daarna glas én verdieping vóór kamerfoto’s; Afronden-return zonder herwalk; % monotoon &lt;90% tot foto’s. Screenshots `/opt/cursor/artifacts/bl165-floor-step-390.png`, `bl165-glass-step-390.png`. Pest `Bl165DiffersFloorGlassOrderTest`; E2E `23-bl165-differs-floor-glass`; regressie 20/22 groen. (Was parallel als BL-165; embed-test behield BL-165 via #317.) |
 | Wizard-intro + demobanner alleen start/known-summary (BL-167) | done | 2026-11-13 | Lokaal 390: stap 1 toont intro+BAG+demobanner; known-summary idem; latere stap (Hoogte) zonder intro/banner, wel logo/naam/voortgang. Screenshots `/opt/cursor/artifacts/bl167-wizard-intro-step1-390.png`, `bl167-wizard-known-summary-390.png`, `bl167-wizard-later-step-390.png`. Pest `Bl167WizardIntroVisibilityTest`. |

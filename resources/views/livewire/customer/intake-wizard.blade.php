@@ -2,13 +2,15 @@
     $company = $intake->company;
 @endphp
 
-{{-- Onderpadding = footerhoogte zodat fixed footer geen content afdekt (BL-157). --}}
+{{-- Onderpadding = footerhoogte + 16px zodat sticky balk geen opties afdekt (BL-169). --}}
 <div
-    {{-- pb-52: sticky Volgende (~132 px) + onderschrift mag laatste radio/optie op 390 niet afdekken (BL-166). --}}
-    class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ! empty($photoNeedsOverride) ? 'pb-56' : (($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-52') }}"
+    class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : '' }}"
     data-testid="customer-wizard-shell"
+    @if (! ($completed || ($waitingForPrefill ?? false)))
+        style="padding-bottom: calc(var(--customer-wizard-footer-height, 9rem) + 1rem)"
+    @endif
 >
-    {{-- BL-167: demobanner + intro/BAG/bedrijfspand alleen op eerste stap + known-summary. --}}
+    {{-- BL-169: demobanner alleen op stap 1. --}}
     @if (($showWizardIntro ?? false) && $intake->is_demo && ! $completed)
         <x-demo-scope-notice variant="banner" :short-customer="$demoShortCustomer ?? false" data-testid="demo-scope-banner" />
     @endif
@@ -30,40 +32,16 @@
         </div>
 
         <div class="mt-4">
-            {{-- BL-167: intro alleen op start/known-summary; BL-166: pandgegevens + bedrijfspandmelding. --}}
+            {{-- BL-169: één pandregel boven de vraag op stap 1; geen woonfunctie-/energielabel-meldingen. --}}
             @if ($showWizardIntro ?? false)
-                <div class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]" data-testid="wizard-intro">
-                    @if ($intake->hasKnownHousingFacts())
-                        <p data-testid="known-property-intro">{{ $intake->knownPropertyFactsIntro() }}</p>
-                        @php
-                            $knownHousingLines = $intake->knownHousingFactLines();
-                            $energyLabelNote = $intake->energyLabelCustomerNote();
-                            $nonResidentialNote = $intake->nonResidentialCustomerNote();
-                        @endphp
-                        @if ($nonResidentialNote !== null)
-                            <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="non-residential-note" role="status">
-                                {{ $nonResidentialNote }}
-                            </p>
-                        @endif
-                        @if ($knownHousingLines !== [])
-                            <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
-                                @foreach ($knownHousingLines as $knownLine)
-                                    <div class="flex items-baseline justify-between gap-3">
-                                        <dt class="text-[#5e6862]">{{ $knownLine['label'] }}</dt>
-                                        <dd class="font-semibold text-[#18201d]">{{ $knownLine['value'] }}</dd>
-                                    </div>
-                                @endforeach
-                            </dl>
-                        @endif
-                        @if ($energyLabelNote !== null)
-                            <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="energy-label-note" role="status">
-                                {{ $energyLabelNote }}
-                            </p>
-                        @endif
-                    @else
-                        <p>Met jouw hulp kunnen we sneller je airco plaatsen. Beantwoord de vragen hieronder — dat kan ook op je telefoon. Je kunt later gewoon verdergaan.</p>
-                    @endif
-                </div>
+                @php
+                    $propertySummaryLine = $intake->customerPropertySummaryLine();
+                @endphp
+                @if ($propertySummaryLine !== null)
+                    <p class="mb-4 text-sm leading-relaxed text-[#5e6862]" data-testid="wizard-intro" data-property-summary="1">
+                        <span data-testid="known-property-intro">{{ $propertySummaryLine }}</span>
+                    </p>
+                @endif
             @endif
             <div class="flex items-center justify-between text-sm text-[#5e6862]">
                 <span>Voortgang</span>
@@ -173,17 +151,20 @@
         </div>
 
         <div class="flex-1 rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm">
-            <ul class="divide-y divide-[#dde2da]">
+            <ul class="divide-y divide-[#dde2da]" data-testid="known-summary-list">
                 @foreach ($step['known_items'] ?? [] as $item)
-                    <li class="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <li class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0" data-testid="known-summary-item">
                         <div class="min-w-0">
                             <p class="text-sm font-medium text-[#18201d]">{{ $item['label'] }}</p>
-                            <p class="mt-0.5 text-sm text-[#414b45]">{{ $item['display_value'] }}</p>
+                            @if (($item['display_value'] ?? '') !== '')
+                                <p class="mt-0.5 text-sm text-[#414b45]">{{ $item['display_value'] }}</p>
+                            @endif
                         </div>
                         <button
                             type="button"
                             wire:click="editKnownAnswer({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
-                            class="shrink-0 text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                            class="inline-flex min-h-11 shrink-0 items-center px-2 text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                            data-testid="known-summary-edit"
                         >
                             Wijzigen
                         </button>
@@ -191,7 +172,7 @@
                 @endforeach
             </ul>
             @if ($step['help_text'])
-                <p class="mt-3 text-xs leading-relaxed text-[#5e6862]">{{ $step['help_text'] }}</p>
+                <p class="mt-3 text-xs leading-relaxed text-[#5e6862]" data-testid="known-summary-help">{{ $step['help_text'] }}</p>
             @endif
         </div>
     @elseif (($step['kind'] ?? 'question') === 'closing_wishes')
@@ -230,19 +211,81 @@
                                 ></textarea>
                                 @break
                             @case('multi_choice')
-                                <div class="space-y-2">
-                                    @foreach ($bundleQuestion->options as $option)
+                                @if ($bundleQuestion->key === 'brand_preference')
+                                    @php
+                                        $brandValues = is_array(data_get($this->form, $bundleComposite.'.values'))
+                                            ? data_get($this->form, $bundleComposite.'.values')
+                                            : [];
+                                        $brandSpecific = collect($brandValues)
+                                            ->filter(static fn ($value): bool => is_string($value) && $value !== '' && $value !== 'no_preference')
+                                            ->values()
+                                            ->all();
+                                        $brandMode = ($this->brandPreferenceChoice ?? 'auto') === 'prefer'
+                                            || (($this->brandPreferenceChoice ?? 'auto') === 'auto' && $brandSpecific !== [])
+                                            ? 'prefer'
+                                            : 'none';
+                                        $brandOptions = $bundleQuestion->options->filter(
+                                            static fn ($option): bool => $option->value !== 'no_preference'
+                                        );
+                                        $selectedBrand = $brandSpecific[0] ?? '';
+                                    @endphp
+                                    <div class="space-y-2" role="radiogroup" aria-label="Merkvoorkeur" data-testid="brand-preference-mode">
                                         <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
                                             <input
-                                                type="checkbox"
-                                                wire:model.live="form.{{ $bundleComposite }}.values"
-                                                value="{{ $option->value }}"
-                                                class="rounded border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                type="radio"
+                                                name="brand-preference-mode"
+                                                value="none"
+                                                @checked($brandMode === 'none')
+                                                wire:click="setBrandPreferenceMode('none')"
+                                                class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                data-testid="brand-mode-none"
                                             >
-                                            <span class="text-sm font-medium">{{ $option->label }}</span>
+                                            <span class="text-sm font-medium">Geen voorkeur (installateur kiest)</span>
                                         </label>
-                                    @endforeach
-                                </div>
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                            <input
+                                                type="radio"
+                                                name="brand-preference-mode"
+                                                value="prefer"
+                                                @checked($brandMode === 'prefer')
+                                                wire:click="setBrandPreferenceMode('prefer')"
+                                                class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                data-testid="brand-mode-prefer"
+                                            >
+                                            <span class="text-sm font-medium">Ik heb een voorkeur</span>
+                                        </label>
+                                    </div>
+                                    @if ($brandMode === 'prefer')
+                                        <label class="mt-3 block text-sm font-medium text-[#18201d]" for="field-{{ $bundleComposite }}-brand">
+                                            Welk merk?
+                                        </label>
+                                        <select
+                                            id="field-{{ $bundleComposite }}-brand"
+                                            class="mt-1 block min-h-12 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                            wire:change="setBrandPreferenceBrand($event.target.value)"
+                                            data-testid="brand-preference-select"
+                                        >
+                                            <option value="" @selected($selectedBrand === '')>Kies een merk</option>
+                                            @foreach ($brandOptions as $option)
+                                                <option value="{{ $option->value }}" @selected($selectedBrand === $option->value)>{{ $option->label }}</option>
+                                            @endforeach
+                                        </select>
+                                    @endif
+                                @else
+                                    <div class="space-y-2">
+                                        @foreach ($bundleQuestion->options as $option)
+                                            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                                <input
+                                                    type="checkbox"
+                                                    wire:model.live="form.{{ $bundleComposite }}.values"
+                                                    value="{{ $option->value }}"
+                                                    class="rounded border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                >
+                                                <span class="text-sm font-medium">{{ $option->label }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 @break
                             @case('single_choice')
                                 <div class="space-y-2" role="radiogroup">
@@ -298,7 +341,15 @@
             @endif
         </div>
 
-        {{-- Afronden-lijst of gewone validatiefout. Geen tweede alert als het fotomeldingsvak al openstaat. --}}
+        @php
+            $isMustAcceptStep = $question !== null
+                && \App\Domains\Intake\Support\MustAcceptQuestions::requiresAcceptance($question);
+            $showTopRequiredAlert = $showMissing
+                && empty($photoNeedsOverride)
+                && ! $isMustAcceptStep
+                && ! in_array($question?->type->value ?? '', ['long_text', 'short_text'], true);
+        @endphp
+        {{-- Afronden-lijst of gewone validatiefout. Must-accept/tekst: alleen veldmelding (geen dubbele). --}}
         @if ($showMissing && $completionMissing !== [])
             <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
                 <p class="font-medium">Nog niet alles is klaar.</p>
@@ -326,7 +377,7 @@
                     @endforeach
                 </ul>
             </div>
-        @elseif ($showMissing && empty($photoNeedsOverride))
+        @elseif ($showTopRequiredAlert)
             <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
                 Beantwoord eerst deze verplichte vraag.
             </div>
@@ -614,8 +665,17 @@
                                     rows="4"
                                     wire:model.blur="form.{{ $composite }}.text"
                                     class="block w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                    @if ($question->key === 'request_reason')
+                                        placeholder="Bijv. airco in woonkamer en slaapkamer, alleen koelen"
+                                        data-testid="request-reason-field"
+                                    @endif
                                     @if ($state['required']) required @endif
                                 ></textarea>
+                                @if ($showMissing && ($state['required'] ?? false) && ! \App\Domains\Intake\Support\MustAcceptQuestions::requiresAcceptance($question))
+                                    <p class="mt-2 text-sm text-[#a84832]" role="alert" data-testid="field-required-error">
+                                        Beantwoord eerst deze verplichte vraag.
+                                    </p>
+                                @endif
                                 @break
 
                             @case('number')
@@ -757,6 +817,17 @@
         <footer
             class="fixed inset-x-0 bottom-0 z-20 border-t border-[#dde2da] bg-[#eef1ec]"
             data-testid="customer-wizard-footer"
+            x-data
+            x-init="
+                const sync = () => {
+                    const shell = $el.closest('[data-testid=customer-wizard-shell]');
+                    if (shell) {
+                        shell.style.setProperty('--customer-wizard-footer-height', $el.offsetHeight + 'px');
+                    }
+                };
+                sync();
+                new ResizeObserver(sync).observe($el);
+            "
         >
             <div class="mx-auto max-w-lg px-4 py-4 sm:px-6">
             @if (! empty($photoNeedsOverride))
@@ -841,7 +912,7 @@
                             class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
                             data-testid="complete-button"
                         >
-                            <span wire:loading.remove wire:target="complete">Afronden</span>
+                            <span wire:loading.remove wire:target="complete">Versturen naar {{ $company?->name ?? 'je installateur' }}</span>
                             <span wire:loading wire:target="complete" class="inline-flex items-center justify-center gap-2">
                                 <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
                                 Even geduld…
@@ -882,8 +953,12 @@
                     @endif
                 </div>
             @endif
-            <p class="mt-3 text-center text-xs text-[#5e6862]">
-                Je voortgang blijft bewaard via deze link tot je afrondt.
+            <p class="mt-3 text-center text-xs text-[#5e6862]" data-testid="wizard-autosave-hint">
+                @if ($intake->source === \App\Enums\IntakeSource::Embed)
+                    Je antwoorden worden automatisch bewaard.
+                @else
+                    Je voortgang blijft bewaard via deze link tot je afrondt.
+                @endif
             </p>
             </div>
         </footer>

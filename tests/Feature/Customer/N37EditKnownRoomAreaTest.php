@@ -139,6 +139,8 @@ test('N37: bij bekende m² staat geen afgeleide grootteklasse als aparte Wijzige
     $summary = collect($steps)->firstWhere('kind', 'known_summary');
     $keys = array_column($summary['known_items'] ?? [], 'question_key');
 
+    // BL-169: oppervlak zit op de ruimte-rij (question_key room_area_m2), geen aparte size-rij.
     expect($keys)->toContain('room_area_m2')
-        ->and($keys)->not->toContain('room_size_indication');
+        ->and($keys)->not->toContain('room_size_indication')
+        ->and(collect($summary['known_items'] ?? [])->where('section_instance_key', 'room-1')->count())->toBe(1);
 });
