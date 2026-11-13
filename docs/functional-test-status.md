@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.34 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.35 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -13,6 +13,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
 | Verschilt per ruimte zon → verdieping/glas (BL-168) | done | 2026-11-13 | Lokaal Playwright 390 (scenario `bl165-differs-sun-floor-glass`, 2037GR 273): **Verschilt per ruimte** op gedeelde zon → daarna glas én verdieping vóór kamerfoto’s; Afronden-return zonder herwalk; % monotoon &lt;90% tot foto’s. Screenshots `/opt/cursor/artifacts/bl165-floor-step-390.png`, `bl165-glass-step-390.png`. Pest `Bl165DiffersFloorGlassOrderTest`; E2E `23-bl165-differs-floor-glass`; regressie 20/22 groen. (Was parallel als BL-165; embed-test behield BL-165 via #317.) |
+| Wizard-intro + demobanner alleen start/known-summary (BL-167) | done | 2026-11-13 | Lokaal 390: stap 1 toont intro+BAG+demobanner; known-summary idem; latere stap (Hoogte) zonder intro/banner, wel logo/naam/voortgang. Screenshots `/opt/cursor/artifacts/bl167-wizard-intro-step1-390.png`, `bl167-wizard-known-summary-390.png`, `bl167-wizard-later-step-390.png`. Pest `Bl167WizardIntroVisibilityTest`. |
 | Embed-test introtekst (BL-165) | done | 2026-11-13 | Lokaal `/embed-test` 390 + 1440: kop “Zo ziet het opnameformulier eruit op jouw website”; geen zichtbare Sleutel/Iframe-src/frame-ancestors/Happy path/Testbedrijf-meta; iframe-formulier laadt. Screenshots `/opt/cursor/artifacts/bl165-embed-test-intro-390.png`, `bl165-embed-test-intro-1440.png`. |
 | Voortgang differs/high-water (BL-164) | done | 2026-11-13 | Lokaal Playwright 390: Verschilt per ruimte (scenario 2037GR 273, 3 kamers) → bij **Foto’s van de ruimte / Kamer 1 van 3** voortgang **19%** (niet ~97%); na Afronden **100%**. Screenshots `/opt/cursor/artifacts/bl164-kamer1-foto-progress-390.png`, `bl164-afronding-progress-390.png`. Pest `Bl164ProgressHighWaterDiffersTest`; E2E `22-bl164-progress-differs`; regressie 06/20/21 groen. |
 | Klanttest run 3 labels/teller/klembord (BL-163) | done | 2026-11-13 | Lokaal Playwright 390+1440: known-summary toont `15 m² (berekend uit 3 × 5 m)` + overall `Kamer N van M (type)`; foto-stap eyebrow idem; geen zichtbare “Vraag N” (alleen balk/%); Vorige zonder klembord; **Verschilt per ruimte** per kamer nog intact. Screenshots `/opt/cursor/artifacts/bl163-known-summary-390.png`, `…-1440.png`, `bl163-room-eyebrow-390.png`, `…-1440.png`, `bl163-differs-per-room-390.png`, `…-1440.png`. Pest `KlanttestRun3WizardLabelsTest`; E2E `21-klanttest-run3-labels`. |

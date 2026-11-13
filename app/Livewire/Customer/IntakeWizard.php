@@ -613,6 +613,8 @@ class IntakeWizard extends Component
                 'saveMessage' => '',
                 'isLastStep' => false,
                 'isKnownSummary' => false,
+                // Prefill-wacht is het startscherm: intro/demobanner wel tonen (BL-167).
+                'showWizardIntro' => true,
                 'missingRequired' => [],
                 'uploadPhase' => '',
                 'uploadPhaseMessage' => '',
@@ -809,6 +811,13 @@ class IntakeWizard extends Component
             : $this->distantUnresolvedPhotoIssues($steps, $step);
         $photoNextBlockedByAssessment = $this->stepHasLookingPhotos($step);
         $stepDisplay = $this->resolveStableStepDisplay($steps, $step, $displayIndex);
+        // BL-167: intro + demobanner alleen op eerste stap en "Dit hebben we al…".
+        $showWizardIntro = ! $this->completed
+            && (
+                $stepKind === 'known_summary'
+                || $displayIndex === 0
+                || $step === null
+            );
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
@@ -846,6 +855,7 @@ class IntakeWizard extends Component
             'missingRequired' => $this->completionMissing,
             'isLastStep' => $isLastStep,
             'isKnownSummary' => $stepKind === 'known_summary',
+            'showWizardIntro' => $showWizardIntro,
             'maxUploadKb' => PhotoUploadLimits::appMaxKilobytes(),
             'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
             'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
