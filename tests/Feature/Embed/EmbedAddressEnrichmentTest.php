@@ -244,17 +244,16 @@ test('embed intake with valid address gets BAG building year and skips build_yea
         ->toBe(['status' => 'unavailable'])
         ->and($intake->energyLabelCustomerNote())->toContain('Geen energielabel gevonden');
 
+    // BL-169: één pandregel; geen energielabel-melding aan de klant.
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertOk()
         ->assertSee('Bernadottelaan 273', false)
         ->assertSee('Haarlem', false)
         ->assertDontSee('Onbekend', false)
-        ->assertSee('We gebruiken al bekende woninggegevens', false) // woonfunctie → woninggegevens
-        ->assertSee('Bouwjaar', false)
-        ->assertSee('1971', false)
-        ->assertSee('Woningtype', false)
-        ->assertSee('Tussenwoning', false)
-        ->assertSee('Geen energielabel gevonden voor dit adres', false)
+        ->assertSeeHtml('data-testid="known-property-intro"')
+        ->assertSee('bouwjaar 1971', false)
+        ->assertSee('woningtype Tussenwoning', false)
+        ->assertDontSee('Geen energielabel gevonden voor dit adres', false)
         ->assertDontSee('Beantwoord de vragen hieronder — dat kan ook op je telefoon', false);
 
     Mail::assertSent(CustomerIntakeLinkMail::class, function (CustomerIntakeLinkMail $mail) use ($intake): bool {
@@ -316,7 +315,7 @@ test('wizard copy omits known-housing claim when BAG facts are missing', functio
         ->assertDontSee('We gebruiken al bekende woninggegevens', false)
         ->assertDontSee('Jij laat alleen zien wat we nog nodig hebben', false)
         ->assertDontSee('Geen energielabel gevonden voor dit adres', false)
-        ->assertSee('Beantwoord de vragen hieronder — dat kan ook op je telefoon', false);
+        ->assertDontSee('Beantwoord de vragen hieronder — dat kan ook op je telefoon', false);
 });
 
 /**
@@ -463,8 +462,7 @@ test('embed shows energielabel A when EP-Online returns a registered label', fun
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertOk()
-        ->assertSee('Energielabel', false)
-        ->assertSee('A', false)
+        ->assertSee('energielabel A', false)
         ->assertDontSee('Geen energielabel gevonden voor dit adres', false);
 
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'ep-online.test')
@@ -473,7 +471,7 @@ test('embed shows energielabel A when EP-Online returns a registered label', fun
         && ! str_contains(strtolower($request->header('Authorization')[0] ?? ''), 'bearer'));
 });
 
-test('embed shows a soft note when EP-Online has no registered label', function () {
+test('embed keeps energy_label_status when EP-Online has no registered label (no customer soft note)', function () {
     Mail::fake();
     Queue::fake();
     fakeBernadotteBagWithEpOnline(null);
@@ -494,14 +492,16 @@ test('embed shows a soft note when EP-Online has no registered label', function 
         ->toBe(['status' => 'not_found'])
         ->and($intake->hasKnownHousingFacts())->toBeTrue();
 
+    expect($intake->energyLabelCustomerNote())->toContain('Geen energielabel gevonden');
+
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertOk()
-        ->assertSee('Bouwjaar', false)
-        ->assertSee('Geen energielabel gevonden voor dit adres', false)
-        ->assertSee('Dat is geen probleem', false);
+        ->assertSee('bouwjaar', false)
+        ->assertDontSee('Geen energielabel gevonden voor dit adres', false)
+        ->assertDontSee('Dat is geen probleem', false);
 });
 
-test('embed keeps flowing when EP-Online times out and shows the soft note', function () {
+test('embed keeps flowing when EP-Online times out without customer soft note', function () {
     Mail::fake();
     Queue::fake();
     fakeBernadotteBagWithEpOnline([], epTimeout: true);
@@ -522,7 +522,9 @@ test('embed keeps flowing when EP-Online times out and shows the soft note', fun
         ->and($intake->externalFacts()->where('fact_key', 'energy_label_status')->firstOrFail()->value)
         ->toBe(['status' => 'unavailable']);
 
+    expect($intake->energyLabelCustomerNote())->toContain('Geen energielabel gevonden');
+
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertOk()
-        ->assertSee('Geen energielabel gevonden voor dit adres', false);
+        ->assertDontSee('Geen energielabel gevonden voor dit adres', false);
 });

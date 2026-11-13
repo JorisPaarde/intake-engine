@@ -195,7 +195,9 @@ test('next on embed intake also triggers a single request-prefill dispatch', fun
 
     $intake = Intake::query()->where('customer_email', 'embed.next@example.com')->firstOrFail();
 
+    // BL-169: leeg verplicht reden-veld mag niet door; eerst invullen, dán Volgende → prefill-wacht.
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.text', 'Airco in de woonkamer, alleen koelen.')
         ->call('next')
         ->assertSet('waitingForPrefill', true);
 

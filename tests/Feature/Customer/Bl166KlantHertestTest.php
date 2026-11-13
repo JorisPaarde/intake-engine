@@ -148,12 +148,13 @@ test('bedrijfspand toont pandgegevens en melding; energielabel alleen uit EP-Onl
     $withLabel = $intake->fresh(['answers', 'externalFacts', 'templateVersion.sections.questions.options']) ?? $intake;
     expect(collect($withLabel->knownHousingFactLines())->firstWhere('label', 'Energielabel')['value'] ?? null)->toBe('A');
 
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSeeHtml('data-testid="known-property-intro"')
-        ->assertSee('pandgegevens')
-        ->assertSeeHtml('data-testid="non-residential-note"')
-        ->assertSee('geen woonfunctie')
-        ->assertDontSee('bekende woninggegevens');
+    // BL-169: klant ziet geen woonfunctie-melding meer; pandregel + installateur behouden de info.
+    $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])->html();
+    expect($html)->toContain('data-testid="known-property-intro"')
+        ->and($html)->toContain('pandtype')
+        ->and($html)->not->toContain('data-testid="non-residential-note"')
+        ->and($html)->not->toContain('geen woonfunctie')
+        ->and($html)->not->toContain('bekende woninggegevens');
 });
 
 test('v32 teksten: geluid-help, slaapkamer-voorbeeld, één merkuitleg, geen room_outlet share', function () {

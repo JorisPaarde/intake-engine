@@ -102,7 +102,7 @@ export async function waitForStepChange(page: Page, previousHeading: string, tim
 
 export async function primaryNextButton(page: Page) {
   // Prefer role name (stable accessible label); fall back to visible testid.
-  const byRole = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i });
+  const byRole = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Versturen naar .+|Aanvulling versturen)$/i });
   if (await byRole.count()) {
     return byRole.first();
   }
@@ -298,8 +298,9 @@ export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos
     await livewire;
   }
 
-  if (await page.getByRole('button', { name: /^Afronden$/ }).count()) {
-    await page.getByRole('button', { name: /^Afronden$/ }).click();
+  const completeBtn = page.getByRole('button', { name: /^(Afronden|Versturen naar .+)$/i });
+  if (await completeBtn.count()) {
+    await completeBtn.first().click();
     await waitForStepChange(page, before).catch(() => undefined);
 
     return;

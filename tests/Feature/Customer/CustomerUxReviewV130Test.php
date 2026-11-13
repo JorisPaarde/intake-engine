@@ -101,6 +101,7 @@ test('klantviews lekken geen ruwe question keys of Engelse enum-waarden', functi
     $htmlValues = collect($summary['known_items'] ?? [])->pluck('display_value')->implode(' | ');
     $htmlLabels = collect($summary['known_items'] ?? [])->pluck('label')->implode(' | ');
 
+    // BL-169: ruimtes als één rij (label), geen “Hoe heet…?” / detailregels per kamervraag.
     expect($htmlValues)
         ->not->toContain('outdoor_location')
         ->not->toContain('wall')
@@ -109,8 +110,8 @@ test('klantviews lekken geen ruwe question keys of Engelse enum-waarden', functi
         ->not->toContain('average')
         ->not->toContain('garden')
         ->and($htmlLabels)->not->toContain('outdoor_mount_type')
-        ->and($htmlValues)->toContain('boven de bank aan de buitenmuur')
-        ->and($htmlValues)->toContain('Slaapkamer')
+        ->and($htmlLabels)->not->toContain('Hoe heet deze ruimte')
+        ->and($htmlLabels)->toContain('Slaapkamer')
         ->and($htmlValues)->toContain('Tuin / achtererf')
         ->and($htmlValues)->toContain('Aan de gevel of muurbeugel');
 
@@ -119,11 +120,11 @@ test('klantviews lekken geen ruwe question keys of Engelse enum-waarden', functi
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('stepIndex', $summaryIndex)
         ->set('activeStepKey', $steps[$summaryIndex]['key'])
-        ->assertSee('boven de bank aan de buitenmuur')
         ->assertSee('Slaapkamer')
         ->assertSee('Tuin / achtererf')
         ->assertSee('Aan de gevel of muurbeugel')
         ->assertSee('Klopt, verder')
+        ->assertDontSee('Hoe heet deze ruimte')
         // Zichtbare lekpatronen (niet de interne wire:click-keys).
         ->assertDontSee('(wall)')
         ->assertDontSee('room-2')
@@ -152,10 +153,11 @@ test('voortgang gebruikt één stappenmaat zonder taken-teller', function () {
         ->and($component->viewData('progressTotal'))->toBe(count($component->viewData('steps')));
 });
 
-test('known-summary heeft één primaire CTA en toont binnenunitplek', function () {
+test('known-summary heeft één primaire CTA en groepeert ruimtes', function () {
     $intake = uxReviewIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'cooling_heating', null, ['value' => 'cooling'], PrefillSources::AI_TEXT);
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room'], PrefillSources::AI_TEXT);
     app(SaveIntakeAnswer::class)->handle(
         $intake,
         'preferred_indoor_location',
@@ -174,8 +176,10 @@ test('known-summary heeft één primaire CTA en toont binnenunitplek', function 
     $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('stepIndex', $summaryIndex)
         ->set('activeStepKey', $steps[$summaryIndex]['key'])
-        ->assertSee('boven de bank aan de buitenmuur')
+        ->assertSee('Woonkamer')
+        ->assertSee('De rest vragen we hierna.')
         ->assertSee('Klopt, verder')
+        ->assertDontSee('Hoe heet deze ruimte')
         ->html();
 
     // Sticky CTA once; no duplicate in-body primary button.

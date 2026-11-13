@@ -148,7 +148,8 @@ test('N15: truth_confirmation tick plus stale next leaves Q32 without missing al
         ->assertSet('activeStepKey', $oldKey)
         ->call('next', $oldKey)
         ->assertSet('showMissing', true)
-        ->assertSee('Beantwoord eerst deze verplichte vraag.')
+        ->assertSee('Vink dit aan om te versturen.')
+        ->assertDontSeeHtml('data-testid="step-missing-alert"')
         ->set('form.truth_confirmation.bool', true)
         ->assertJs('setTimeout(() => $wire.next('.json_encode($oldKey).'), 50)')
         ->assertSet('activeStepKey', $oldKey)
@@ -165,6 +166,7 @@ test('N15: truth_confirmation tick plus stale next leaves Q32 without missing al
 
     $component
         ->assertDontSee('Beantwoord eerst deze verplichte vraag.')
+        ->assertDontSee('Vink dit aan om te versturen.')
         ->assertDontSeeHtml('data-testid="step-missing-alert"');
 });
 

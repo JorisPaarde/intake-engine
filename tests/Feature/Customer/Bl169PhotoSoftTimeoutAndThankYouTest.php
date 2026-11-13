@@ -35,7 +35,7 @@ beforeEach(function () {
     Storage::fake((string) config('filesystems.media', 'local'));
 });
 
-function bl169Intake(array $overrides = []): Intake
+function bl169PhotoThankYouIntake(array $overrides = []): Intake
 {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
@@ -52,7 +52,7 @@ function bl169Intake(array $overrides = []): Intake
     ], $overrides));
 }
 
-function bl169SeedRoom(Intake $intake): void
+function bl169PhotoThankYouSeedRoom(Intake $intake): void
 {
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     app(SaveIntakeAnswer::class)->handle($intake, 'request_reason', null, ['text' => 'Eén woonkamer koelen']);
@@ -93,8 +93,8 @@ test('trage fotocheck blokkeert max ~8s; daarna mag Volgende terwijl assessment 
     $t0 = now()->startOfSecond();
     Carbon::setTestNow($t0);
 
-    $intake = bl169Intake();
-    bl169SeedRoom($intake);
+    $intake = bl169PhotoThankYouIntake();
+    bl169PhotoThankYouSeedRoom($intake);
 
     $steps = app(IntakeStepBuilder::class)->build(
         $intake->fresh() ?? $intake,
@@ -146,8 +146,8 @@ test('trage fotocheck blokkeert max ~8s; daarna mag Volgende terwijl assessment 
 });
 
 test('afkeurkader toont type-titel, tip, Nieuwe foto maken en Toch deze foto gebruiken', function () {
-    $intake = bl169Intake();
-    bl169SeedRoom($intake);
+    $intake = bl169PhotoThankYouIntake();
+    bl169PhotoThankYouSeedRoom($intake);
 
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,
@@ -191,8 +191,8 @@ test('afkeurkader toont type-titel, tip, Nieuwe foto maken en Toch deze foto geb
 test('max foto’s komt uit config, niet uit vraag-meta', function () {
     config(['intake.uploads.max_files_per_question' => 2]);
 
-    $intake = bl169Intake();
-    bl169SeedRoom($intake);
+    $intake = bl169PhotoThankYouIntake();
+    bl169PhotoThankYouSeedRoom($intake);
 
     app(StoreIntakeUpload::class)->handle(
         $intake,
@@ -218,7 +218,7 @@ test('max foto’s komt uit config, niet uit vraag-meta', function () {
 test('bedankscherm: kop, bedrijfsnaam, geen voortgangsbalk, Toestemming verhuurder', function () {
     config(['intake.customer_completion.installer_response_within' => 'binnen 2 werkdagen']);
 
-    $intake = bl169Intake();
+    $intake = bl169PhotoThankYouIntake();
     $companyName = (string) $intake->company?->name;
     app(SaveIntakeAnswer::class)->handle($intake, 'ownership', null, ['value' => 'rented']);
     app(SaveIntakeAnswer::class)->handle($intake, 'landlord_permission', null, ['value' => 'yes']);

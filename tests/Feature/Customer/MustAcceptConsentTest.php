@@ -128,10 +128,16 @@ test('must_accept helpers recognise true-only acceptance and reject prefill', fu
 });
 
 test('refusal messages and missing hints differ per must-accept key', function () {
+    $truth = IntakeQuestion::query()->where('key', 'truth_confirmation')->first()
+        ?? tap(new IntakeQuestion, static function (IntakeQuestion $question): void {
+            $question->key = 'truth_confirmation';
+        });
+
     expect(MustAcceptQuestions::refusalMessage('privacy_consent'))
         ->toBe('Zonder je toestemming kunnen we je gegevens niet gebruiken. Neem contact op met je installateur.')
         ->and(MustAcceptQuestions::refusalMessage('truth_confirmation'))
-        ->toBe('Bevestig dat je de gegevens naar waarheid hebt ingevuld.')
+        ->toBe('Vink dit aan om te versturen.')
+        ->and(MustAcceptQuestions::checkboxLabel($truth))->toBe('Ik heb alles naar waarheid ingevuld.')
         ->and(MustAcceptQuestions::missingRequirementHint('privacy_consent'))->toBe('toestemming vereist')
         ->and(MustAcceptQuestions::missingRequirementHint('truth_confirmation'))->toBe('bevestiging vereist');
 });

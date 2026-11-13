@@ -179,6 +179,7 @@ test('bij foto-waarschuwing staan keuzes in het afkeurkader; geen Volgende', fun
         ->assertSeeHtml('data-testid="photo-retry-primary"')
         ->assertDontSeeHtml('data-testid="next-button"')
         ->assertDontSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
+        ->assertSeeHtml('--customer-wizard-footer-height')
         ->assertSeeHtml('fixed inset-x-0 bottom-0')
         ->html();
 
