@@ -19,9 +19,9 @@ final class PhotoAssessmentSoftTimeout
 {
     public static function seconds(): int
     {
-        $configured = (int) config('ai.photo_assessment.ui_soft_timeout_seconds', 15);
+        $configured = (int) config('ai.photo_assessment.ui_soft_timeout_seconds', 8);
 
-        return $configured > 0 ? $configured : 15;
+        return $configured > 0 ? $configured : 8;
     }
 
     /**

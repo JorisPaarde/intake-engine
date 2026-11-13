@@ -57,14 +57,17 @@ test('thank-you toont geen aandachtspunten, keys of PDF-demo-tekst', function ()
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('completed', true);
 
-    // N73: de afrondzin staat precies één keer (in het bedankblok), niet ook in de kop.
-    expect(substr_count($component->html(), 'Jouw deel is compleet.'))->toBe(1);
+    // Bedankscherm: kop + timeline één keer; geen oude “Jouw deel is compleet”.
+    expect(substr_count($component->html(), 'Je aanvraag is verstuurd'))->toBe(1)
+        ->and(substr_count($component->html(), 'Jouw deel is compleet'))->toBe(0);
 
     $component
         ->assertSeeHtml('data-testid="customer-thank-you"')
         ->assertSeeHtml('data-testid="thank-you-timeline"')
         ->assertSeeHtml('data-testid="thank-you-summary"')
+        ->assertSeeHtml('data-testid="thank-you-check"')
         ->assertSee('binnen 2 werkdagen')
+        ->assertDontSeeHtml('data-testid="wizard-progress"')
         ->assertDontSeeHtml('data-testid="customer-complete-note"')
         ->assertDontSee('Voorgestelde aandachtspunten')
         ->assertDontSee('outdoor_mount_type (wall)')

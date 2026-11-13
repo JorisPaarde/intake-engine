@@ -19,18 +19,26 @@
 
 @php
     $isFailed = $uploadPhase === 'failed' && $uploadPhaseComposite === $composite;
+    $buttonTitle = is_string($title) && $title !== ''
+        ? $title
+        : ($tone === 'followup' ? 'Foto’s maken of kiezen' : 'Maak of kies een foto');
 
+    // Intake: echte primaire knop (UX-review 13 nov). Follow-up behoudt dashed dropzone.
     $labelClass = $tone === 'followup'
         ? 'flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center'
-        : 'flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#dde2da] bg-[#eef1ec] px-4 py-5 text-center';
-    $titleClass = $tone === 'followup' ? 'text-sm font-semibold text-brand-ink' : 'text-sm font-semibold text-[#18201d]';
-    $hintClass = $tone === 'followup' ? 'text-xs text-brand-ink/55' : 'text-xs text-[#5e6862]';
+        : 'flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-[var(--tenant-primary)] px-4 text-center shadow-sm';
+    $titleClass = $tone === 'followup'
+        ? 'text-sm font-semibold text-brand-ink'
+        : 'text-sm font-semibold text-[var(--tenant-on-primary)]';
+    $hintClass = $tone === 'followup' ? 'text-xs text-brand-ink/55' : 'sr-only';
     $progressClass = $tone === 'followup' ? 'mt-2 text-sm font-medium text-brand-sea' : 'mt-2 text-sm font-medium text-[var(--tenant-primary)]';
     $retryingClass = $tone === 'followup' ? 'mt-2 text-sm text-brand-ink/55' : 'mt-2 text-sm text-[#5e6862]';
     $errorClass = $tone === 'followup' ? 'mt-2 space-y-1 text-sm font-medium text-brand-ember' : 'mt-2 space-y-1 text-sm font-medium text-[#a84832]';
     $linkClass = $tone === 'followup' ? 'mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60' : 'mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60';
     $phaseClass = $tone === 'followup' ? 'mt-2 space-y-1 text-sm font-medium text-brand-sea' : 'mt-2 space-y-1 text-sm font-medium text-[var(--tenant-primary)]';
     $bagErrorClass = $tone === 'followup' ? 'mt-2 text-sm text-brand-ember' : 'mt-2 text-sm text-[#a84832]';
+    $typeLimitHint = 'JPEG, PNG, WebP of HEIC · max '.number_format($maxUploadKb / 1024, 0).' MB'
+        .' · tot '.$remainingSlots.' '.($remainingSlots === 1 ? 'foto' : 'foto’s');
 @endphp
 
 {{-- Assessment polling is on the wizard so it keeps running at max photos. --}}
@@ -309,21 +317,21 @@
         class="{{ $labelClass }}"
         :class="{ 'pointer-events-none opacity-60': (clientUploading && ! uploadTimedOut) || prepBusy }"
         wire:target="{{ $wireModel }}"
+        data-testid="photo-upload-button"
     >
-        @if (is_string($title) && $title !== '')
-            <span class="{{ $titleClass }}">{{ $title }}</span>
+        <span class="{{ $titleClass }}">{{ $buttonTitle }}</span>
+        {{-- Bestandstype/MB alleen voor follow-up of als helpExtra; intake toont limieten in foutmeldingen. --}}
+        @if ($tone === 'followup' || $helpExtra)
+            <span class="{{ $hintClass }}">
+                @if ($helpExtra)
+                    {{ $helpExtra }}
+                @else
+                    {{ $typeLimitHint }} · camera of galerij
+                @endif
+            </span>
         @else
-            <span class="{{ $titleClass }}">Foto’s maken of kiezen</span>
+            <span class="sr-only">{{ $typeLimitHint }}</span>
         @endif
-        <span class="{{ $hintClass }}">
-            @if ($helpExtra)
-                {{ $helpExtra }}
-            @else
-                JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB
-                · tot {{ $remainingSlots }} {{ $remainingSlots === 1 ? 'foto' : 'foto’s' }}
-                · camera of galerij
-            @endif
-        </span>
         <input
             id="{{ $inputId }}"
             type="file"

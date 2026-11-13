@@ -176,43 +176,51 @@ it('groups feedback by structured status key not by text', function () {
         ->not->toBe(PhotoOverridePolicy::feedbackGroupKey($c))
         ->and(PhotoOverridePolicy::uniqueCustomerFeedback(collect([$a, $b, $c])))
         ->toHaveCount(2)
-        ->and(PhotoOverridePolicy::panelHeading(1))->toBe(PhotoOverridePolicy::PANEL_HEADING_ONE)
-        ->and(PhotoOverridePolicy::panelHeading(3))->toBe('3 foto’s zijn nog niet goed.')
-        ->and(PhotoOverridePolicy::panelExplanation(1))->toContain('Je installateur krijgt de foto dan wel')
-        ->and(PhotoOverridePolicy::panelExplanation(3))->toContain('foto’s');
+        ->and(PhotoOverridePolicy::panelHeadingForSubject(PhotoSubject::Room))
+        ->toBe(PhotoOverridePolicy::PANEL_HEADING_ONE)
+        ->and(PhotoOverridePolicy::panelHeadingForSubject(PhotoSubject::Fusebox))
+        ->toBe('Deze foto laat de meterkast nog niet goed zien')
+        ->and(PhotoOverridePolicy::defaultTipFor(PhotoSubject::Room))
+        ->toContain('deuropening');
 });
 
-it('names which photo the panel is about when another photo on the step is fine (N49)', function () {
+it('afkeurkader-titel volgt fototype; tip uit feedback of default', function () {
     $blurry = statusUpload([
         'id' => 11,
+        'question_key' => 'fusebox_photo',
         'content_assessment' => PhotoContentAssessment::needsClearer(
             PhotoSubject::Fusebox,
             'Maak een scherpere foto van de hoofdschakelaar.',
         )->toArray(),
     ]);
-    $good = statusUpload(['id' => 12]);
+    $good = statusUpload(['id' => 12, 'question_key' => 'fusebox_photo']);
     $wrong = statusUpload([
         'id' => 13,
+        'question_key' => 'fusebox_photo',
         'content_assessment' => PhotoContentAssessment::wrongSubject(
             PhotoSubject::Fusebox,
             PhotoSubject::Room,
         )->toArray(),
     ]);
+    $roomWrong = statusUpload([
+        'id' => 14,
+        'question_key' => 'room_photos',
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Room,
+            PhotoSubject::OutdoorUnit,
+        )->toArray(),
+    ]);
 
     expect(PhotoOverridePolicy::panelHeadingFor(collect([$blurry])))
-        ->toBe(PhotoOverridePolicy::PANEL_HEADING_ONE)
-        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry])))
-        ->toBe(PhotoOverridePolicy::PANEL_EXPLAIN_ONE)
+        ->toBe('Deze foto laat de meterkast nog niet goed zien')
+        ->and(PhotoOverridePolicy::panelTipsFor(collect([$blurry]))[0] ?? '')
+        ->toContain('scherpere foto')
         ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $good])))
-        ->toBe('Foto 1 van 2 is nog niet goed.')
-        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good])))
-        ->toStartWith('Je andere foto is goed ontvangen.')
-        ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $good, $wrong])))
-        ->toBe('Foto 1 en 3 van 3 zijn nog niet goed.')
-        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good, $wrong])))
-        ->toBe('Je andere foto is goed ontvangen. Je installateur krijgt deze foto’s dan wel en kijkt er zelf naar.')
-        ->and(PhotoOverridePolicy::panelExplanationFor(collect([$blurry, $good, statusUpload(['id' => 14])])))
-        ->toBe('Je andere foto’s zijn goed ontvangen. Je installateur krijgt deze foto dan wel en kijkt er zelf naar.')
+        ->toBe('Deze foto laat de meterkast nog niet goed zien')
         ->and(PhotoOverridePolicy::panelHeadingFor(collect([$blurry, $wrong])))
-        ->toBe('2 foto’s zijn nog niet goed.');
+        ->toBe('Deze foto’s laten de meterkast nog niet goed zien')
+        ->and(PhotoOverridePolicy::panelHeadingFor(collect([$roomWrong])))
+        ->toBe(PhotoOverridePolicy::PANEL_HEADING_ONE)
+        ->and(PhotoOverridePolicy::PRIMARY_RETRY)->toBe('Nieuwe foto maken')
+        ->and(PhotoOverridePolicy::SECONDARY_KEEP)->toBe('Toch deze foto gebruiken');
 });

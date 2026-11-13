@@ -115,12 +115,15 @@ test('na previous geen We bekijken meer zodra alle foto’s terminaal zijn', fun
         ->set('activeStepKey', $steps[$index]['key']);
 
     $html = $component->html();
-    expect($html)->toContain(PhotoCustomerStatus::WRONG_SUBJECT)
+    expect($html)->not->toContain(PhotoCustomerStatus::WRONG_SUBJECT)
         ->and($html)->not->toContain('data-testid="upload-phase"')
         ->and($html)->not->toContain('Status:')
         ->and($html)->toContain('data-testid="photo-mismatch-panel"')
         ->and($html)->toContain(PhotoOverridePolicy::PANEL_HEADING_ONE)
-        ->and($html)->toContain('Je installateur krijgt de foto dan wel');
+        ->and($html)->toContain(PhotoOverridePolicy::PRIMARY_RETRY)
+        ->and($html)->toContain(PhotoOverridePolicy::SECONDARY_KEEP)
+        ->and($html)->not->toContain('Vervang foto')
+        ->and($html)->not->toContain('Je installateur krijgt de foto dan wel');
 
     $component
         ->call('acceptPhotoMismatch')
@@ -135,7 +138,7 @@ test('na previous geen We bekijken meer zodra alle foto’s terminaal zijn', fun
         ->assertSee(PhotoCustomerStatus::OVERRIDE_ACCEPTED);
 });
 
-test('meerdere afgekeurde foto’s: meervoudskop en één Toch doorgaan', function () {
+test('meerdere afgekeurde foto’s: meervoudskop en één Toch deze foto gebruiken', function () {
     $intake = fotoStatusIntake();
     seedOneRoomForPhotos($intake);
     seedRejectedRoomPhoto($intake, 'wrong-1.jpg', 1200);
@@ -149,16 +152,15 @@ test('meerdere afgekeurde foto’s: meervoudskop en één Toch doorgaan', functi
         ->set('activeStepKey', $steps[$index]['key'])
         ->html();
 
-    expect($html)->toContain('3 foto’s zijn nog niet goed.')
-        ->and($html)->toContain(PhotoOverridePolicy::PANEL_EXPLAIN_MANY)
-        ->and(substr_count($html, 'data-testid="photo-accept-mismatch"'))->toBe(0)
-        ->and(substr_count($html, 'data-testid="footer-accept-mismatch"'))->toBe(1)
-        ->and(substr_count($html, 'Toch doorgaan'))->toBe(1)
-        ->and(substr_count($html, PhotoCustomerStatus::WRONG_SUBJECT))->toBe(3)
+    expect($html)->toContain('Deze foto’s laten de kamer nog niet goed zien')
+        ->and(substr_count($html, 'data-testid="photo-accept-mismatch"'))->toBe(1)
+        ->and(substr_count($html, 'data-testid="footer-accept-mismatch"'))->toBe(0)
+        ->and(substr_count($html, PhotoOverridePolicy::SECONDARY_KEEP))->toBe(1)
+        ->and($html)->not->toContain(PhotoCustomerStatus::WRONG_SUBJECT)
         ->and($html)->not->toContain('Status:');
 });
 
-test('bij foto-waarschuwing toont sticky footer één Toch doorgaan i.p.v. Volgende', function () {
+test('bij foto-waarschuwing staan keuzes in het afkeurkader; geen Volgende', function () {
     $intake = fotoStatusIntake();
     seedOneRoomForPhotos($intake);
     seedRejectedRoomPhoto($intake);
@@ -169,24 +171,25 @@ test('bij foto-waarschuwing toont sticky footer één Toch doorgaan i.p.v. Volge
         ->set('stepIndex', $index)
         ->set('activeStepKey', $steps[$index]['key'])
         ->assertSeeHtml('data-testid="footer-photo-override"')
-        ->assertSeeHtml('data-testid="footer-mismatch-warning"')
-        ->assertSeeHtml('data-testid="footer-accept-mismatch"')
-        ->assertSeeHtml('data-testid="footer-replace-photos"')
+        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"')
+        ->assertDontSeeHtml('data-testid="footer-accept-mismatch"')
+        ->assertDontSeeHtml('data-testid="footer-replace-photos"')
         ->assertSeeHtml('data-testid="photo-mismatch-panel"')
-        ->assertDontSeeHtml('data-testid="photo-accept-mismatch"')
+        ->assertSeeHtml('data-testid="photo-accept-mismatch"')
+        ->assertSeeHtml('data-testid="photo-retry-primary"')
         ->assertDontSeeHtml('data-testid="next-button"')
-        ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
+        ->assertDontSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
         ->assertSeeHtml('--customer-wizard-footer-height')
         ->assertSeeHtml('fixed inset-x-0 bottom-0')
         ->html();
 
-    expect($html)->toContain('Opnieuw maken')
-        ->and(substr_count($html, 'Toch doorgaan'))->toBe(1)
-        ->and($html)->toContain('whitespace-nowrap')
-        ->and($html)->toContain('data-testid="footer-previous-link"');
+    expect($html)->toContain(PhotoOverridePolicy::PRIMARY_RETRY)
+        ->and(substr_count($html, PhotoOverridePolicy::SECONDARY_KEEP))->toBe(1)
+        ->and($html)->toContain('data-testid="footer-previous-link"')
+        ->and($html)->not->toContain('Vervang foto');
 });
 
-test('Volgende zonder keuze bij override scrollt en toont OVERRIDE_MESSAGE in footer', function () {
+test('Volgende zonder keuze bij override scrollt naar afkeurkader', function () {
     $intake = fotoStatusIntake();
     seedOneRoomForPhotos($intake);
     seedRejectedRoomPhoto($intake);
@@ -200,8 +203,8 @@ test('Volgende zonder keuze bij override scrollt en toont OVERRIDE_MESSAGE in fo
         ->assertSet('showMissing', true)
         ->assertDispatched('scroll-to-photo-mismatch')
         ->assertDontSeeHtml('data-testid="mismatch-next-warning"')
-        ->assertSeeHtml('data-testid="footer-mismatch-warning"')
-        ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
+        ->assertSeeHtml('data-testid="photo-mismatch-panel"')
+        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"')
         ->assertDontSeeHtml('data-testid="step-missing-alert"');
 });
 
@@ -300,7 +303,7 @@ test('één Toch doorgaan accepteert alle afgekeurde foto’s op de stap', funct
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('stepIndex', $index)
         ->set('activeStepKey', $steps[$index]['key'])
-        ->assertSeeHtml('data-testid="footer-accept-mismatch"')
+        ->assertSeeHtml('data-testid="photo-accept-mismatch"')
         ->call('acceptPhotoMismatch');
 
     expect(PhotoOverridePolicy::needsOverride($first->fresh() ?? $first))->toBeFalse()

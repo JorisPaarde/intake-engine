@@ -21,7 +21,7 @@ beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
 });
 
-function bl169Intake(array $overrides = []): Intake
+function bl172UxWizardIntake(array $overrides = []): Intake
 {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
     $company = Company::factory()->create(['name' => 'CoolPro Airco']);
@@ -41,7 +41,7 @@ function bl169Intake(array $overrides = []): Intake
     ], $overrides));
 }
 
-function bl169SeedHousing(Intake $intake): void
+function bl172UxWizardSeedHousing(Intake $intake): void
 {
     $intake->externalFacts()->create([
         'fact_key' => 'building_year',
@@ -73,15 +73,15 @@ function bl169SeedHousing(Intake $intake): void
 }
 
 test('BL-169: postcode in adres heeft spatie', function () {
-    $intake = bl169Intake();
+    $intake = bl172UxWizardIntake();
 
     expect($intake->formattedPostalCode())->toBe('2011 RD')
         ->and($intake->fullAddress())->toBe('Lepelstraat 1, 2011 RD Haarlem');
 });
 
 test('BL-169: stap 1 toont één pandregel zonder woonfunctie-/energielabel-meldingen', function () {
-    $intake = bl169Intake();
-    bl169SeedHousing($intake);
+    $intake = bl172UxWizardIntake();
+    bl172UxWizardSeedHousing($intake);
 
     // Adres alleen in de header; pandregel = bouwjaar/type (geen dubbele straat).
     expect($intake->customerPropertySummaryLine())->toBe('bouwjaar 1920 · pandtype Bedrijfspand')
@@ -105,8 +105,8 @@ test('BL-169: stap 1 toont één pandregel zonder woonfunctie-/energielabel-meld
 });
 
 test('BL-169: pandblok niet op known-summary of latere stap', function () {
-    $intake = bl169Intake();
-    bl169SeedHousing($intake);
+    $intake = bl172UxWizardIntake();
+    bl172UxWizardSeedHousing($intake);
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
     $save->handle($intake, 'room_type', 'room-1', ['value' => 'living_room'], PrefillSources::AI_TEXT);
@@ -134,7 +134,7 @@ test('BL-169: pandblok niet op known-summary of latere stap', function () {
 });
 
 test('BL-169: leeg verplicht request_reason blokkeert Volgende met veldmelding', function () {
-    $intake = bl169Intake(['source' => IntakeSource::Embed]);
+    $intake = bl172UxWizardIntake(['source' => IntakeSource::Embed]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $steps = $component->viewData('steps');
@@ -158,7 +158,7 @@ test('BL-169: leeg verplicht request_reason blokkeert Volgende met veldmelding',
 });
 
 test('BL-169: Afronden-teksten en één validatiemelding onder checkbox', function () {
-    $intake = bl169Intake();
+    $intake = bl172UxWizardIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     // Embed-achtig: privacy al gegeven → truth_confirmation is de laatste stap.
     app(SaveIntakeAnswer::class)->handle($intake, 'privacy_consent', null, ['bool' => true]);
@@ -193,7 +193,7 @@ test('BL-169: Afronden-teksten en één validatiemelding onder checkbox', functi
 });
 
 test('BL-169: merkstap is radio + select en blijft in de flow na prefill', function () {
-    $intake = bl169Intake();
+    $intake = bl172UxWizardIntake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
     $save->handle(
@@ -237,7 +237,7 @@ test('BL-169: merkstap is radio + select en blijft in de flow na prefill', funct
 });
 
 test('BL-169: known-summary één Ruimtes-rij en Wijzigen keert terug', function () {
-    $intake = bl169Intake(['source' => IntakeSource::Installer]);
+    $intake = bl172UxWizardIntake(['source' => IntakeSource::Installer]);
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'cooling_heating', null, ['value' => 'cooling'], PrefillSources::AI_TEXT);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 2], PrefillSources::AI_TEXT);
@@ -290,7 +290,7 @@ test('BL-169: known-summary één Ruimtes-rij en Wijzigen keert terug', function
 });
 
 test('BL-169: Opgeslagen en percentage hebben scheiding in de voortgangsregel', function () {
-    $intake = bl169Intake();
+    $intake = bl172UxWizardIntake();
     $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('saveMessage', 'Opgeslagen')
         ->html();
@@ -303,7 +303,7 @@ test('BL-169: Opgeslagen en percentage hebben scheiding in de voortgangsregel', 
 });
 
 test('BL-169: Afronden toont validatie niet bij laden', function () {
-    $intake = bl169Intake();
+    $intake = bl172UxWizardIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     app(SaveIntakeAnswer::class)->handle($intake, 'privacy_consent', null, ['bool' => true]);
 

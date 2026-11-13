@@ -159,7 +159,7 @@ test('PhotoCustomerStatus labels matchen UX-teksten', function () {
     expect(PhotoCustomerStatus::LOOKING)->toBe('We bekijken je foto…')
         ->and(PhotoCustomerStatus::GOOD)->toBe('Goed te zien. Dank je.')
         ->and(PhotoCustomerStatus::RECEIVED)->toBe('Foto ontvangen.')
-        ->and(PhotoCustomerStatus::SOFT_TIMEOUT)->toBe('Dit duurt langer dan normaal. Je kunt alvast verder.')
+        ->and(PhotoCustomerStatus::SOFT_TIMEOUT)->toBe('We kijken je foto nog na. Je kunt alvast verder.')
         ->and(PhotoCustomerStatus::UPLOADING)->toBe('Foto uploaden…');
 });
 

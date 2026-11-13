@@ -47,7 +47,8 @@ final class StoreIntakeUpload
         ?string $correlationId = null,
     ): IntakeUpload {
         $question = $this->findPhotoQuestion($intake, $questionKey);
-        $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
+        // UX-review 13 nov: één limiet uit config voor alle fotostappen (niet per-vraag meta).
+        $maxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
 
         $existingCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
 

@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -435,7 +436,7 @@ test('stale foto-feedback verdwijnt na Vervang/Verwijderen zonder reload', funct
 
     expect($wrong->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT);
 
-    $component->assertSee('Vervang foto');
+    $component->assertSee(PhotoOverridePolicy::PRIMARY_RETRY);
 
     // 2) Vervang → 3) 720px ruimtefoto (lage resolutie + stopcontact-instructie).
     FakeAiClient::alwaysReturn([
@@ -654,11 +655,15 @@ test('upload on current wall_outlet step + sync poll renders assessment (no skip
             wizardNavFixture('woonkamer-1440.jpg'),
         );
 
+    $html = $component->html();
     expect($component->effects)->toHaveKey('html')
         ->and($component->get('activeStepKey'))->toBe('rooms::room-1::wall_outlet_photo')
-        ->and($component->html())->toContain('data-photo-status="1"')
-        ->and($component->html())->toMatch(
-            '/Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i',
+        ->and(
+            str_contains($html, 'data-photo-status="1"')
+            || str_contains($html, 'data-testid="photo-mismatch-panel"'),
+        )->toBeTrue()
+        ->and($html)->toMatch(
+            '/Goed te zien|Niet goed te zien|Je installateur kijkt hier zelf naar|photo-mismatch-panel|Deze foto laat/i',
         );
 });
 

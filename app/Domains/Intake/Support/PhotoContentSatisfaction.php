@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
  * “Toch doorgaan”. not_assessed counts as received (no choice). A received
  * (pending) photo does satisfy the required question so Volgende is not
  * blocked while assessment runs asynchronously — except the UI soft-timeout
- * gate in the wizard (max 15 s).
+ * gate in the wizard (max ~8 s).
  */
 final class PhotoContentSatisfaction
 {

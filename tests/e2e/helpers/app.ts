@@ -145,7 +145,7 @@ export async function isPhotoStep(page: Page): Promise<boolean> {
   if (await page.getByTestId('photo-skip').count()) {
     return true;
   }
-  if (await page.getByText(/Foto['’]s maken of kiezen/i).count()) {
+  if (await page.getByText(/Maak of kies een foto|Foto['’]s maken of kiezen/i).count()) {
     return true;
   }
   if (await page.locator('input[id^="photo-input-"], input[id^="follow-up-photo-input-"]').count()) {
@@ -161,6 +161,7 @@ export function photoFileInput(page: Page) {
       '[data-upload-timing="1"] input[type="file"]',
       'input[id^="follow-up-photo-input-"]',
       'input[id^="photo-input-"]',
+      'label:has-text("Maak of kies een foto") input[type="file"]',
       'label:has-text("Foto\'s maken of kiezen") input[type="file"]',
     ].join(', '),
   ).first();
@@ -174,12 +175,21 @@ export async function uploadPhoto(page: Page, fileName: string): Promise<void> {
 }
 
 export async function waitForPhotoAssessed(page: Page, timeoutMs = 90_000): Promise<void> {
-  // Per-tile status (UX 10 okt 2026): terminal-only; "Foto ontvangen" is soft/not_assessed.
+  // Per-tile status: looking verdwijnt; goed/override-accepted of soft-received.
+  // Afkeurcaption (“Niet de gevraagde foto”) staat niet meer op de tegel (UX-review 13 nov).
+  const looking = page.locator('[data-photo-looking="1"]');
+  await expect(looking).toHaveCount(0, { timeout: timeoutMs });
+
+  const mismatch = page.getByTestId('photo-mismatch-panel');
+  if (await mismatch.count()) {
+    await expect(mismatch).toBeVisible();
+    return;
+  }
+
   const tile = page.locator('[data-photo-status="1"]').first();
   await expect(tile).toBeVisible({ timeout: timeoutMs });
-  await expect(tile).not.toHaveText(/We bekijken je foto/i, { timeout: timeoutMs });
   await expect(tile).toHaveText(
-    /Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
+    /Goed te zien|Foto ontvangen|Je installateur kijkt hier zelf naar/i,
     { timeout: timeoutMs },
   );
 }

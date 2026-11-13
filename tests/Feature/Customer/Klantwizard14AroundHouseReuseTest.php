@@ -82,7 +82,7 @@ test('A2: zonder bruikbare buitenfoto is around_house een vervolgvraag met sla-o
         ->set('activeStepKey', $viewSteps[(int) $index]['key'])
         ->assertSee('We zien de buitenkant nog niet goed')
         ->assertSee(CustomerFacingTaskText::OUTDOOR_PHOTO_TIP)
-        ->assertSee('Foto maken')
+        ->assertSee('Maak of kies een foto')
         ->assertSee('Weet ik niet / sla over')
         ->assertSee('data-testid="photo-skip"', false)
         ->call('skipOptionalPhoto')

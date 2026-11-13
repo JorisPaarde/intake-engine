@@ -1856,6 +1856,44 @@ class IntakeWizard extends Component
         }
     }
 
+    /**
+     * E2E-only: soft-timeout-UI forceren (pending + released) zonder 8s te wachten.
+     * Fake AI is sync klaar vóór de timer; Pest dekt de echte klok.
+     * Zet assessment_status terug op pending zodat quiet poll de ids niet meteen wist.
+     */
+    public function e2eForcePhotoSoftTimeoutUi(string $composite, int $uploadId): void
+    {
+        if (! (bool) config('ai.e2e_helpers_enabled', false)) {
+            return;
+        }
+
+        if ($composite === '' || $uploadId < 1) {
+            return;
+        }
+
+        $upload = IntakeUpload::query()
+            ->where('intake_id', $this->intake()->id)
+            ->whereKey($uploadId)
+            ->first();
+
+        if ($upload instanceof IntakeUpload) {
+            $upload->forceFill([
+                'assessment_status' => PhotoAssessmentStatus::Pending,
+                'assessment_queued_at' => now()->subSeconds(PhotoAssessmentSoftTimeout::seconds() + 1),
+            ])->save();
+        }
+
+        $this->setPendingIdsFor($composite, [$uploadId]);
+        if (! in_array($composite, $this->assessmentUiReleased, true)) {
+            $this->assessmentUiReleased[] = $composite;
+        }
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseComposite = $composite;
+        $this->uploadPhaseStartedAt = now()->subSeconds(PhotoAssessmentSoftTimeout::seconds() + 1)->getTimestamp();
+        $this->saveMessage = '';
+    }
+
     public function retryFailedUploadPhase(?string $composite = null): void
     {
         $composite = is_string($composite) && $composite !== ''
@@ -3796,7 +3834,7 @@ class IntakeWizard extends Component
             ? ($steps[$currentIndex] ?? $currentStep)
             : $currentStep;
 
-        // Volgende blijft max 15 s gedimd terwijl we bekijken (UX §1.3).
+        // Volgende blijft max ~8 s gedimd terwijl we bekijken (soft-timeout daarna).
         if ($this->stepHasLookingPhotos($stepToValidate)) {
             return;
         }

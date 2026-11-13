@@ -73,7 +73,7 @@ test('oude landlord yes/no/not_asked mappen naar nieuwe weergavelabels in dashbo
     $summary = CustomerCompletionSummary::forIntake(
         $intake->fresh(['answers', 'uploads', 'aircoRooms', 'templateVersion.sections.questions.options']) ?? $intake,
     );
-    expect(collect($summary['highlights'])->firstWhere('label', LandlordPermissionLabels::QUESTION_LABEL)['value'] ?? null)
+    expect(collect($summary['highlights'])->firstWhere('label', LandlordPermissionLabels::SUMMARY_LABEL)['value'] ?? null)
         ->toBe('Nee, die is tegen');
 });
 

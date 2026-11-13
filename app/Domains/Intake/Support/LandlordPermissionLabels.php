@@ -16,6 +16,9 @@ final class LandlordPermissionLabels
 
     public const QUESTION_LABEL = 'Weet je verhuurder ervan?';
 
+    /** Korter label op het bedankoverzicht (UX-review punt 3 / BL-169). */
+    public const SUMMARY_LABEL = 'Toestemming verhuurder';
+
     public const HELP_TEXT = 'Bij een huurwoning is meestal toestemming nodig.';
 
     /**

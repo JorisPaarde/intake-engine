@@ -1,8 +1,8 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.8 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.9 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
-**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer) + BL-160 (adresbevestiging + iframe auto-resize) + BL-169 (embed-test/form polish). Optioneel later: publieke adres-autocomplete, WP-plugin.
+**Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer) + BL-160 (adresbevestiging + iframe auto-resize) + BL-171 (embed-test/form polish). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
 ## Wat er staat
 
@@ -49,7 +49,7 @@ Huisnummer en toevoeging zijn `type="text"` met `inputmode="numeric"` / passend 
 
 Op staging voor smoke: `https://staging.intake-engine.nl/embed-test` (404 op production). Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe + resize-snippet op de app-host (`'self'`).
 
-**Zichtbare tekst (installateur, BL-165/BL-169):** kop “Zo ziet het opnameformulier eruit op jouw website” + korte uitleg in je/jij (geen we/wij/ons); geen testsleutel, iframe-src of frame-ancestors in de UI; geen grijze tussenkaart om de iframe en geen hintregel eronder (iframe-body is wit). Technisch: HTML-comment `embed-staging-smoke` + constante `EmbedStagingTest::PUBLIC_KEY` (`ie_embed_staging_smoke_v1`) + artisan-output.
+**Zichtbare tekst (installateur, BL-165/BL-171):** kop “Zo ziet het opnameformulier eruit op jouw website” + korte uitleg in je/jij (geen we/wij/ons); geen testsleutel, iframe-src of frame-ancestors in de UI; geen grijze tussenkaart om de iframe en geen hintregel eronder (iframe-body is wit). Technisch: HTML-comment `embed-staging-smoke` + constante `EmbedStagingTest::PUBLIC_KEY` (`ie_embed_staging_smoke_v1`) + artisan-output.
 
 ### Test-intakes opruimen (staging/local)
 
