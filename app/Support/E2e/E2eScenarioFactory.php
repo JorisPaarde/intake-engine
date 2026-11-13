@@ -55,6 +55,7 @@ final class E2eScenarioFactory
             'n30-accessibility-catchup' => $this->n30AccessibilityCatchup(),
             'n3-drain-choice-upload' => $this->n3DrainChoiceUpload(),
             'differs-per-room-floors' => $this->differsPerRoomFloors(),
+            'bl165-differs-sun-floor-glass' => $this->bl165DiffersSunFloorGlass(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -130,6 +131,83 @@ final class E2eScenarioFactory
 
         return $this->payload($intake->fresh() ?? $intake, 'differs-per-room-floors', [
             'target_question_key' => 'floor_level',
+        ]);
+    }
+
+    /**
+     * BL-165: cursor op gedeelde zon (vóór glas/verdieping in sort_order), plafond al beantwoord.
+     * Reproduceert: Verschilt per ruimte op zon mag glas/verdieping niet stil overslaan.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl165DiffersSunFloorGlass(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'E2E BL165 Zon Glas Verdieping',
+            'customer_email' => 'e2e-bl165@example.com',
+            'status' => IntakeStatus::InProgress,
+            'address_postal_code' => '2037GR',
+            'address_house_number' => '273',
+            'address_city' => 'Haarlem',
+            'address_line' => 'Bernadottelaan 273',
+            'request_reason' => 'Ik wil airco in 3 slaapkamers van ongeveer 3 bij 5 meter, koelen en verwarmen.',
+        ]);
+
+        $stated = static function (
+            SaveIntakeAnswer $save,
+            Intake $intake,
+            string $key,
+            ?string $instance,
+            array $value,
+            ?string $evidence = null,
+        ): void {
+            $save->handle(
+                $intake,
+                $key,
+                $instance,
+                $value,
+                PrefillSources::REQUEST_TEXT,
+                factProvenance: FactProvenance::Stated,
+                factConfidence: 100,
+                factEvidence: $evidence,
+                factSource: 'klantantwoord',
+            );
+        };
+
+        $stated($this->saveAnswer, $intake, 'privacy_consent', null, ['bool' => true]);
+        $stated($this->saveAnswer, $intake, 'indoor_unit_count', null, ['number' => 3], '3 slaapkamers');
+        $stated($this->saveAnswer, $intake, 'cooling_heating', null, ['value' => 'both'], 'koelen en verwarmen');
+        $stated($this->saveAnswer, $intake, 'ownership', null, ['value' => 'owned']);
+        $stated($this->saveAnswer, $intake, 'building_type', null, ['value' => 'terraced']);
+
+        foreach (['room-1', 'room-2', 'room-3'] as $room) {
+            $stated($this->saveAnswer, $intake, 'room_type', $room, ['value' => 'bedroom'], 'slaapkamers');
+            $stated($this->saveAnswer, $intake, 'room_length_m', $room, ['number' => 3], '3 bij 5');
+            $stated($this->saveAnswer, $intake, 'room_width_m', $room, ['number' => 5], '3 bij 5');
+            $this->saveAnswer->handle(
+                $intake,
+                'room_area_m2',
+                $room,
+                ['number' => 15],
+                PrefillSources::DERIVED_LXW,
+                factConfidence: 100,
+                factSource: 'afgeleid',
+            );
+            $stated($this->saveAnswer, $intake, 'ceiling_height_m', $room, ['number' => 2.5]);
+        }
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'rooms',
+            'current_question_key' => 'sun_exposure',
+            'current_section_instance_key' => '_shared',
+        ]);
+
+        return $this->payload($intake->fresh() ?? $intake, 'bl165-differs-sun-floor-glass', [
+            'target_question_key' => 'sun_exposure',
         ]);
     }
 
