@@ -309,7 +309,22 @@ final class IntakeStepBuilder
                 continue;
             }
 
+            // BL-165: na “Verschilt per ruimte” de per-kamer-stappen hier in de
+            // gedeelde-blok-volgorde zetten (niet pas in elke room-* na dit blok).
+            // Anders springt chooseSharedDiffers naar kamer 1 en vallen latere
+            // shareables (glas, verdieping, …) stil weg tot Afronden.
             if (SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)) {
+                $this->appendDiffersPerRoomQuestionSteps(
+                    $steps,
+                    $intake,
+                    $section,
+                    $question,
+                    $instanceKeys,
+                    $context,
+                    $forceShowComposites,
+                    $stickyStepKeys,
+                );
+
                 continue;
             }
 
@@ -374,6 +389,72 @@ final class IntakeStepBuilder
     }
 
     /**
+     * Per-kamer-stappen voor een shareable vraag op de plek van het gedeelde scherm.
+     *
+     * @param  list<IntakeStep>  $steps
+     * @param  list<string>  $instanceKeys
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
+     * }  $context
+     * @param  list<string>  $forceShowComposites
+     * @param  list<string>  $stickyStepKeys
+     */
+    private function appendDiffersPerRoomQuestionSteps(
+        array &$steps,
+        Intake $intake,
+        IntakeSection $section,
+        IntakeQuestion $question,
+        array $instanceKeys,
+        array $context,
+        array $forceShowComposites,
+        array $stickyStepKeys,
+    ): void {
+        $sortedQuestions = $section->questions->sortBy('sort_order')->values();
+
+        foreach ($instanceKeys as $instanceKey) {
+            $visibility = $this->resolveVisibilityForSection($sortedQuestions, $instanceKey, $context);
+            $composite = VisibilityResolver::compositeKey($question->key, $instanceKey);
+            $forceShow = in_array($composite, $forceShowComposites, true);
+            $presentation = $this->questionPresentation(
+                $question,
+                $instanceKey,
+                $visibility,
+                $context,
+                $forceShow,
+            );
+
+            $candidateStepKey = $section->key.'::'.$instanceKey.'::'.$question->key;
+            $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true)
+                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true);
+
+            if ($presentation['reason'] !== 'visible' && ! $forceShow && ! $stickyKeep) {
+                continue;
+            }
+
+            $steps[] = [
+                'key' => $candidateStepKey,
+                'section_key' => $section->key,
+                'section_instance_key' => $instanceKey,
+                'question_key' => $question->key,
+                'title' => $question->label,
+                'section_title' => $this->sectionTitleForInstance($intake, $section, $instanceKey, $context['answers']),
+                'description' => $section->description,
+                'help_text' => $question->help_text,
+                'is_repeatable' => true,
+                'is_required' => $presentation['required'],
+                'kind' => 'question',
+                'sticky_photo_composite' => null,
+            ];
+        }
+    }
+
+    /**
      * @param  list<IntakeStep>  $steps
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
@@ -399,25 +480,9 @@ final class IntakeStepBuilder
         array $sharedTargets = [],
     ): void {
         $sortedQuestions = $section->questions->sortBy('sort_order')->values();
-        // Na “Verschilt per ruimte”: stel die vragen meteen per kamer (vóór foto’s),
-        // anders verdwijnen ze uit beeld tot na de ruimtefoto’s / AI-prefill.
-        if ($sectionInstanceKey !== null && count($sharedTargets) > 1) {
-            $differsFirst = $sortedQuestions->filter(
-                static function (IntakeQuestion $question) use ($context): bool {
-                    return SharedRoomAnswers::isShareable($question)
-                        && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key);
-                },
-            );
-            $rest = $sortedQuestions->reject(
-                static function (IntakeQuestion $question) use ($context): bool {
-                    return SharedRoomAnswers::isShareable($question)
-                        && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key);
-                },
-            );
-            $questions = $differsFirst->concat($rest)->values();
-        } else {
-            $questions = $sortedQuestions;
-        }
+        // Shareable multi-room vragen staan in het gedeelde blok (of als per-kamer
+        // expansie ná differs, BL-165) — niet opnieuw in elke room-*-reeks.
+        $questions = $sortedQuestions;
         $visibility = $this->resolveVisibilityForSection($sortedQuestions, $sectionInstanceKey, $context);
         /** @var array<string, true> $emittedGroups */
         $emittedGroups = [];
@@ -453,12 +518,11 @@ final class IntakeStepBuilder
         };
 
         foreach ($questions as $question) {
-            // Gedeelde ruimtevraag: alleen tonen per ruimte als klant “Verschilt per ruimte” koos,
-            // of als er maar één ruimte is (sharedTargets leeg / count 1).
+            // Multi-room shareables: gedeeld scherm of differs-expansie in het
+            // gedeelde blok (BL-165). Alleen force-show (Afronden-link) mag hier.
             if ($sectionInstanceKey !== null
                 && SharedRoomAnswers::isShareable($question)
                 && count($sharedTargets) > 1
-                && ! SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)
                 && ! in_array(
                     VisibilityResolver::compositeKey($question->key, $sectionInstanceKey),
                     $forceShowComposites,
