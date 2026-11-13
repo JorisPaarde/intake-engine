@@ -1334,8 +1334,8 @@ final class IntakeStepBuilder
                     $names[] = $name;
                 }
             }
-            $firstRoom = reset($roomIdentityRows);
-            if ($names !== [] && $firstRoom !== false) {
+            if ($names !== []) {
+                $firstRoom = array_values($roomIdentityRows)[0];
                 $items[] = [
                     'question_key' => $firstRoom['question_key'],
                     'section_instance_key' => $firstRoom['section_instance_key'],
