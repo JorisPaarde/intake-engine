@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
-    <title>Embed staging-test — Digitale Opname</title>
+    <title>Zo ziet het opnameformulier eruit op jouw website — Digitale Opname</title>
     <style>
         :root {
             --bg: #eef1ec;
@@ -44,8 +44,6 @@
             min-width: 0;
             max-width: 100%;
         }
-        .meta { font-size: 0.875rem; color: var(--muted); }
-        code { font-size: 0.8rem; word-break: break-all; }
         .frame-wrap {
             min-width: 0;
             max-width: 100%;
@@ -55,27 +53,23 @@
     </style>
 </head>
 <body>
+{{-- Technisch (niet zichtbaar voor installateurs): public_key, iframe_src, CSP frame-ancestors bevat 'self'. Smoke: php artisan embed:prepare-staging-test --}}
+<!-- embed-staging-smoke public_key={{ $publicKey }} iframe_src={{ $iframeSrc }} prepare=embed:prepare-staging-test -->
 <main>
-    <h1>Embed staging-test</h1>
-    <p class="lead">
-        Simuleert een installateurswebsite: het formulier staat in een iframe op deze host
-        (<code>'self'</code> in frame-ancestors). Happy path: invullen → adres bevestigen → top-window landt op de klantlink.
+    <h1>Zo ziet het opnameformulier eruit op jouw website</h1>
+    <p class="lead" data-testid="embed-staging-test-intro">
+        Dit is een voorbeeld van een installateurswebsite met de digitale opname erin.
+        Je klant vult hier zelf zijn adres, de ruimtes en foto’s in.
+        Jij krijgt daarna een compleet overzicht om een offerte te maken, zonder dat je eerst langs hoeft.
+        Probeer het hieronder gerust uit; het is een testomgeving, er gaat niets naar echte klanten.
     </p>
-
-    <div class="card meta" data-testid="embed-staging-test-meta">
-        <p>Testbedrijf: <strong>{{ $company->name }}</strong></p>
-        <p>Sleutel: <code data-testid="embed-staging-test-key">{{ $publicKey }}</code></p>
-        <p>Iframe-src: <code>{{ $iframeSrc }}</code></p>
-    </div>
 
     <div class="card" data-testid="embed-staging-test-frame">
         <div class="frame-wrap">
             {!! $iframeSnippet !!}
         </div>
         <p class="hint">
-            De iframe-hoogte past zich automatisch aan via <code>postMessage</code>.
-            Na “Ja, klopt” breekt de redirect uit het iframe (<code>target="_top"</code>).
-            Op het dashboard van de testgebruiker zie je de badge “Nieuw via website”.
+            Vul het formulier in. Na bevestiging van het adres ga je door naar de opname.
         </p>
     </div>
 </main>

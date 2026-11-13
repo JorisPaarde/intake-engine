@@ -1,6 +1,6 @@
 # Plan & oplevering: embed-formulier (website → klantopname)
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-11-11 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.7 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Status:** PR1–PR3 opgeleverd (BL-151/152/153); UX-afronding + BL-159 (AVG één keer) + BL-160 (adresbevestiging + iframe auto-resize). Optioneel later: publieke adres-autocomplete, WP-plugin.
 
@@ -47,7 +47,9 @@ De snippet in bedrijfsinstellingen bevat iframe **én** host-script (auto-resize
 
 Huisnummer en toevoeging zijn `type="text"` met `inputmode="numeric"` / passend `pattern` (geen muiswiel-spin). Op smalle viewports: `box-sizing:border-box`, `min-width:0` op grids/inputs, geen horizontale overflow. De child meet de **content** (`main`/card) na `height:auto`-collapse, zodat de host-iframe bij stapwissel (formulier ↔ bevestiging) zowel groeit als krimpt; geen CSS `min-height` op de iframe.
 
-Op staging voor smoke: `https://staging.intake-engine.nl/embed-test`. Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe + resize-snippet op de app-host (`'self'`).
+Op staging voor smoke: `https://staging.intake-engine.nl/embed-test` (404 op production). Staging-deploy (`activate.sh` met `expected_env=staging`) draait `embed:prepare-staging-test` automatisch na migraties (idempotent, fail-soft). Handmatig herhalen mag. Die pagina host dezelfde iframe + resize-snippet op de app-host (`'self'`).
+
+**Zichtbare tekst (installateur, BL-165):** kop “Zo ziet het opnameformulier eruit op jouw website” + korte uitleg in je/jij (geen we/wij/ons); geen testsleutel, iframe-src of frame-ancestors in de UI. Technisch: HTML-comment `embed-staging-smoke` + constante `EmbedStagingTest::PUBLIC_KEY` (`ie_embed_staging_smoke_v1`) + artisan-output.
 
 ### Test-intakes opruimen (staging/local)
 

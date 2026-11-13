@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Embed-test introtekst voor installateurs (BL-165):** `/embed-test` toont geen frame-ancestors-/sleutel-/iframe-src-uitleg meer; kop “Zo ziet het opnameformulier eruit op jouw website” + korte NL-uitleg (je/jij). Technisch blijft in HTML-comment + docs. Pest: `EmbedRequestPrefillAndBadgeTest`. Pagina blijft 404 op production.
+
 ### Fixed
 
 - **Klantwizard-intro alleen op start + known-summary (BL-167):** het introblok (incl. BAG-samenvatting / bedrijfspandmelding uit BL-166) en de demobanner (“Demo — wat de klant ziet”) verdwijnen na de eerste stap; ze komen terug op “Dit hebben we al uit je aanvraag”. Logo, installateursnaam en voortgangsbalk blijven op elke stap. Pest: `Bl167WizardIntroVisibilityTest`; 390-screenshots stap 1 vs latere stap.
