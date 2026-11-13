@@ -1,6 +1,6 @@
 {{--
   Gedeelde fotovraag-UI voor standalone @case('photo') én question_group.
-  Eén status per tegel + één melding per vraag (UX scout brief 10 okt 2026).
+  Eén status per tegel + één melding per vraag (UX-review 13 nov 2026 / BL-169).
   Verwacht uit de parent: uploadsByQuestion, token, uploadPhase*, pendingAssessUploadIds,
   assessmentUiReleased, photoMismatchAssessment, photoNeedsOverride, displayPhotoHint,
   showMissing, photoNeedsQualityHint, maxUploadKb, uploadHardMax*.
@@ -11,11 +11,8 @@
     $showQuestionLabel = $showQuestionLabel ?? false;
     $fieldRequired = (bool) ($fieldRequired ?? false);
     $wrapperTestId = $wrapperTestId ?? null;
-    $uploadControlTitle = $question->key === 'around_house_photos'
-        ? 'Foto maken'
-        : null;
     $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
-    $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
+    $maxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
     $remainingSlots = max(0, $maxFiles - $existingUploads->count());
 
     $assessmentPollPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
@@ -25,7 +22,7 @@
     $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
 
     $unresolvedOverrideCount = \App\Domains\Intake\Support\PhotoOverridePolicy::unresolvedOverrideCount($existingUploads);
-    $panelAdvice = \App\Domains\Intake\Support\PhotoOverridePolicy::uniqueCustomerFeedback($existingUploads);
+    $panelTips = \App\Domains\Intake\Support\PhotoOverridePolicy::panelTipsFor($existingUploads);
     $showSoftTimeoutLine = $assessmentQuietPoll
         && $assessmentPollPending
         && $unresolvedOverrideCount === 0;
@@ -77,6 +74,7 @@
         <ul class="grid grid-cols-2 gap-3">
             @foreach ($existingUploads as $upload)
                 @php
+                    $needsReplace = \App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload);
                     $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
                         $upload,
                         $composite,
@@ -86,13 +84,19 @@
                         $assessmentUiReleased ?? [],
                     );
                     $isLooking = $photoStatusLabel === \App\Domains\Intake\Support\PhotoCustomerStatus::LOOKING;
-                    $needsReplace = \App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload);
+                    // Afkeurstaat: geen caption “Niet de gevraagde foto.” / “Niet goed te zien.” op de tegel.
+                    $showThumbStatus = ! $needsReplace
+                        && ! in_array($photoStatusLabel, [
+                            \App\Domains\Intake\Support\PhotoCustomerStatus::WRONG_SUBJECT,
+                            \App\Domains\Intake\Support\PhotoCustomerStatus::UNCLEAR,
+                        ], true);
                 @endphp
                 <li
                     class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]"
                     data-testid="photo-thumb-status"
                     data-upload-id="{{ $upload->id }}"
                     @if ($isLooking) data-photo-looking="1" @endif
+                    @if ($needsReplace) data-photo-needs-override="1" @endif
                 >
                     <div class="relative">
                         <img
@@ -115,28 +119,19 @@
                             <span class="sr-only">Foto verwijderen</span>
                         </button>
                     </div>
-                    <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
-                        {{ $photoStatusLabel }}
-                    </p>
-                    @if ($needsReplace)
-                        <button
-                            type="button"
-                            wire:click="replaceSinglePhoto({{ $upload->id }})"
-                            wire:loading.attr="disabled"
-                            class="flex min-h-11 w-full items-center justify-center border-t border-[#dde2da] bg-white px-2 py-1.5 text-xs font-semibold text-[var(--tenant-primary)]"
-                            data-testid="photo-replace-one"
-                        >
-                            Vervang foto
-                        </button>
+                    @if ($showThumbStatus)
+                        <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
+                            {{ $photoStatusLabel }}
+                        </p>
                     @endif
                 </li>
             @endforeach
         </ul>
 
-        {{-- Eén melding per fotovraag: soft-timeout óf override-uitleg (keuzeknoppen alleen in sticky footer, BL-157). --}}
+        {{-- Afkeurkader: titel + tip + primaire knop + secundaire link (geen rode footerregel). --}}
         @if ($photoMismatchAssessment || $unresolvedOverrideCount > 0)
             <div
-                class="space-y-2 rounded-xl border border-[#eac3b4] bg-white px-3 py-3"
+                class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-4 py-4"
                 role="alert"
                 data-testid="photo-mismatch-panel"
                 id="photo-mismatch-panel-{{ str_replace(['.', ' '], '-', $composite) }}"
@@ -145,12 +140,43 @@
                 <p class="text-sm font-semibold text-[#18201d]" data-testid="photo-mismatch-heading">
                     {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeadingFor($existingUploads) }}
                 </p>
-                @foreach ($panelAdvice as $advice)
-                    <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-advice">{{ $advice }}</p>
+                @foreach ($panelTips as $tip)
+                    <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-advice">{{ $tip }}</p>
                 @endforeach
-                <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-explain">
-                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanationFor($existingUploads) }}
-                </p>
+                <div class="flex flex-col gap-2 pt-1">
+                    <button
+                        type="button"
+                        wire:click="replaceMismatchedPhoto"
+                        wire:loading.attr="disabled"
+                        wire:target="replaceMismatchedPhoto,acceptPhotoMismatch,advanceAfterPhotoOverride"
+                        class="flex min-h-12 w-full items-center justify-center rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
+                        data-testid="photo-retry-primary"
+                    >
+                        <span wire:loading.remove wire:target="replaceMismatchedPhoto">
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::PRIMARY_RETRY }}
+                        </span>
+                        <span wire:loading wire:target="replaceMismatchedPhoto" class="inline-flex items-center gap-2">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Bezig…
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="acceptPhotoMismatch"
+                        wire:loading.attr="disabled"
+                        wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride,replaceMismatchedPhoto"
+                        class="min-h-11 w-full px-3 text-center text-sm font-semibold text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/30 underline-offset-2 disabled:opacity-60"
+                        data-testid="photo-accept-mismatch"
+                    >
+                        <span wire:loading.remove wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride">
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::SECONDARY_KEEP }}
+                        </span>
+                        <span wire:loading wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride" class="inline-flex items-center justify-center gap-2 no-underline">
+                            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+                            Bezig…
+                        </span>
+                    </button>
+                </div>
             </div>
         @elseif ($showSoftTimeoutLine)
             <div
@@ -196,14 +222,14 @@
             :pending-assess-upload-ids="$pendingAssessUploadIds"
             :assessment-ui-released="$assessmentUiReleased"
             tone="intake"
-            :title="$uploadControlTitle"
+            title="Maak of kies een foto"
         />
         @error('photo')
             <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
         @enderror
     @else
         <p class="text-sm text-[#5e6862]">Maximum van {{ $maxFiles }} foto’s bereikt.</p>
-        {{-- Verborgen input zodat "Vervang foto" de picker kan openen na verwijderen. --}}
+        {{-- Verborgen input zodat "Nieuwe foto maken" de picker kan openen na verwijderen. --}}
         <input
             id="photo-input-{{ str_replace(['.', ' '], '-', $composite) }}"
             type="file"

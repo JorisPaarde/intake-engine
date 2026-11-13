@@ -144,8 +144,8 @@ return [
     */
 
     'photo_assessment' => [
-        // UX 8 okt 2026: 15 s soft-timeout (was 90). Shared by intake + follow-up wizard.
-        'ui_soft_timeout_seconds' => (int) env('AI_PHOTO_UI_SOFT_TIMEOUT_SECONDS', 15),
+        // UX-review 13 nov 2026: max ~8 s blokkeren (was 15; ooit 90). Shared by intake + follow-up.
+        'ui_soft_timeout_seconds' => (int) env('AI_PHOTO_UI_SOFT_TIMEOUT_SECONDS', 8),
         'watchdog_after_seconds' => (int) env('AI_PHOTO_WATCHDOG_AFTER_SECONDS', 180),
         'watchdog_max_attempts' => (int) env('AI_PHOTO_WATCHDOG_MAX_ATTEMPTS', 3),
         'watchdog_max_age_hours' => (int) env('AI_PHOTO_WATCHDOG_MAX_AGE_HOURS', 24),

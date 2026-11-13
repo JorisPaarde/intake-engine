@@ -6,10 +6,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **UX-review foto + bedankt (BL-169):** Pest `Bl169PhotoSoftTimeoutAndThankYouTest` (8 s soft-timeout, afkeurkader, max-foto’s uit config, bedankcopy); E2E `25-bl169-photo-thankyou-ux` + screenshots 390/1440.
 - **Klant-hertest 13 nov (BL-166, airco v32):** bedankscherm toont configureerbare reactietermijn (`INTAKE_INSTALLER_RESPONSE_WITHIN`, default “binnen 2 werkdagen”) plus overzicht (adres, ruimtes, foto’s, kernkeuzes) via `CustomerCompletionSummary`. Bij BAG zonder woonfunctie: label **pandgegevens**, Pandtype, en soft melding; energielabel alleen uit EP-Online. Optionele `landlord_permission` (ja/nee/nog niet gevraagd) na Huur, zichtbaar in klantantwoorden/rapport. Pest `Bl166KlantHertestTest`; E2E `24-bl166-klant-hertest`.
 
 ### Changed
 
+- **Fotostappen UX-review (BL-169):** AI-fotocheck blokkeert max ~8 s (`ai.photo_assessment.ui_soft_timeout_seconds`, was 15); daarna “We kijken je foto nog na. Je kunt alvast verder.” terwijl assessment op de achtergrond doorgaat. Afkeurkader: titel per fototype (“Deze foto laat de kamer/meterkast/… nog niet goed zien”), tip, primair **Nieuwe foto maken**, secundair link **Toch deze foto gebruiken**; weg: tegelcaption “Niet de gevraagde foto.”, rode footerregel, “Vervang foto”. Uploadzone = primaire knop **Maak of kies een foto** (bestandstype/MB alleen in fout/sr-only). Max foto’s consistent via `intake.uploads.max_files_per_question`.
+- **Bedankscherm UX-review (BL-169):** geen verticale centrering; 24 px padding boven; groen vinkje; voortgangsbalk verborgen; kop “Je aanvraag is verstuurd”; “[Bedrijfsnaam] heeft je gegevens en foto’s. Je hoort meestal … van ze.”; overzichtlabel **Toestemming verhuurder**.
 - **Klantteksten v32 (BL-166):** geluidsvraag krijgt eigen help (buren/slaapkamer); binnenunit-voorbeeld per kamertype (slaapkamer ≠ “boven de bank”); merkuitleg één keer op het closing-scherm; stopcontact-interne instructies uit klantzichtbare wall_outlet-/room_photos-tekst; `room_outlet_status` niet meer shareable.
 - **Embed-test introtekst voor installateurs (BL-165):** `/embed-test` toont geen frame-ancestors-/sleutel-/iframe-src-uitleg meer; kop “Zo ziet het opnameformulier eruit op jouw website” + korte NL-uitleg (je/jij). Technisch blijft in HTML-comment + docs. Pest: `EmbedRequestPrefillAndBadgeTest`. Pagina blijft 404 op production.
 

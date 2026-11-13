@@ -1,13 +1,13 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.23 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.24 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
 ## Doelen
 
 - Mobielvriendelijk: camera + galerij (geen `capture`-force; beide paden open)
-- Meerdere foto's in één selectie (`multiple`), tot `meta.max_files`
+- Meerdere foto's in één selectie (`multiple`), tot `INTAKE_UPLOAD_MAX_FILES` / `intake.uploads.max_files_per_question` (één limiet voor alle fotostappen)
 - Privé: geen voorspelbare publieke paden
 - Disk-agnostisch: local cPanel → S3 zonder domeinlogica te wijzigen
 - Server-side validatie is leidend
@@ -28,7 +28,7 @@ Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes,
    - rij in `intake_uploads`; templatefoto's synchroniseren daarnaast `intake_answers.value.upload_ids`
    - `DossierManager` koppelt bewijs aan ruimte, plaatsing, verbinding of algemene dossierroot
 4. Preview via `customer.uploads.show` / `installer.uploads.show`.
-5. AI-categoriecheck (BL-119) + queue-pipeline (BL-121/BL-127/BL-134): elke klantfoto krijgt precies één terminale `assessment_status` (`pending` → `assessed` / `heuristic_rejected` / `not_assessed` / `reused`). `too_small` → `heuristic_rejected` zonder AI-wacht; AI-fout → `not_assessed`; dezelfde bytes met hetzelfde expected subject → `reused` + `assessment_source_upload_id`. `content_assessment` (`ok` / `wrong_subject` / `needs_clearer` / `not_assessed`) blijft het inhoudelijke oordeel. Wizard-poll stopt op elke terminale status; na ~90 s soft-timeout (“check volgt later”) mag de klant door terwijl pending voor de watchdog blijft. Watchdog `photos:requeue-pending-assessments` (elke vijf minuten) herdispatched alleen pipeline-dispatched pending (`assessment_attempts >= 1`) ouder dan ~3 min, binnen max-age (24 u), op klantfase-intakes, met cap per run; legacy backfill-pending wordt niet herqueued. Submitted/closed intakes: job zet alleen terminal, geen AI. `ai_runs.upload_id` koppelt foto-runs. Verkeerd onderwerp: **Vervang foto** of **Toch doorgaan**. Niet-controleerbare gebieden zonder `photo_analysis` → `assessed` zonder content_assessment.
+5. AI-categoriecheck (BL-119) + queue-pipeline (BL-121/BL-127/BL-134): elke klantfoto krijgt precies één terminale `assessment_status` (`pending` → `assessed` / `heuristic_rejected` / `not_assessed` / `reused`). `too_small` → `heuristic_rejected` zonder AI-wacht; AI-fout → `not_assessed`; dezelfde bytes met hetzelfde expected subject → `reused` + `assessment_source_upload_id`. `content_assessment` (`ok` / `wrong_subject` / `needs_clearer` / `not_assessed`) blijft het inhoudelijke oordeel. Wizard-poll stopt op elke terminale status; na ~8 s soft-timeout (“We kijken je foto nog na. Je kunt alvast verder.”, `AI_PHOTO_UI_SOFT_TIMEOUT_SECONDS`) mag de klant door terwijl pending voor de watchdog blijft. Watchdog `photos:requeue-pending-assessments` (elke vijf minuten) herdispatched alleen pipeline-dispatched pending (`assessment_attempts >= 1`) ouder dan ~3 min, binnen max-age (24 u), op klantfase-intakes, met cap per run; legacy backfill-pending wordt niet herqueued. Submitted/closed intakes: job zet alleen terminal, geen AI. `ai_runs.upload_id` koppelt foto-runs. Verkeerd onderwerp: **Vervang foto** of **Toch doorgaan**. Niet-controleerbare gebieden zonder `photo_analysis` → `assessed` zonder content_assessment.
 6. Verwijderen wist beide varianten; bij storagefalen neemt `DeleteStoredMediaJob` de retry over. **Vervolgronde én hoofdwizard (BL-147):** het prullenbak-icoon (44×44) soft-deletet de foto eerst (`DeleteFollowUpUpload` / `DeleteIntakeUpload::softRemove`) en toont 8 s **Foto verwijderd. · Ongedaan maken** (`restore`, hoofdwizard zet ook afgeleide antwoorden/facts terug); daarna, of bij Volgende/Vorige/Afronden/Aanvulling versturen/nieuwe upload, ruimt `finalize` bewijslinks + media op (`follow_up_upload_deleted` / `upload_deleted`). Zolang een weggehaalde foto in deze “prullenbak” staat (soft-deleted, `purged_at` null) telt hij nergens mee. Sluit de klant het tabblad binnen 8 s, dan gaat de foto echt weg bij het volgende bezoek aan de klantlink (`purgePendingFor` in `mount`), bij **Aanvulling versturen** (`CompleteFollowUpRound`) of via `photos:purge-removed` (uurlijks; alles langer dan `INTAKE_FOLLOW_UP_REMOVED_UPLOAD_PURGE_MINUTES`, standaard 10 min, actor `system`) — niet bij het sluiten zelf. Echt wissen zet `purged_at`; ongedaan maken daarna geeft “Ongedaan maken mislukt.”. **Vervang foto** wist nog direct (`handle()`).
 7. Installateursgalerij (detailpagina): `InstallerPhotoGalleryBuilder` groepeert foto’s per sectie/instantie en toont vraaglabels uit de gepinde templateversie (geen rauwe `question_key` / `section_instance_key`) — BL-024.
 
@@ -98,7 +98,7 @@ Dezelfde private serve-routes blijven gelden. De technische werkplek kan nu een 
 | Inputtypes | jpeg, png, webp, heic/heif |
 | Opgeslagen fototypes | uitsluitend JPEG; beide varianten zijn metadata-vrij |
 | Max size | `INTAKE_UPLOAD_MAX_KB` (default 8192 = 8 MB) |
-| Max files | vraag-`meta.max_files` of `INTAKE_UPLOAD_MAX_FILES` |
+| Max files | `INTAKE_UPLOAD_MAX_FILES` (`intake.uploads.max_files_per_question`; niet meer per-vraag meta) |
 
 ## Validatie
 
@@ -113,7 +113,7 @@ Dezelfde private serve-routes blijven gelden. De technische werkplek kan nu een 
 
 De klantwizard-input voor foto-vragen:
 
-- heeft `multiple`, zodat de aanvrager tot `meta.max_files` (of `INTAKE_UPLOAD_MAX_FILES`) in één keer kan kiezen;
+- heeft `multiple`, zodat de aanvrager tot `INTAKE_UPLOAD_MAX_FILES` in één keer kan kiezen;
 - **geen** `capture="environment"` — op mobiel blijven camera én galerij bereikbaar;
 - toont hoeveel slots nog over zijn en verbergt de input bij het maximum;
 - uploadt per bestand via de bestaande pijplijn (MIME, size, HEIC→JPEG); één mislukte foto blokkeert de rest van de selectie niet — succesvolle uploads blijven staan, fouten worden als samengevoegde melding getoond.

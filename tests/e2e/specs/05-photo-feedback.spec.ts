@@ -25,20 +25,23 @@ test.describe('Photo feedback', () => {
     await advanceUntil(page, /ruimte|overzicht|foto|woonkamer/i, 25);
 
     await uploadPhoto(page, 'too-small-400.jpg');
-    await expect(page.getByText(/klein|resolutie|scherper|duidelijker|Niet goed te zien/i).first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(page.getByTestId('photo-mismatch-panel')).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByText(/klein|resolutie|scherper|duidelijker|laat de kamer nog niet goed zien/i).first(),
+    ).toBeVisible();
 
     const hintMatches = page.getByText(/klein|resolutie|scherper|duidelijker/i);
     expect(await hintMatches.count()).toBeGreaterThan(0);
     expect(await hintMatches.count()).toBeLessThanOrEqual(2);
 
     await expect(page.getByTestId('photo-mismatch-panel')).toBeVisible();
-    await expect(page.getByTestId('footer-photo-override')).toBeVisible();
-    await expect(page.getByTestId('footer-accept-mismatch')).toBeVisible();
-    await expect(page.getByTestId('footer-replace-photos')).toBeVisible();
-    await expect(page.getByTestId('photo-accept-mismatch')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Toch doorgaan$/i })).toHaveCount(1);
+    await expect(page.getByTestId('photo-accept-mismatch')).toBeVisible();
+    await expect(page.getByTestId('photo-retry-primary')).toBeVisible();
+    await expect(page.getByTestId('footer-accept-mismatch')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Toch deze foto gebruiken/i })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /Nieuwe foto maken/i })).toHaveCount(1);
+    await expect(page.getByText(/Niet de gevraagde foto/i)).toHaveCount(0);
+    await expect(page.getByText(/^Vervang foto$/i)).toHaveCount(0);
     await expect(page.getByTestId('next-button')).toHaveCount(0);
     await expect(page.getByText(/Status:/i)).toHaveCount(0);
 
@@ -62,7 +65,7 @@ test.describe('Photo feedback', () => {
     }
   });
 
-  test('override footer: one Toch doorgaan for all warned photos; no silent Volgende', async ({
+  test('override panel: one Toch deze foto gebruiken for all warned photos; no silent Volgende', async ({
     page,
     request,
   }) => {
@@ -76,15 +79,15 @@ test.describe('Photo feedback', () => {
 
     await advanceUntil(page, /ruimte|overzicht|foto|woonkamer/i, 25);
     await uploadPhoto(page, 'too-small-400.jpg');
-    await expect(page.getByTestId('footer-photo-override')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('photo-accept-mismatch')).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId('next-button')).toHaveCount(0);
 
-    await page.getByTestId('footer-accept-mismatch').click();
+    await page.getByTestId('photo-accept-mismatch').click();
     await expect(page.getByText(/Foto bewaard|installateur kijkt mee/i).first()).toBeVisible({
       timeout: 15_000,
     });
     // Advances past room photo without forcing another required wall/door photo.
-    await expect(page.getByTestId('footer-photo-override')).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByTestId('photo-mismatch-panel')).toHaveCount(0, { timeout: 20_000 });
     await expect(page.getByText(/Extra foto: ontbrekende wand|ontbrekende wand of deur/i)).toHaveCount(0);
   });
 

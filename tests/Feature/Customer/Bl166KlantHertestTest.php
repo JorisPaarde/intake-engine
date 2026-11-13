@@ -70,7 +70,7 @@ test('bedankscherm toont termijn en overzicht zonder interne keys', function () 
         ->and($summary['address'])->toContain('Grote Markt')
         ->and($summary['room_count'])->toBeGreaterThanOrEqual(1)
         ->and($summary['photo_count'])->toBe(1)
-        ->and(collect($summary['highlights'])->pluck('label')->all())->toContain('Koop of huur', 'Verhuurder')
+        ->and(collect($summary['highlights'])->pluck('label')->all())->toContain('Koop of huur', 'Toestemming verhuurder')
         ->and(json_encode($summary))->not->toContain('outdoor_mount_type')
         ->and(json_encode($summary))->not->toContain('cooling_heating');
 
@@ -78,9 +78,14 @@ test('bedankscherm toont termijn en overzicht zonder interne keys', function () 
         ->set('completed', true)
         ->assertSeeHtml('data-testid="thank-you-timeline"')
         ->assertSeeHtml('data-testid="thank-you-summary"')
+        ->assertSeeHtml('data-testid="thank-you-check"')
+        ->assertSee('Je aanvraag is verstuurd')
         ->assertSee('binnen 3 werkdagen')
         ->assertSee('Dit heb je doorgegeven')
         ->assertSee('Grote Markt')
+        ->assertSee('Toestemming verhuurder')
+        ->assertDontSee('Jouw deel is compleet')
+        ->assertDontSeeHtml('data-testid="wizard-progress"')
         ->assertDontSee('outdoor_mount_type');
 });
 

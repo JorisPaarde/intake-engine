@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -435,7 +436,7 @@ test('stale foto-feedback verdwijnt na Vervang/Verwijderen zonder reload', funct
 
     expect($wrong->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT);
 
-    $component->assertSee('Vervang foto');
+    $component->assertSee(PhotoOverridePolicy::PRIMARY_RETRY);
 
     // 2) Vervang → 3) 720px ruimtefoto (lage resolutie + stopcontact-instructie).
     FakeAiClient::alwaysReturn([

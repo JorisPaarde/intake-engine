@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Enums\AiRunType;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
@@ -305,7 +306,7 @@ test('poll soft-timeout laat wizard doorgaan terwijl status pending blijft', fun
     $component
         ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
-        ->assertSee('Dit duurt langer dan normaal. Je kunt alvast verder.');
+        ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
 
     $upload->refresh();
     expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);

@@ -5,7 +5,7 @@
 {{-- Onderpadding = footerhoogte zodat fixed footer geen content afdekt (BL-157). --}}
 <div
     {{-- pb-52: sticky Volgende (~132 px) + onderschrift mag laatste radio/optie op 390 niet afdekken (BL-166). --}}
-    class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ! empty($photoNeedsOverride) ? 'pb-56' : (($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-52') }}"
+    class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-52' }}"
     data-testid="customer-wizard-shell"
 >
     {{-- BL-167: demobanner + intro/BAG/bedrijfspand alleen op eerste stap + known-summary. --}}
@@ -65,20 +65,21 @@
                     @endif
                 </div>
             @endif
-            <div class="flex items-center justify-between text-sm text-[#5e6862]">
-                <span>Voortgang</span>
-                <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
-            </div>
-            <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van wizardstappen">
-                <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
-            </div>
-            {{-- N56: geen tweede teller ("X van N vragen") naast "Vraag Y van N"; beide tellen anders en spraken elkaar tegen. --}}
-            @if (! empty($progressExtraNote))
-                <p class="mt-2 rounded-lg border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="progress-extra-note">
-                    {{ $progressExtraNote }}
-                </p>
+            @if (! $completed)
+                <div class="flex items-center justify-between text-sm text-[#5e6862]" data-testid="wizard-progress">
+                    <span>Voortgang</span>
+                    <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
+                </div>
+                <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van wizardstappen">
+                    <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
+                </div>
+                {{-- N56: geen tweede teller ("X van N vragen") naast "Vraag Y van N"; beide tellen anders en spraken elkaar tegen. --}}
+                @if (! empty($progressExtraNote))
+                    <p class="mt-2 rounded-lg border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="progress-extra-note">
+                        {{ $progressExtraNote }}
+                    </p>
+                @endif
             @endif
-            {{-- N73: "Jouw deel is compleet…" staat alleen in het bedankblok, niet ook in de kop. --}}
         </div>
 
         @if ($saveMessage !== '')
@@ -107,12 +108,30 @@
     @elseif ($completed)
         @php
             $completionSummary = \App\Domains\Intake\Support\CustomerCompletionSummary::forIntake($intake);
+            $thankYouCompany = trim((string) ($company?->name ?? ''));
+            if ($thankYouCompany === '') {
+                $thankYouCompany = 'Je installateur';
+            }
         @endphp
-        <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm" data-testid="customer-thank-you">
-            <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">Bedankt</h1>
-            <p class="mt-3 text-sm leading-relaxed text-[#5e6862]" data-testid="thank-you-timeline">
-                Jouw deel is compleet. We hebben je gegevens doorgestuurd naar je installateur. Die reageert meestal {{ $completionSummary['response_within'] }}. Als er nog iets nodig is, neemt de installateur contact met je op.
-            </p>
+        {{-- Geen justify-center/min-height die Bedankt omlaag duwt; 24 px padding boven (UX-review / BL-169). --}}
+        <div class="rounded-xl border border-[#dde2da] bg-white px-6 pb-6 pt-6 shadow-sm" data-testid="customer-thank-you" style="padding-top: 24px;">
+            <div class="flex items-start gap-3">
+                <span
+                    class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e7f3ec] text-[#1f7a4d]"
+                    aria-hidden="true"
+                    data-testid="thank-you-check"
+                >
+                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd" />
+                    </svg>
+                </span>
+                <div class="min-w-0">
+                    <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">Je aanvraag is verstuurd</h1>
+                    <p class="mt-3 text-sm leading-relaxed text-[#5e6862]" data-testid="thank-you-timeline">
+                        {{ $thankYouCompany }} heeft je gegevens en foto’s. Je hoort meestal {{ $completionSummary['response_within'] }} van ze.
+                    </p>
+                </div>
+            </div>
 
             <div class="mt-5 rounded-xl border border-[#dde2da] bg-[#f7f8f6] px-4 py-4" data-testid="thank-you-summary">
                 <p class="text-sm font-semibold text-[#18201d]">Dit heb je doorgegeven</p>
@@ -760,44 +779,8 @@
         >
             <div class="mx-auto max-w-lg px-4 py-4 sm:px-6">
             @if (! empty($photoNeedsOverride))
-                {{-- BL-157 polish: één bevestiging in de footer; Vorige als tekstlink; knoppen zonder afbreken. --}}
+                {{-- UX-review 13 nov: keuzes staan in het afkeurkader; footer alleen Vorige (geen rode regel / dual CTA). --}}
                 <div class="flex flex-col gap-3" data-testid="footer-photo-override">
-                    <p
-                        class="text-center text-sm font-medium leading-snug text-[#a84832]"
-                        data-testid="footer-mismatch-warning"
-                    >
-                        {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
-                    </p>
-                    <div class="flex gap-3">
-                        <button
-                            type="button"
-                            wire:click="replaceMismatchedPhoto"
-                            wire:loading.attr="disabled"
-                            wire:target="replaceMismatchedPhoto,acceptPhotoMismatch,advanceAfterPhotoOverride"
-                            class="flex min-h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-xl border border-[#dde2da] bg-white px-3 text-sm font-semibold text-[#18201d] disabled:opacity-60"
-                            data-testid="footer-replace-photos"
-                        >
-                            <span wire:loading.remove wire:target="replaceMismatchedPhoto">Opnieuw maken</span>
-                            <span wire:loading wire:target="replaceMismatchedPhoto" class="inline-flex items-center gap-2">
-                                <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
-                                Bezig…
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            wire:click="acceptPhotoMismatch"
-                            wire:loading.attr="disabled"
-                            wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride,replaceMismatchedPhoto"
-                            class="flex min-h-12 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-xl bg-[var(--tenant-primary)] px-3 text-sm font-semibold text-[var(--tenant-on-primary)] disabled:opacity-60"
-                            data-testid="footer-accept-mismatch"
-                        >
-                            <span wire:loading.remove wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride">Toch doorgaan</span>
-                            <span wire:loading wire:target="acceptPhotoMismatch,advanceAfterPhotoOverride" class="inline-flex items-center gap-2">
-                                <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
-                                Bezig…
-                            </span>
-                        </button>
-                    </div>
                     @if (! ($stepIndex === 0))
                         <button
                             type="button"

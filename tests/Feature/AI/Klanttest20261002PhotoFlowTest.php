@@ -474,8 +474,9 @@ test('Vervang foto verwijdert wrong_subject-upload; banner verdwijnt na satisfac
         ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('meterkast-groot.jpg'))
         ->call('assessPendingUploads')
         ->set('activeStepKey', 'rooms::room-1::room_photos')
-        ->assertSee('Vervang foto')
-        ->assertSee('Toch doorgaan');
+        ->assertSee(PhotoOverridePolicy::PRIMARY_RETRY)
+        ->assertSee(PhotoOverridePolicy::SECONDARY_KEEP)
+        ->assertDontSee('Vervang foto');
 
     $wrongId = IntakeUpload::query()
         ->where('intake_id', $intake->id)
@@ -503,7 +504,7 @@ test('Vervang foto verwijdert wrong_subject-upload; banner verdwijnt na satisfac
         ->set('activeStepKey', 'rooms::room-1::room_photos')
         ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('buitenunit-leiding.jpeg'))
         ->call('assessPendingUploads')
-        ->assertDontSee('Toch doorgaan');
+        ->assertDontSee(PhotoOverridePolicy::SECONDARY_KEEP);
 });
 
 test('follow-up refrigerant accepteert outdoor_unit (gevel met leidingen) zonder wrong_subject', function () {
@@ -854,26 +855,26 @@ test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blij
         ->call('assessPendingUploads')
         ->set('activeStepKey', 'rooms::room-1::room_photos')
         ->assertSee('Dit is een meterkastfoto')
-        ->assertSee('Vervang foto')
-        ->assertSee('Toch doorgaan');
+        ->assertSee(PhotoOverridePolicy::PRIMARY_RETRY)
+        ->assertSee(PhotoOverridePolicy::SECONDARY_KEEP)
+        ->assertDontSee('Vervang foto');
 
     $stepBefore = $component->get('activeStepKey');
     $indexBefore = $component->get('stepIndex');
 
     $component
         ->assertSeeHtml('data-testid="footer-photo-override"')
-        ->assertSeeHtml('data-testid="footer-mismatch-warning"')
+        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"')
         ->assertDontSeeHtml('data-testid="next-button"')
         ->call('next')
         ->assertSet('showMissing', true)
         ->assertSet('activeStepKey', $stepBefore)
         ->assertSet('stepIndex', $indexBefore)
         ->assertDispatched('scroll-to-photo-mismatch')
-        ->assertSee('Niet alle foto’s zijn goed gelukt')
         ->assertDontSeeHtml('data-testid="mismatch-next-warning"')
-        ->assertDontSeeHtml('data-testid="photo-accept-mismatch"')
+        ->assertSeeHtml('data-testid="photo-accept-mismatch"')
         ->assertSeeHtml('data-testid="photo-mismatch-panel"')
-        ->assertSeeHtml('data-testid="footer-mismatch-warning"');
+        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"');
 });
 
 test('ExternalFactPresenter toont pipe_route-voorstel met bron en onzekerheid', function () {

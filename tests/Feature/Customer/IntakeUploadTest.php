@@ -288,11 +288,16 @@ test('livewire wizard photo input allows gallery without capture attribute', fun
         'current_section_instance_key' => null,
     ]);
 
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSee('Foto’s maken of kiezen', false)
-        ->assertSee('camera of galerij', false)
+    $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSee('Maak of kies een foto', false)
+        ->assertSeeHtml('data-testid="photo-upload-button"')
         ->assertDontSee('capture="environment"', false)
-        ->assertSee('multiple', false);
+        ->assertSee('multiple', false)
+        ->html();
+
+    // Bestandstype/MB alleen in sr-only (toegankelijkheid), niet als zichtbare dashed-hint.
+    expect($html)->toContain('bg-[var(--tenant-primary)]')
+        ->and($html)->not->toContain('border-dashed border-[#dde2da] bg-[#eef1ec]');
 });
 
 test('livewire wizard accepts a heic photo upload', function () {

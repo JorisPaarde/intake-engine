@@ -129,7 +129,7 @@ final class CustomerCompletionSummary
         return match ($key) {
             'cooling_heating' => 'Koelen / verwarmen',
             'ownership' => 'Koop of huur',
-            'landlord_permission' => 'Verhuurder',
+            'landlord_permission' => 'Toestemming verhuurder',
             'outdoor_location' => 'Plek buitenunit',
             'noise_sensitive' => 'Geluidsgevoelig',
             'brand_preference' => 'Merkvoorkeur',

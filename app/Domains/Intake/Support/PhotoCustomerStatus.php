@@ -23,10 +23,11 @@ final class PhotoCustomerStatus
 
     public const RECEIVED = 'Foto ontvangen.';
 
-    public const SOFT_TIMEOUT = 'Dit duurt langer dan normaal. Je kunt alvast verder.';
+    public const SOFT_TIMEOUT = 'We kijken je foto nog na. Je kunt alvast verder.';
 
     public const UNCLEAR = 'Niet goed te zien.';
 
+    /** @deprecated Klant-UI toont dit niet meer op de tegel (UX-review 13 nov); override-kader is leidend. */
     public const WRONG_SUBJECT = 'Niet de gevraagde foto.';
 
     public const OVERRIDE_ACCEPTED = 'Je installateur kijkt hier zelf naar.';

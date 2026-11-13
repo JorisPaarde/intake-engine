@@ -22,22 +22,30 @@ use Illuminate\Support\Collection;
  */
 final class PhotoOverridePolicy
 {
-    /** Melding bij override-keuze in de sticky footer (BL-157); één term “Toch doorgaan”. */
+    /**
+     * Interne/installateurstekst bij override; klantknop is PRIMARY_RETRY / SECONDARY_KEEP
+     * (UX-review 13 nov). Sticky rode footerregel is weg.
+     */
     public const OVERRIDE_MESSAGE = 'Niet alle foto’s zijn goed gelukt. Maak ze opnieuw of ga toch door.';
 
-    /** Korte bevestiging na “Toch doorgaan” vóór auto-advance (BL-153). */
+    /** Korte bevestiging na “Toch deze foto gebruiken” vóór auto-advance. */
     public const OVERRIDE_ACCEPTED_FLASH = 'Foto bewaard — de installateur kijkt mee.';
 
-    /** Eén kop + één zin op het bedankscherm, ook na “Toch doorgaan” (BL-147, UX #16.1). */
+    /** Eén kop + één zin op het bedankscherm van een vervolgronde (BL-147, UX #16.1). */
     public const THANK_YOU_HEADING = 'Bedankt, je aanvulling is binnen';
 
     public const THANK_YOU_COPY = 'Je installateur bekijkt je antwoorden en neemt contact met je op als er nog iets nodig is.';
 
-    public const PANEL_HEADING_ONE = 'Deze foto is nog niet goed.';
+    public const PANEL_HEADING_ONE = 'Deze foto laat de kamer nog niet goed zien';
 
-    /** Alleen uitleg in het paneel; keuzeknoppen staan in de footer (BL-157). */
+    public const PRIMARY_RETRY = 'Nieuwe foto maken';
+
+    public const SECONDARY_KEEP = 'Toch deze foto gebruiken';
+
+    /** @deprecated Uitlegregel is weg uit het afkeurkader (UX-review 13 nov). */
     public const PANEL_EXPLAIN_ONE = 'Je installateur krijgt de foto dan wel en kijkt er zelf naar.';
 
+    /** @deprecated Uitlegregel is weg uit het afkeurkader (UX-review 13 nov). */
     public const PANEL_EXPLAIN_MANY = 'Je installateur krijgt de foto’s dan wel en kijkt er zelf naar.';
 
     /**
@@ -281,33 +289,67 @@ final class PhotoOverridePolicy
     }
 
     /**
-     * N49: when a step also holds photos that are fine (e.g. a sharper extra
-     * meterkastfoto), name which photo(s) the panel is about — by list position,
-     * the same order the customer sees — so it does not read as a verdict on
-     * the new, accepted photo.
+     * Afkeurkader-titel, afgestemd op fototype (kamer / meterkast / buitenunit / …).
+     * Bij gemengde of onbekende onderwerpen: neutrale meervoudskop.
      *
      * @param  Collection<int, IntakeUpload>  $uploads
      */
     public static function panelHeadingFor(Collection $uploads): string
     {
-        $positions = self::unresolvedPositions($uploads);
-        $total = $uploads->count();
-        $count = count($positions);
-
-        if ($count === 0 || $count === $total) {
-            return self::panelHeading($count);
+        $unresolved = $uploads->filter(static fn (IntakeUpload $u): bool => self::needsOverride($u));
+        $count = $unresolved->count();
+        if ($count === 0) {
+            return self::PANEL_HEADING_ONE;
         }
 
-        if ($count === 1) {
-            return 'Foto '.$positions[0].' van '.$total.' is nog niet goed.';
+        $subjects = [];
+        foreach ($unresolved as $upload) {
+            $subject = self::expectedSubjectFor($upload);
+            $subjects[$subject instanceof PhotoSubject ? $subject->value : 'other'] = $subject;
         }
 
-        $last = array_pop($positions);
+        if (count($subjects) === 1) {
+            /** @var PhotoSubject|null $only */
+            $only = array_values($subjects)[0];
 
-        return 'Foto '.implode(', ', $positions).' en '.$last.' van '.$total.' zijn nog niet goed.';
+            return self::panelHeadingForSubject($only, $count > 1);
+        }
+
+        return $count === 1
+            ? 'Deze foto is nog niet goed genoeg'
+            : 'Deze foto’s zijn nog niet goed genoeg';
     }
 
     /**
+     * Tiptekst(en) onder de afkeurtitel. AI-/bruikbaarheidshint eerst; anders default per type.
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     * @return list<string>
+     */
+    public static function panelTipsFor(Collection $uploads): array
+    {
+        $tips = self::uniqueCustomerFeedback($uploads);
+        if ($tips !== []) {
+            return $tips;
+        }
+
+        foreach ($uploads as $upload) {
+            if (! self::needsOverride($upload)) {
+                continue;
+            }
+
+            $fallback = self::defaultTipFor(self::expectedSubjectFor($upload));
+            if ($fallback !== null) {
+                return [$fallback];
+            }
+        }
+
+        return ['Ga in de deuropening staan en laat muren en ramen zien.'];
+    }
+
+    /**
+     * @deprecated Afkeurkader toont geen uitlegregel meer; behouden voor oudere tests.
+     *
      * @param  Collection<int, IntakeUpload>  $uploads
      */
     public static function panelExplanationFor(Collection $uploads): string
@@ -327,6 +369,55 @@ final class PhotoOverridePolicy
             : 'Je installateur krijgt deze foto’s dan wel en kijkt er zelf naar.';
 
         return $received.' '.$choice;
+    }
+
+    public static function panelHeadingForSubject(?PhotoSubject $subject, bool $plural = false): string
+    {
+        $noun = match ($subject) {
+            PhotoSubject::Room => 'de kamer',
+            PhotoSubject::Fusebox => 'de meterkast',
+            PhotoSubject::OutdoorUnit => 'de buitenunit',
+            PhotoSubject::OutdoorLocation => 'de buitenplek',
+            PhotoSubject::PipeRoute => 'de leidingroute',
+            PhotoSubject::IndoorUnit => 'de binnenunit',
+            default => null,
+        };
+
+        if ($noun === null) {
+            return $plural
+                ? 'Deze foto’s zijn nog niet goed genoeg'
+                : 'Deze foto is nog niet goed genoeg';
+        }
+
+        return $plural
+            ? 'Deze foto’s laten '.$noun.' nog niet goed zien'
+            : 'Deze foto laat '.$noun.' nog niet goed zien';
+    }
+
+    public static function defaultTipFor(?PhotoSubject $subject): ?string
+    {
+        return match ($subject) {
+            PhotoSubject::Room => 'Ga in de deuropening staan en laat muren en ramen zien.',
+            PhotoSubject::Fusebox => 'Open de meterkastdeur helemaal en fotografeer recht van voren.',
+            PhotoSubject::OutdoorUnit => 'Fotografeer de buitenunit van dichterbij, met genoeg omgeving eromheen.',
+            PhotoSubject::OutdoorLocation => 'Laat de gevel of tuin zien waar de buitenunit kan komen, met genoeg omgeving.',
+            PhotoSubject::PipeRoute => 'Laat de hele route zien van binnen naar buiten, zonder dicht op één detail te zoomen.',
+            PhotoSubject::IndoorUnit => 'Laat de wand of plek voor de binnenunit zien, met deuren of ramen in beeld.',
+            default => null,
+        };
+    }
+
+    private static function expectedSubjectFor(IntakeUpload $upload): ?PhotoSubject
+    {
+        $assessment = $upload->contentAssessment();
+        if ($assessment instanceof PhotoContentAssessment) {
+            $expected = $assessment->expectedSubject();
+            if ($expected instanceof PhotoSubject) {
+                return $expected;
+            }
+        }
+
+        return PhotoSubject::expectedForPhotoQuestion((string) $upload->question_key);
     }
 
     /**

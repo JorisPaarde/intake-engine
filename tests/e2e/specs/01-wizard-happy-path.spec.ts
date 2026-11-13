@@ -60,7 +60,7 @@ test.describe('Wizard happy path', () => {
     }
 
     await expect(page.getByTestId('customer-thank-you')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId('customer-thank-you')).toContainText(/Jouw deel is compleet/i);
+    await expect(page.getByTestId('customer-thank-you')).toContainText(/Je aanvraag is verstuurd/i);
     await expect(page.getByTestId('customer-thank-you')).not.toContainText(
       /outdoor_mount_type|room_type|wall_outlet_photo|pipe_route_photos/i,
     );

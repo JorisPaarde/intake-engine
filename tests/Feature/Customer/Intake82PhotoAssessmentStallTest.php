@@ -274,7 +274,7 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
     $component
         ->set('activeStepKey', 'electrical::fusebox_photo')
         ->assertSeeHtml('data-testid="photo-soft-timeout-panel"')
-        ->assertSee('Dit duurt langer dan normaal. Je kunt alvast verder.')
+        ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT)
         ->assertSet('saveMessage', '');
 
     // Backend finishes → quiet poll picks up terminal status.
