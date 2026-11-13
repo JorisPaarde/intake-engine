@@ -54,7 +54,7 @@ test('ruimte-eyebrow is Slaapkamer N van M zonder verdieping er tussen', functio
     );
 
     expect($room1Photo)->not->toBeNull()
-        ->and($room1Photo['section_title'])->toBe('Slaapkamer 1 van 3')
+        ->and($room1Photo['section_title'])->toBe('Kamer 1 van 3 (slaapkamer)')
         ->and($room1Photo['section_title'])->not->toContain('kelder')
         ->and($room1Photo['section_title'])->not->toContain('souterrain')
         ->and($room1Photo['section_title'])->not->toContain(',');
@@ -86,5 +86,5 @@ test('floor_level basement komt uit het verdiepingsantwoord, niet uit room_type 
             && ($step['question_key'] ?? null) === 'room_photos',
     )['section_title'] ?? null;
 
-    expect($title)->toBe('Slaapkamer 1');
+    expect($title)->toBe('Slaapkamer');
 });

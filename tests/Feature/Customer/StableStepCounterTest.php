@@ -38,17 +38,17 @@ function stableCounterIntake(array $overrides = []): Intake
     ], $overrides));
 }
 
-test('teller toont geen van-N; na ruimtes alleen voortgangsbalk/%', function () {
+test('teller toont nooit Vraag N; alleen voortgangsbalk/% (ook vóór ruimtes)', function () {
     $intake = stableCounterIntake();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $html = $component->html();
 
-    expect($component->viewData('stepDisplayTotalReady'))->toBeFalse()
-        ->and($component->html())->toContain('data-testid="step-counter"')
-        ->and($component->html())->toContain('Vraag '.$component->viewData('stepDisplayNumber'))
-        ->and($component->html())->not->toContain(
-            'Vraag '.$component->viewData('stepDisplayNumber').' van ',
-        );
+    expect($html)->toContain('data-testid="step-counter"')
+        ->and($html)->toContain('Voortgang via balk')
+        ->and($html)->not->toMatch('/Vraag \d+/')
+        ->and($html)->not->toMatch('/Vraag \d+ van \d+/')
+        ->and($html)->not->toMatch('/text-\[#838c86\]">·<\/span>\s*<span[^>]*data-testid="step-counter"/');
 
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 3], PrefillSources::AI_TEXT);
     app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
@@ -59,17 +59,15 @@ test('teller toont geen van-N; na ruimtes alleen voortgangsbalk/%', function () 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $html = $component->html();
 
-    expect($component->viewData('stepDisplayTotalReady'))->toBeTrue()
-        ->and($html)->toContain('data-testid="progress-percent"')
+    expect($html)->toContain('data-testid="progress-percent"')
         ->and($html)->toContain('data-testid="step-counter"')
+        ->and($html)->not->toMatch('/Vraag \d+/')
         ->and($html)->not->toMatch('/Vraag \d+ van \d+/')
-        ->and($html)->toContain('Voortgang via balk')
-        // Geen losse "SECTIE ·" zonder zichtbare teller erna.
-        ->and($html)->not->toMatch('/text-\[#838c86\]">·<\/span>\s*<span[^>]*data-testid="step-counter"/');
+        ->and($html)->toContain('Voortgang via balk');
 
-    // Herladen: nog steeds geen "X van Y" (stabiel t.o.v. oplopend/krimpend totaal).
+    // Herladen: nog steeds geen zichtbare vraagteller.
     $reloaded = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
-    expect($reloaded->html())->not->toMatch('/Vraag \d+ van \d+/');
+    expect($reloaded->html())->not->toMatch('/Vraag \d+/');
 });
 
 test('teller hergebruikt nummer als tussenstap wegvalt (geen gat 25→27)', function () {

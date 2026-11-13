@@ -14,3 +14,39 @@ registerLivewireUploadResilience();
 registerLivewireUpdateResilience();
 registerPollPauseWhileBusy();
 registerClientPhotoDownscale();
+
+/**
+ * BL-163: Vorige mag geen tekstselectie/klembord-side-effect hebben.
+ * De klantwizard schrijft nergens naar het klembord; wel kan een geselecteerd
+ * invoerveld bij blur/morph per ongeluk in het klembord belanden.
+ */
+window.__intakeClearWizardSelection = () => {
+    try {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && typeof active.blur === 'function') {
+            active.blur();
+        }
+    } catch {
+        // Soft-fail: navigatie mag nooit blokkeren.
+    }
+    try {
+        const selection = window.getSelection?.();
+        selection?.removeAllRanges?.();
+    } catch {
+        // Soft-fail.
+    }
+};
+
+document.addEventListener(
+    'click',
+    (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (! target) {
+            return;
+        }
+        if (target.closest('[data-testid="footer-previous"], [data-testid="footer-previous-link"]')) {
+            window.__intakeClearWizardSelection();
+        }
+    },
+    true,
+);

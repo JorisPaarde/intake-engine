@@ -22,15 +22,35 @@ final class RoomLabelResolver
 
     public static function labelForIndex(?string $useType, int $index): string
     {
-        $base = match ($useType) {
+        return self::typeLabel($useType).' '.$index;
+    }
+
+    /**
+     * Typezonder nummer: Woonkamer / Slaapkamer / … (klant-eyebrow + dossiernamen).
+     */
+    public static function typeLabel(?string $useType): string
+    {
+        return match ($useType) {
             'living_room' => 'Woonkamer',
             'bedroom' => 'Slaapkamer',
             'office' => 'Werkkamer',
             'attic' => 'Zolder',
             default => 'Ruimte',
         };
+    }
 
-        return $base.' '.$index;
+    /**
+     * Type in klantvriendelijke haakjes: (woonkamer), (slaapkamer), …
+     */
+    public static function typeLabelLower(?string $useType): ?string
+    {
+        return match ($useType) {
+            'living_room' => 'woonkamer',
+            'bedroom' => 'slaapkamer',
+            'office' => 'werkkamer',
+            'attic' => 'zolder',
+            default => null,
+        };
     }
 
     /**

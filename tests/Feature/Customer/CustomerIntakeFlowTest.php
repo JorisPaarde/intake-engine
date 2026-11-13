@@ -46,8 +46,8 @@ test('valid customer token opens the intake wizard', function () {
         ->assertSee('Digitale Opname')
         ->assertSee('Aanvraag')
         ->assertSee('Wat is de reden van je aanvraag?')
-        ->assertSee('Vraag 1')
-        // “van N” pas ná known-summary/ruimtes (stabiele teller, BL-153).
+        // BL-163: nooit zichtbare “Vraag N” — voortgang alleen via balk/%.
+        ->assertDontSee('Vraag 1')
         ->assertDontSee('Vraag 1 van');
 });
 
