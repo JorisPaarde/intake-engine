@@ -4,6 +4,14 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Klant-hertest 13 nov (BL-166, airco v32):** bedankscherm toont configureerbare reactietermijn (`INTAKE_INSTALLER_RESPONSE_WITHIN`, default “binnen 2 werkdagen”) plus overzicht (adres, ruimtes, foto’s, kernkeuzes) via `CustomerCompletionSummary`. Bij BAG zonder woonfunctie: label **pandgegevens**, Pandtype, en soft melding; energielabel alleen uit EP-Online. Optionele `landlord_permission` (ja/nee/nog niet gevraagd) na Huur, zichtbaar in klantantwoorden/rapport. Pest `Bl166KlantHertestTest`; E2E `23-bl166-klant-hertest`.
+
+### Changed
+
+- **Klantteksten v32 (BL-166):** geluidsvraag krijgt eigen help (buren/slaapkamer); binnenunit-voorbeeld per kamertype (slaapkamer ≠ “boven de bank”); merkuitleg één keer op het closing-scherm; stopcontact-interne instructies uit klantzichtbare wall_outlet-/room_photos-tekst; `room_outlet_status` niet meer shareable.
+
 ### Fixed
 
 - **Voortgang springt niet meer naar ~97% vóór kamerfoto’s (BL-164):** na groei van de stappenlijst (ruimtes/prefill) bleef `knownStepKeys` stale; bij verdwijnen van een `_shared`-stap viel `realignToActiveStep` terug op de laatste oude key (vaak Afronden) → `stepIndex` hoog → `progressHighWater` ≈ 97% terwijl verplichte kamerfoto’s nog open waren. Fix: `knownStepKeys` verversen in `landOnStepIndex`; realign-anker op huidige index i.p.v. “laatste oude key”; high-water-cap onder 90% zolang verplichte stappen zonder antwoord open zijn. Pest: `Bl164ProgressHighWaterDiffersTest`; E2E: `22-bl164-progress-differs` (screenshots 390 Kamer 1-foto + Afronding).

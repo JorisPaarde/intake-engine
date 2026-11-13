@@ -441,8 +441,9 @@ final class IntakeStepBuilder
                 'question_key' => '_closing_wishes',
                 'title' => 'Merk, planning en opmerkingen',
                 'section_title' => $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey, $context['answers']),
-                'description' => 'Optioneel. Zonder voorkeur kiest de installateur wat het beste past.',
-                'help_text' => 'Dit houdt de opname niet tegen. Sla over wat je niet weet.',
+                // Één merk-/optionele uitleg hier; brand_preference.help_text blijft leeg (BL-166).
+                'description' => 'Optioneel. Zonder merkvoorkeur kiest de installateur wat het beste past. Dit houdt de opname niet tegen.',
+                'help_text' => 'Sla over wat je niet weet.',
                 'is_repeatable' => false,
                 'is_required' => false,
                 'kind' => 'closing_wishes',
@@ -632,6 +633,15 @@ final class IntakeStepBuilder
                 $helpText = $this->extraRoomOverviewHelp($context['answers'], $sectionInstanceKey, $helpText);
             }
 
+            if ($question->key === 'preferred_indoor_location') {
+                $helpText = $this->preferredIndoorLocationHelp(
+                    $question,
+                    $context['answers'],
+                    $sectionInstanceKey,
+                    $helpText,
+                );
+            }
+
             $steps[] = [
                 'key' => $section->key.$instanceSuffix.'::'.$question->key,
                 'section_key' => $section->key,
@@ -674,6 +684,33 @@ final class IntakeStepBuilder
         return is_string($fallback) && trim($fallback) !== ''
             ? $fallback
             : 'Laat de ontbrekende wand of deur zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
+    }
+
+    /**
+     * Voorbeeldzin bij preferred_indoor_location, afgestemd op bekend kamertype (BL-166).
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function preferredIndoorLocationHelp(
+        IntakeQuestion $question,
+        array $answers,
+        ?string $sectionInstanceKey,
+        ?string $fallback,
+    ): ?string {
+        $roomTypeRaw = $answers[VisibilityResolver::compositeKey('room_type', $sectionInstanceKey)] ?? null;
+        $roomType = is_array($roomTypeRaw) ? ($roomTypeRaw['value'] ?? null) : null;
+
+        $byType = $question->meta['help_by_room_type'] ?? null;
+        if (is_string($roomType)
+            && $roomType !== ''
+            && is_array($byType)
+            && isset($byType[$roomType])
+            && is_string($byType[$roomType])
+            && trim($byType[$roomType]) !== '') {
+            return trim($byType[$roomType]);
+        }
+
+        return is_string($fallback) && trim($fallback) !== '' ? $fallback : null;
     }
 
     /**
@@ -1203,7 +1240,7 @@ final class IntakeStepBuilder
             'title' => 'Dit hebben we al uit je aanvraag',
             'section_title' => 'Bekende gegevens',
             'description' => 'Klopt dit? Je kunt iets wijzigen; verder gaan mag meteen.',
-            'help_text' => 'Alleen echte onzekerheid vragen we later nog apart. Merkvoorkeur houdt de opname niet tegen.',
+            'help_text' => 'Alleen echte onzekerheid vragen we later nog apart.',
             'is_repeatable' => false,
             'is_required' => false,
             'kind' => 'known_summary',

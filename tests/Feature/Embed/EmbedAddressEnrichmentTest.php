@@ -249,7 +249,7 @@ test('embed intake with valid address gets BAG building year and skips build_yea
         ->assertSee('Bernadottelaan 273', false)
         ->assertSee('Haarlem', false)
         ->assertDontSee('Onbekend', false)
-        ->assertSee('We gebruiken al bekende woninggegevens', false)
+        ->assertSee('We gebruiken al bekende woninggegevens', false) // woonfunctie → woninggegevens
         ->assertSee('Bouwjaar', false)
         ->assertSee('1971', false)
         ->assertSee('Woningtype', false)

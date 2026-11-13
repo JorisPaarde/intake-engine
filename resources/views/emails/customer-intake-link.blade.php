@@ -4,7 +4,7 @@
 Hallo {{ $customerName }},
 
 @if ($hasKnownHousingFacts)
-Met jouw hulp kunnen we sneller je airco plaatsen. Bekende woninggegevens hebben we al toegevoegd. Via de knop hieronder vraag je alleen wat we nog nodig hebben. Dat kan op je telefoon. Je kunt later gewoon verdergaan.
+Met jouw hulp kunnen we sneller je airco plaatsen. Bekende {{ $knownPropertyFactsNoun }} hebben we al toegevoegd. Via de knop hieronder vraag je alleen wat we nog nodig hebben. Dat kan op je telefoon. Je kunt later gewoon verdergaan.
 @else
 Met jouw hulp kunnen we sneller je airco plaatsen. Via de knop hieronder beantwoord je de vragen voor je opname. Dat kan op je telefoon. Je kunt later gewoon verdergaan.
 @endif
