@@ -309,7 +309,22 @@ final class IntakeStepBuilder
                 continue;
             }
 
+            // BL-165: na “Verschilt per ruimte” de per-kamer-stappen hier in de
+            // gedeelde-blok-volgorde zetten (niet pas in elke room-* na dit blok).
+            // Anders springt chooseSharedDiffers naar kamer 1 en vallen latere
+            // shareables (glas, verdieping, …) stil weg tot Afronden.
             if (SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)) {
+                $this->appendDiffersPerRoomQuestionSteps(
+                    $steps,
+                    $intake,
+                    $section,
+                    $question,
+                    $instanceKeys,
+                    $context,
+                    $forceShowComposites,
+                    $stickyStepKeys,
+                );
+
                 continue;
             }
 
@@ -374,6 +389,72 @@ final class IntakeStepBuilder
     }
 
     /**
+     * Per-kamer-stappen voor een shareable vraag op de plek van het gedeelde scherm.
+     *
+     * @param  list<IntakeStep>  $steps
+     * @param  list<string>  $instanceKeys
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
+     * }  $context
+     * @param  list<string>  $forceShowComposites
+     * @param  list<string>  $stickyStepKeys
+     */
+    private function appendDiffersPerRoomQuestionSteps(
+        array &$steps,
+        Intake $intake,
+        IntakeSection $section,
+        IntakeQuestion $question,
+        array $instanceKeys,
+        array $context,
+        array $forceShowComposites,
+        array $stickyStepKeys,
+    ): void {
+        $sortedQuestions = $section->questions->sortBy('sort_order')->values();
+
+        foreach ($instanceKeys as $instanceKey) {
+            $visibility = $this->resolveVisibilityForSection($sortedQuestions, $instanceKey, $context);
+            $composite = VisibilityResolver::compositeKey($question->key, $instanceKey);
+            $forceShow = in_array($composite, $forceShowComposites, true);
+            $presentation = $this->questionPresentation(
+                $question,
+                $instanceKey,
+                $visibility,
+                $context,
+                $forceShow,
+            );
+
+            $candidateStepKey = $section->key.'::'.$instanceKey.'::'.$question->key;
+            $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true)
+                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true);
+
+            if ($presentation['reason'] !== 'visible' && ! $forceShow && ! $stickyKeep) {
+                continue;
+            }
+
+            $steps[] = [
+                'key' => $candidateStepKey,
+                'section_key' => $section->key,
+                'section_instance_key' => $instanceKey,
+                'question_key' => $question->key,
+                'title' => $question->label,
+                'section_title' => $this->sectionTitleForInstance($intake, $section, $instanceKey, $context['answers']),
+                'description' => $section->description,
+                'help_text' => $question->help_text,
+                'is_repeatable' => true,
+                'is_required' => $presentation['required'],
+                'kind' => 'question',
+                'sticky_photo_composite' => null,
+            ];
+        }
+    }
+
+    /**
      * @param  list<IntakeStep>  $steps
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
@@ -399,25 +480,9 @@ final class IntakeStepBuilder
         array $sharedTargets = [],
     ): void {
         $sortedQuestions = $section->questions->sortBy('sort_order')->values();
-        // Na “Verschilt per ruimte”: stel die vragen meteen per kamer (vóór foto’s),
-        // anders verdwijnen ze uit beeld tot na de ruimtefoto’s / AI-prefill.
-        if ($sectionInstanceKey !== null && count($sharedTargets) > 1) {
-            $differsFirst = $sortedQuestions->filter(
-                static function (IntakeQuestion $question) use ($context): bool {
-                    return SharedRoomAnswers::isShareable($question)
-                        && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key);
-                },
-            );
-            $rest = $sortedQuestions->reject(
-                static function (IntakeQuestion $question) use ($context): bool {
-                    return SharedRoomAnswers::isShareable($question)
-                        && SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key);
-                },
-            );
-            $questions = $differsFirst->concat($rest)->values();
-        } else {
-            $questions = $sortedQuestions;
-        }
+        // Shareable multi-room vragen staan in het gedeelde blok (of als per-kamer
+        // expansie ná differs, BL-165) — niet opnieuw in elke room-*-reeks.
+        $questions = $sortedQuestions;
         $visibility = $this->resolveVisibilityForSection($sortedQuestions, $sectionInstanceKey, $context);
         /** @var array<string, true> $emittedGroups */
         $emittedGroups = [];
@@ -441,8 +506,9 @@ final class IntakeStepBuilder
                 'question_key' => '_closing_wishes',
                 'title' => 'Merk, planning en opmerkingen',
                 'section_title' => $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey, $context['answers']),
-                'description' => 'Optioneel. Zonder voorkeur kiest de installateur wat het beste past.',
-                'help_text' => 'Dit houdt de opname niet tegen. Sla over wat je niet weet.',
+                // Één merk-/optionele uitleg hier; brand_preference.help_text blijft leeg (BL-166).
+                'description' => 'Optioneel. Zonder merkvoorkeur kiest de installateur wat het beste past. Dit houdt de opname niet tegen.',
+                'help_text' => 'Sla over wat je niet weet.',
                 'is_repeatable' => false,
                 'is_required' => false,
                 'kind' => 'closing_wishes',
@@ -452,12 +518,11 @@ final class IntakeStepBuilder
         };
 
         foreach ($questions as $question) {
-            // Gedeelde ruimtevraag: alleen tonen per ruimte als klant “Verschilt per ruimte” koos,
-            // of als er maar één ruimte is (sharedTargets leeg / count 1).
+            // Multi-room shareables: gedeeld scherm of differs-expansie in het
+            // gedeelde blok (BL-165). Alleen force-show (Afronden-link) mag hier.
             if ($sectionInstanceKey !== null
                 && SharedRoomAnswers::isShareable($question)
                 && count($sharedTargets) > 1
-                && ! SharedRoomAnswers::customerChoseDiffers($context['answers'], $question->key)
                 && ! in_array(
                     VisibilityResolver::compositeKey($question->key, $sectionInstanceKey),
                     $forceShowComposites,
@@ -632,6 +697,15 @@ final class IntakeStepBuilder
                 $helpText = $this->extraRoomOverviewHelp($context['answers'], $sectionInstanceKey, $helpText);
             }
 
+            if ($question->key === 'preferred_indoor_location') {
+                $helpText = $this->preferredIndoorLocationHelp(
+                    $question,
+                    $context['answers'],
+                    $sectionInstanceKey,
+                    $helpText,
+                );
+            }
+
             $steps[] = [
                 'key' => $section->key.$instanceSuffix.'::'.$question->key,
                 'section_key' => $section->key,
@@ -674,6 +748,33 @@ final class IntakeStepBuilder
         return is_string($fallback) && trim($fallback) !== ''
             ? $fallback
             : 'Laat de ontbrekende wand of deur zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
+    }
+
+    /**
+     * Voorbeeldzin bij preferred_indoor_location, afgestemd op bekend kamertype (BL-166).
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function preferredIndoorLocationHelp(
+        IntakeQuestion $question,
+        array $answers,
+        ?string $sectionInstanceKey,
+        ?string $fallback,
+    ): ?string {
+        $roomTypeRaw = $answers[VisibilityResolver::compositeKey('room_type', $sectionInstanceKey)] ?? null;
+        $roomType = is_array($roomTypeRaw) ? ($roomTypeRaw['value'] ?? null) : null;
+
+        $byType = $question->meta['help_by_room_type'] ?? null;
+        if (is_string($roomType)
+            && $roomType !== ''
+            && is_array($byType)
+            && isset($byType[$roomType])
+            && is_string($byType[$roomType])
+            && trim($byType[$roomType]) !== '') {
+            return trim($byType[$roomType]);
+        }
+
+        return is_string($fallback) && trim($fallback) !== '' ? $fallback : null;
     }
 
     /**
@@ -1203,7 +1304,7 @@ final class IntakeStepBuilder
             'title' => 'Dit hebben we al uit je aanvraag',
             'section_title' => 'Bekende gegevens',
             'description' => 'Klopt dit? Je kunt iets wijzigen; verder gaan mag meteen.',
-            'help_text' => 'Alleen echte onzekerheid vragen we later nog apart. Merkvoorkeur houdt de opname niet tegen.',
+            'help_text' => 'Alleen echte onzekerheid vragen we later nog apart.',
             'is_repeatable' => false,
             'is_required' => false,
             'kind' => 'known_summary',

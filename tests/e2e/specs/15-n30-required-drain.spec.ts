@@ -71,7 +71,7 @@ async function runN30Catchup(page: Page, payload: E2eScenarioPayload): Promise<v
     await confirm.first().click();
   }
 
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(/geluidgevoelig/i, {
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(/geluids?gevoelig/i, {
     timeout: 20_000,
   });
 

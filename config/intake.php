@@ -27,6 +27,20 @@ return [
         'days' => (int) env('INTAKE_REMINDER_DAYS', 3),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Klant-bedankscherm (BL-166)
+    |--------------------------------------------------------------------------
+    |
+    | Termijntekst op het bedankscherm (“je installateur reageert meestal …”).
+    | Per omgeving configureerbaar via INTAKE_INSTALLER_RESPONSE_WITHIN.
+    |
+    */
+
+    'customer_completion' => [
+        'installer_response_within' => env('INTAKE_INSTALLER_RESPONSE_WITHIN', 'binnen 2 werkdagen'),
+    ],
+
     'follow_up' => [
         'max_rounds' => (int) env('INTAKE_FOLLOW_UP_MAX_ROUNDS', 3),
         'max_items_per_round' => (int) env('INTAKE_FOLLOW_UP_MAX_ITEMS', 5),

@@ -9,6 +9,7 @@ use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
@@ -55,8 +56,208 @@ final class E2eScenarioFactory
             'n30-accessibility-catchup' => $this->n30AccessibilityCatchup(),
             'n3-drain-choice-upload' => $this->n3DrainChoiceUpload(),
             'differs-per-room-floors' => $this->differsPerRoomFloors(),
+            'bl165-differs-sun-floor-glass' => $this->bl165DiffersSunFloorGlass(),
+            'bl166-commercial' => $this->bl166Commercial(),
+            'bl166-landlord' => $this->bl166Landlord(),
+            'bl166-bedroom-indoor' => $this->bl166BedroomIndoor(),
+            'bl166-noise' => $this->bl166Noise(),
+            'bl166-closing' => $this->bl166Closing(),
+            'bl166-thank-you' => $this->bl166ThankYou(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
+    }
+
+    /**
+     * BL-166: bedrijfspand (geen woonfunctie) → pandgegevens + melding.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl166Commercial(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL166 Bedrijfspand',
+            'customer_email' => 'bl166-commercial@example.com',
+            'status' => IntakeStatus::InProgress,
+            'address_line' => 'Grote Markt 2',
+            'address_postal_code' => '2011RD',
+            'address_house_number' => '2',
+            'address_city' => 'Haarlem',
+            'request_reason' => 'Airco in kantoorruimte op de Grote Markt.',
+        ]);
+
+        IntakeExternalFact::query()->create([
+            'intake_id' => $intake->id,
+            'fact_key' => 'usage_purposes',
+            'label' => 'Gebruiksdoel',
+            'value' => ['values' => ['bijeenkomstfunctie', 'winkelfunctie']],
+            'source' => 'PDOK / BAG',
+            'confidence' => 'high',
+            'captured_at' => now(),
+        ]);
+        IntakeExternalFact::query()->create([
+            'intake_id' => $intake->id,
+            'fact_key' => 'building_year',
+            'label' => 'Bouwjaar',
+            'value' => ['number' => 1900],
+            'source' => 'PDOK / BAG',
+            'confidence' => 'high',
+            'captured_at' => now(),
+        ]);
+        IntakeExternalFact::query()->create([
+            'intake_id' => $intake->id,
+            'fact_key' => 'energy_label',
+            'label' => 'Energielabel',
+            'value' => ['value' => 'B'],
+            'source' => 'demo-label',
+            'confidence' => 'high',
+            'captured_at' => now(),
+        ]);
+
+        $this->saveAnswer->handle($intake, 'build_year', null, ['number' => 1900], 'pdok');
+        $this->saveAnswer->handle($intake, 'building_type', null, ['value' => 'commercial'], 'pdok');
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        // BL-167: pandgegevens staan alleen in de intro op stap 0 / known-summary.
+        // request_reason ontbreekt in de stappenlijst → oude cursor viel terug op cooling_heating.
+        $intake->update([
+            'current_section_key' => null,
+            'current_question_key' => '_known_summary',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl166-commercial');
+    }
+
+    /**
+     * BL-166: huur → verhuurderstoestemming.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl166Landlord(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL166 Huur',
+            'customer_email' => 'bl166-landlord@example.com',
+            'status' => IntakeStatus::InProgress,
+            'request_reason' => 'Airco in huurwoning.',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'cooling_heating', null, ['value' => 'cooling'], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'ownership', null, ['value' => 'rented']);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'building',
+            'current_question_key' => 'landlord_permission',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl166-landlord');
+    }
+
+    /**
+     * BL-166: slaapkamer → binnenunit-voorbeeld zonder “bank”.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl166BedroomIndoor(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL166 Slaapkamer',
+            'customer_email' => 'bl166-bedroom@example.com',
+            'status' => IntakeStatus::InProgress,
+            'request_reason' => 'Airco in de slaapkamer.',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'rooms',
+            'current_question_key' => 'preferred_indoor_location',
+            'current_section_instance_key' => 'room-1',
+        ]);
+
+        return $this->payload($intake, 'bl166-bedroom-indoor');
+    }
+
+    /**
+     * BL-166: geluidsvraag met juiste helptekst.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl166Noise(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL166 Geluid',
+            'customer_email' => 'bl166-noise@example.com',
+            'status' => IntakeStatus::InProgress,
+            'request_reason' => 'Airco met buitenunit bij buren.',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'outdoor_location', null, ['value' => 'garden'], PrefillSources::AI_TEXT);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'outdoor_unit',
+            'current_question_key' => 'noise_sensitive',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl166-noise');
+    }
+
+    /**
+     * BL-166: merk/planning — één merkuitleg.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl166Closing(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL166 Closing',
+            'customer_email' => 'bl166-closing@example.com',
+            'status' => IntakeStatus::InProgress,
+            'request_reason' => 'Airco, geen haast.',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'closing',
+            'current_question_key' => 'brand_preference',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl166-closing');
+    }
+
+    /**
+     * BL-166: bedankscherm (follow-up-achtige complete in-sessie via lege follow-up? —
+     * hier: hoofdwizard met genoeg antwoorden; Playwright rondt af of landt op bedankt
+     * via Livewire set is niet beschikbaar — we zetten status niet op Completed).
+     *
+     * @return array<string, mixed>
+     */
+    private function bl166ThankYou(): array
+    {
+        // Gebruik happy-path-basis; Playwright klikt Afronden na skip van rest.
+        return $this->emptyLivingRoom();
     }
 
     /**
@@ -130,6 +331,83 @@ final class E2eScenarioFactory
 
         return $this->payload($intake->fresh() ?? $intake, 'differs-per-room-floors', [
             'target_question_key' => 'floor_level',
+        ]);
+    }
+
+    /**
+     * BL-165: cursor op gedeelde zon (vóór glas/verdieping in sort_order), plafond al beantwoord.
+     * Reproduceert: Verschilt per ruimte op zon mag glas/verdieping niet stil overslaan.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl165DiffersSunFloorGlass(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'E2E BL165 Zon Glas Verdieping',
+            'customer_email' => 'e2e-bl165@example.com',
+            'status' => IntakeStatus::InProgress,
+            'address_postal_code' => '2037GR',
+            'address_house_number' => '273',
+            'address_city' => 'Haarlem',
+            'address_line' => 'Bernadottelaan 273',
+            'request_reason' => 'Ik wil airco in 3 slaapkamers van ongeveer 3 bij 5 meter, koelen en verwarmen.',
+        ]);
+
+        $stated = static function (
+            SaveIntakeAnswer $save,
+            Intake $intake,
+            string $key,
+            ?string $instance,
+            array $value,
+            ?string $evidence = null,
+        ): void {
+            $save->handle(
+                $intake,
+                $key,
+                $instance,
+                $value,
+                PrefillSources::REQUEST_TEXT,
+                factProvenance: FactProvenance::Stated,
+                factConfidence: 100,
+                factEvidence: $evidence,
+                factSource: 'klantantwoord',
+            );
+        };
+
+        $stated($this->saveAnswer, $intake, 'privacy_consent', null, ['bool' => true]);
+        $stated($this->saveAnswer, $intake, 'indoor_unit_count', null, ['number' => 3], '3 slaapkamers');
+        $stated($this->saveAnswer, $intake, 'cooling_heating', null, ['value' => 'both'], 'koelen en verwarmen');
+        $stated($this->saveAnswer, $intake, 'ownership', null, ['value' => 'owned']);
+        $stated($this->saveAnswer, $intake, 'building_type', null, ['value' => 'terraced']);
+
+        foreach (['room-1', 'room-2', 'room-3'] as $room) {
+            $stated($this->saveAnswer, $intake, 'room_type', $room, ['value' => 'bedroom'], 'slaapkamers');
+            $stated($this->saveAnswer, $intake, 'room_length_m', $room, ['number' => 3], '3 bij 5');
+            $stated($this->saveAnswer, $intake, 'room_width_m', $room, ['number' => 5], '3 bij 5');
+            $this->saveAnswer->handle(
+                $intake,
+                'room_area_m2',
+                $room,
+                ['number' => 15],
+                PrefillSources::DERIVED_LXW,
+                factConfidence: 100,
+                factSource: 'afgeleid',
+            );
+            $stated($this->saveAnswer, $intake, 'ceiling_height_m', $room, ['number' => 2.5]);
+        }
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'rooms',
+            'current_question_key' => 'sun_exposure',
+            'current_section_instance_key' => '_shared',
+        ]);
+
+        return $this->payload($intake->fresh() ?? $intake, 'bl165-differs-sun-floor-glass', [
+            'target_question_key' => 'sun_exposure',
         ]);
     }
 

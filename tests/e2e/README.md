@@ -68,6 +68,8 @@ php artisan queue:work --queue=ai-photo,default --sleep=1 --tries=2
 | `specs/20-differs-per-room-floors.spec.ts` | Verschilt per ruimte → per-kamer verdieping/zon tot Afronden (BL-162; screenshots `bl161-*`) |
 | `specs/21-klanttest-run3-labels.spec.ts` | Geen “Vraag N”; % daalt niet; Vorige zonder klembord (BL-163) |
 | `specs/22-bl164-progress-differs.spec.ts` | Verschilt per ruimte: % monotoon &lt;90% tot kamerfoto’s; 100% na Afronden (BL-164) |
+| `specs/23-bl165-differs-floor-glass.spec.ts` | Zon-differs houdt verdieping/glas in volgorde + Afronden-terugsprong (BL-165; screenshots `bl165-*-390`) |
+| `specs/24-bl166-klant-hertest.spec.ts` | Bedankt/pand/huur/teksten screenshots 390+1440 (BL-166) |
 
 ## Helpers
 

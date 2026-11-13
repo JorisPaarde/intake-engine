@@ -39,6 +39,7 @@ final class CustomerIntakeLinkMail extends Mailable
                 'expiresAt' => $this->intake->token_expires_at,
                 'appName' => (string) config('app.name'),
                 'hasKnownHousingFacts' => $this->intake->hasKnownHousingFacts(),
+                'knownPropertyFactsNoun' => $this->intake->knownPropertyFactsNoun(),
             ],
         );
     }

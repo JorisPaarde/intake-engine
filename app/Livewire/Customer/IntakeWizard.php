@@ -1099,6 +1099,17 @@ class IntakeWizard extends Component
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
             $this->realignToActiveStep();
+            // BL-165: ontbrekende stap verdween na antwoord (bijv. gedeelde verdieping
+            // via Afronden-link) — meteen terug, niet realign naar kamerfoto’s.
+            $stepAfter = $this->currentStep();
+            $stillOnAnswered = is_array($stepAfter)
+                && VisibilityResolver::compositeKey(
+                    $stepAfter['question_key'],
+                    $stepAfter['section_instance_key'],
+                ) === $composite;
+            if (! $stillOnAnswered && $this->returnFromPhotoFixIfNeeded()) {
+                return;
+            }
             $this->maybeAutoAdvanceAfterChoice($composite, $field);
 
             return;
@@ -3650,6 +3661,12 @@ class IntakeWizard extends Component
             : null;
 
         if ($currentIndex === null && is_string($currentKey) && $currentKey !== '') {
+            // Via Afronden-melding: na beantwoorden van de ontbrekende stap (die
+            // daarna uit de lijst verdwijnt) direct terug — niet 20 stappen vooruit.
+            if ($this->returnFromPhotoFixIfNeeded()) {
+                return;
+            }
+
             // The displayed question left the list (e.g. room_name after fill). Land on
             // the successor without validating a different question under a stale index.
             if ($knownBeforeSave !== []) {
@@ -5327,14 +5344,15 @@ class IntakeWizard extends Component
             return false;
         }
 
-        $this->stepIndex = $index;
-        $this->syncActiveStepKey($steps);
-        $this->rememberCurrentCursor();
-        $this->hydrateFormFromAnswers();
-        $this->applyPrefillForActiveStep();
-        $this->flushDeferredPhotoDerivationsForCurrentStep();
-        $this->saveMessage = '';
+        $this->landOnStepIndex($steps, $index);
         $this->showMissing = false;
+        $this->completionMissing = [];
+
+        // BL-165: terug van Afronden-link → opnieuw Afronden-check (bedankt of
+        // volgende ontbrekende), zonder beantwoorde stappen opnieuw te tonen.
+        if ($index === count($steps) - 1) {
+            $this->complete();
+        }
 
         return true;
     }

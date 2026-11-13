@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Models;
 
 use App\Domains\AI\Models\AiRun;
+use App\Domains\Intake\Services\EpOnlineService;
 use App\Enums\ContributionMode;
 use App\Enums\IntakeSource;
 use App\Enums\IntakeStatus;
@@ -301,7 +302,7 @@ class Intake extends Model
 
     /**
      * True when BAG/EP (or similar) already contributed housing attributes we can
-     * show as "bekende woninggegevens" — not merely an address_verification status.
+     * show as "bekende woninggegevens" / "pandgegevens" — not merely an address_verification status.
      */
     public function hasKnownHousingFacts(): bool
     {
@@ -321,6 +322,62 @@ class Intake extends Model
     }
 
     /**
+     * BAG zonder woonfunctie (of expliciet bedrijfspand) → pand i.p.v. woning (BL-166).
+     */
+    public function isNonResidentialProperty(): bool
+    {
+        $this->loadMissing(['answers', 'externalFacts']);
+
+        $typeAnswer = $this->answers->firstWhere('question_key', 'building_type');
+        $typeValue = is_array($typeAnswer?->value) ? ($typeAnswer->value['value'] ?? null) : null;
+        if ($typeValue === 'commercial') {
+            return true;
+        }
+
+        $usageFact = $this->externalFacts->firstWhere('fact_key', 'usage_purposes');
+        $values = is_array($usageFact?->value) ? ($usageFact->value['values'] ?? null) : null;
+        if (! is_array($values) || $values === []) {
+            return false;
+        }
+
+        $normalized = array_values(array_filter(array_map(
+            static fn (mixed $purpose): string => is_string($purpose) ? mb_strtolower(trim($purpose)) : '',
+            $values,
+        )));
+
+        if ($normalized === []) {
+            return false;
+        }
+
+        return ! in_array('woonfunctie', $normalized, true);
+    }
+
+    /** Klantlabel: “woninggegevens” of “pandgegevens”. */
+    public function knownPropertyFactsNoun(): string
+    {
+        return $this->isNonResidentialProperty() ? 'pandgegevens' : 'woninggegevens';
+    }
+
+    public function knownPropertyFactsIntro(): string
+    {
+        $noun = $this->knownPropertyFactsNoun();
+
+        return "Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende {$noun}. Jij laat alleen zien wat we nog nodig hebben.";
+    }
+
+    /**
+     * Soft notice when BAG points to a non-residential use (e.g. Grote Markt 2).
+     */
+    public function nonResidentialCustomerNote(): ?string
+    {
+        if (! $this->isNonResidentialProperty()) {
+            return null;
+        }
+
+        return 'Volgens de openbare registratie is dit geen woonfunctie (bijvoorbeeld een bedrijfspand of winkel). Controleer of dat klopt; je kunt gewoon verder.';
+    }
+
+    /**
      * Short customer-facing lines for already-known housing attributes (label → value).
      *
      * @return list<array{label: string, value: string}>
@@ -330,6 +387,7 @@ class Intake extends Model
         $this->loadMissing(['answers', 'externalFacts', 'templateVersion.sections.questions.options']);
 
         $lines = [];
+        $nonResidential = $this->isNonResidentialProperty();
 
         $yearAnswer = $this->answers->firstWhere('question_key', 'build_year');
         $yearNumber = is_array($yearAnswer?->value) ? ($yearAnswer->value['number'] ?? null) : null;
@@ -348,7 +406,7 @@ class Intake extends Model
                 ?->label;
 
             $lines[] = [
-                'label' => 'Woningtype',
+                'label' => $nonResidential ? 'Pandtype' : 'Woningtype',
                 'value' => is_string($optionLabel) && $optionLabel !== '' ? $optionLabel : $typeValue,
             ];
         }
@@ -383,12 +441,28 @@ class Intake extends Model
         return 'Geen energielabel gevonden voor dit adres. Dat is geen probleem; je kunt gewoon verder.';
     }
 
+    /**
+     * Alleen een labelletter uit een echte bron (EP-Online), nooit demo/heuristiek (BL-166).
+     */
     private function knownEnergyLabelClass(): ?string
     {
         $this->loadMissing('externalFacts');
 
         $energyFact = $this->externalFacts->firstWhere('fact_key', 'energy_label');
-        $class = is_array($energyFact?->value) ? ($energyFact->value['value'] ?? null) : null;
+        if ($energyFact === null) {
+            return null;
+        }
+
+        $trustedSources = [
+            EpOnlineService::sourceName(),
+            'epo',
+            'EP-Online',
+        ];
+        if (! in_array($energyFact->source, $trustedSources, true)) {
+            return null;
+        }
+
+        $class = $energyFact->value['value'] ?? null;
 
         if (! is_string($class)) {
             return null;
