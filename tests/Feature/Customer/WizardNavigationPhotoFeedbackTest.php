@@ -37,6 +37,9 @@ beforeEach(function () {
         'ai.provider' => 'fake',
         'ai.photo_inference.enabled' => true,
     ]);
+    // ShouldBeUnique op ProcessIntakePhotoVariantsJob hergebruikt upload-id 1…N per test
+    // in hetzelfde Pest-process (array-cache) → stil overgeslagen job + hangende "assessing".
+    Illuminate\Support\Facades\Cache::flush();
 });
 
 afterEach(function () {
