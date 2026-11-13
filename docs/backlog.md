@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-169 | UX-review ≤8: embed-test/form (7), koop-huur+verhuurder (8), differs-link + Opgeslagen (9) | E1/E5/E7 | in_progress | high | UX-review staging 13 nov · airco v33 · parallel met overige wizard-UX-punten |
+| — | BL-169 | UX-review ≤8: embed-test/form (7), koop-huur+verhuurder (8), differs-link + Opgeslagen (9) | E1/E5/E7 | done | high | UX-review staging 13 nov · airco v33 · PR #320 · 2026-11-13 · parallel met overige wizard-UX-punten |
 | — | BL-168 | Verschilt per ruimte op zon: verdieping/glas in volgorde + Afronden-terugsprong | E1/E7 | done | high | na BL-164/#315 · klant-hertest 13 nov embed 2037GR 273 · prod v1.4.97 · PR #318 · 2026-11-13 · was parallel als BL-165; embed-test behield BL-165 via #317; coëxisteert met BL-166/#316 + BL-167/#319 |
 | — | BL-167 | Klantwizard: intro + demobanner alleen op eerste stap + known-summary | E1/E7 | done | high | na BL-164 · parallel #316/#318 · PR #319 · 2026-11-13 |
 | — | BL-166 | Klant-hertest 13 nov: bedankscherm, bedrijfspand, teksten, huur-verhuurder (airco v32) | E1/E7 | done | high | na BL-164 · staging embed-wizard hertest 13 nov · PR #316 · 2026-11-13 |
@@ -716,7 +716,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-169 — UX-review ≤8: embed-test/form, verhuurder, differs-link + Opgeslagen
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E5/E7 · **Band:** A · **Volgt op:** BL-165/166/168 · **Ref:** UX-review staging embed 13 nov, punten 7–9 (overige punten parallel door andere agents)
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #320 · **Prioriteit:** high · **Epic:** E1/E5/E7 · **Band:** A · **Volgt op:** BL-165/166/168 · **Ref:** UX-review staging embed 13 nov, punten 7–9 (overige punten parallel door andere agents)
 - **Aanleiding:** Joris wil alles onder UX-cijfer 8. Punten 7–9: driedubbele frames + hint op `/embed-test`; zware AVG-tekst; Toevoeging-label breekt; verhuurdervraag/opties; “Gegevens over het gebouw.”; stippelrand-differs; losse Opgeslagen-regel.
 - **Doel:** (7) één witte kaart in embed-test, geen hintregel; AVG “Ik geef … te gebruiken. Privacy”; fout alleen “Zonder dit vinkje…”; Toev. + aria. (8) “Weet je verhuurder ervan?” + nieuwe optielabels; map yes/not_asked/no in dashboard/bedankt; geen building-subtekst. (9) “Verschilt dit per ruimte?” als link; Opgeslagen in voortgangsregel met vinkje.
 - **Scope:** embed views + `StoreEmbedIntakeRequest`; airco **v33**; `LandlordPermissionLabels` + weergave in answerblocks/completion/dossier/rapport; wizard blade (differs + save); Pest + Playwright embed/differs; screenshots 390/1440.
