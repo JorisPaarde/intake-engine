@@ -4,7 +4,8 @@
 
 {{-- Onderpadding = footerhoogte zodat fixed footer geen content afdekt (BL-157). --}}
 <div
-    class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ! empty($photoNeedsOverride) ? 'pb-52' : (($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-36') }}"
+    {{-- pb-52: sticky Volgende (~132 px) + onderschrift mag laatste radio/optie op 390 niet afdekken (BL-166). --}}
+    class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pt-4 sm:px-6 {{ ! empty($photoNeedsOverride) ? 'pb-56' : (($completed || ($waitingForPrefill ?? false)) ? 'pb-8' : 'pb-52') }}"
     data-testid="customer-wizard-shell"
 >
     {{-- BL-167: demobanner + intro/BAG/bedrijfspand alleen op eerste stap + known-summary. --}}
@@ -29,14 +30,21 @@
         </div>
 
         <div class="mt-4">
+            {{-- BL-167: intro alleen op start/known-summary; BL-166: pandgegevens + bedrijfspandmelding. --}}
             @if ($showWizardIntro ?? false)
                 <div class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]" data-testid="wizard-intro">
                     @if ($intake->hasKnownHousingFacts())
-                        <p>Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende woninggegevens. Jij laat alleen zien wat we nog nodig hebben.</p>
+                        <p data-testid="known-property-intro">{{ $intake->knownPropertyFactsIntro() }}</p>
                         @php
                             $knownHousingLines = $intake->knownHousingFactLines();
                             $energyLabelNote = $intake->energyLabelCustomerNote();
+                            $nonResidentialNote = $intake->nonResidentialCustomerNote();
                         @endphp
+                        @if ($nonResidentialNote !== null)
+                            <p class="mt-3 text-sm font-normal leading-relaxed text-[#5e6862]" data-testid="non-residential-note" role="status">
+                                {{ $nonResidentialNote }}
+                            </p>
+                        @endif
                         @if ($knownHousingLines !== [])
                             <dl class="mt-3 space-y-1.5 border-t border-[color-mix(in_srgb,var(--tenant-primary)_18%,white)] pt-3 text-sm font-normal" data-testid="known-housing-facts">
                                 @foreach ($knownHousingLines as $knownLine)
@@ -97,11 +105,43 @@
             </div>
         </div>
     @elseif ($completed)
+        @php
+            $completionSummary = \App\Domains\Intake\Support\CustomerCompletionSummary::forIntake($intake);
+        @endphp
         <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm" data-testid="customer-thank-you">
             <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">Bedankt</h1>
-            <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
-                Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.
+            <p class="mt-3 text-sm leading-relaxed text-[#5e6862]" data-testid="thank-you-timeline">
+                Jouw deel is compleet. We hebben je gegevens doorgestuurd naar je installateur. Die reageert meestal {{ $completionSummary['response_within'] }}. Als er nog iets nodig is, neemt de installateur contact met je op.
             </p>
+
+            <div class="mt-5 rounded-xl border border-[#dde2da] bg-[#f7f8f6] px-4 py-4" data-testid="thank-you-summary">
+                <p class="text-sm font-semibold text-[#18201d]">Dit heb je doorgegeven</p>
+                <dl class="mt-3 space-y-2 text-sm">
+                    @if ($completionSummary['address'] !== null)
+                        <div class="flex items-start justify-between gap-3">
+                            <dt class="text-[#5e6862]">Adres</dt>
+                            <dd class="max-w-[60%] text-right font-medium text-[#18201d]">{{ $completionSummary['address'] }}</dd>
+                        </div>
+                    @endif
+                    @if ($completionSummary['room_count'] > 0)
+                        <div class="flex items-start justify-between gap-3">
+                            <dt class="text-[#5e6862]">Ruimtes</dt>
+                            <dd class="font-medium text-[#18201d]">{{ $completionSummary['room_count'] }}</dd>
+                        </div>
+                    @endif
+                    <div class="flex items-start justify-between gap-3">
+                        <dt class="text-[#5e6862]">Foto’s</dt>
+                        <dd class="font-medium text-[#18201d]">{{ $completionSummary['photo_count'] }}</dd>
+                    </div>
+                    @foreach ($completionSummary['highlights'] as $highlight)
+                        <div class="flex items-start justify-between gap-3">
+                            <dt class="text-[#5e6862]">{{ $highlight['label'] }}</dt>
+                            <dd class="max-w-[60%] text-right font-medium text-[#18201d]">{{ $highlight['value'] }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            </div>
+
             @if ($intake->is_demo)
                 <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
                     Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.

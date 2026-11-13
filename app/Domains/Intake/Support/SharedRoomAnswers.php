@@ -35,7 +35,7 @@ final class SharedRoomAnswers
             'sun_exposure',
             'glass_amount',
             'glazing_type',
-            'room_outlet_status',
+            // room_outlet_status blijft intern (InternalCustomerQuestions); niet delen met de klant (BL-166).
         ];
     }
 

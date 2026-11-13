@@ -176,7 +176,7 @@ test('bij foto-waarschuwing toont sticky footer één Toch doorgaan i.p.v. Volge
         ->assertDontSeeHtml('data-testid="photo-accept-mismatch"')
         ->assertDontSeeHtml('data-testid="next-button"')
         ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE)
-        ->assertSeeHtml('pb-52')
+        ->assertSeeHtml('pb-56')
         ->assertSeeHtml('fixed inset-x-0 bottom-0')
         ->html();
 

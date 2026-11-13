@@ -24,6 +24,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportTesting\Testable;
@@ -37,6 +38,9 @@ beforeEach(function () {
         'ai.provider' => 'fake',
         'ai.photo_inference.enabled' => true,
     ]);
+    // ShouldBeUnique op ProcessIntakePhotoVariantsJob hergebruikt upload-id 1…N per test
+    // in hetzelfde Pest-process (array-cache) → stil overgeslagen job + hangende "assessing".
+    Cache::flush();
 });
 
 afterEach(function () {
@@ -466,7 +470,7 @@ test('stale foto-feedback verdwijnt na Vervang/Verwijderen zonder reload', funct
 
     $component
         ->assertSee('lage resolutie')
-        ->assertSee('stopcontact');
+        ->assertSee('overzichtsfoto');
 
     $hintAfterLowRes = $component->get('photoHint')['room-1__room_photos'] ?? null;
     $extraAfterLowRes = $component->get('progressExtraNote');
