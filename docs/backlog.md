@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-165 | Verschilt per ruimte op zon: verdieping/glas in volgorde + Afronden-terugsprong | E1/E7 | done | high | na BL-164/#315 · klant-hertest 13 nov embed 2037GR 273 · prod v1.4.97 · 2026-11-13 |
+| — | BL-165 | Verschilt per ruimte op zon: verdieping/glas in volgorde + Afronden-terugsprong | E1/E7 | done | high | na BL-164/#315 · klant-hertest 13 nov embed 2037GR 273 · prod v1.4.97 · PR #318 · 2026-11-13 |
 | — | BL-164 | Voortgang % springt niet naar ~97% vóór kamerfoto’s (Verschilt per ruimte / stale knownStepKeys) | E1/E7 | done | high | na BL-163/#314 · klanttest embed 2037GR 273 · 3 kamers differs · PR #315 · 2026-11-13 |
 | — | BL-163 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · PR #314 · 2026-11-13 · was parallel als BL-161; outdoor/#312 behield BL-161, differs/#313 → BL-162 |
 | — | BL-162 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | done | high | klanttest 11 nov run 3 · PR #313 · 2026-11-11 · parallel als BL-161 met #312 |
@@ -712,7 +712,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-165 — Verschilt per ruimte op zon: verdieping/glas + Afronden-terugsprong
 
-- **Status:** done · **Datum:** 2026-11-13 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-164/#315 · **Ref:** klant-hertest 13 nov staging embed 2037GR 273, airco-flow, prod v1.4.97
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #318 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-164/#315 · **Ref:** klant-hertest 13 nov staging embed 2037GR 273, airco-flow, prod v1.4.97
 - **Aanleiding:** (1) **Verschilt per ruimte** op de gedeelde zonvraag → flow naar kamer 1; verplichte verdieping pas bij Afronden (“Nog niet alles is klaar”); link werkte maar daarna ~20 beantwoorde stappen opnieuw. (2) Glasvragen (optioneel) verdwenen stil — installateur mist info zonder melding.
 - **Oorzaak:** room `sort_order` zet zon/glas vóór verdieping; `chooseSharedDiffers` landde op `room-1::*` ná het hele gedeelde blok, waardoor latere shareables wegvielen. Afronden-return: na antwoord verdween de stap via `updated`/realign zonder `photoFixReturnStepKey` te honoreren → sprong naar kamerfoto’s i.p.v. terug naar Afronden.
 - **Doel:** verdieping én glas in normale volgorde na zon-differs; Afronden-link → fix → direct terug (geen herwalk); voortgang monotoon (BL-164).
