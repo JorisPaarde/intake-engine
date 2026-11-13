@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-169 | UX-review embed: stap 1 pandregel, Afronden, merk-radio, known-summary, postcode/autosave | E1/E7 | in_progress | high | UX-review 13 nov staging embed · parallel foto/bedankt + embed/koop-huur/kamers |
+| — | BL-169 | UX-review embed: stap 1 pandregel, Afronden, merk-radio, known-summary, postcode/autosave | E1/E7 | done | high | UX-review 13 nov staging embed · PR #322 · 2026-11-13 · parallel foto/bedankt + embed/koop-huur/kamers (BL-171/#320) |
 | — | BL-171 | UX-review ≤8: embed-test/form (7), koop-huur+verhuurder (8), differs-link + Opgeslagen (9) | E1/E5/E7 | done | high | UX-review staging 13 nov · airco v33 · PR #320 · 2026-11-13 · was parallel als BL-169; hernummerd naar BL-171 |
 | — | BL-168 | Verschilt per ruimte op zon: verdieping/glas in volgorde + Afronden-terugsprong | E1/E7 | done | high | na BL-164/#315 · klant-hertest 13 nov embed 2037GR 273 · prod v1.4.97 · PR #318 · 2026-11-13 · was parallel als BL-165; embed-test behield BL-165 via #317; coëxisteert met BL-166/#316 + BL-167/#319 |
 | — | BL-167 | Klantwizard: intro + demobanner alleen op eerste stap + known-summary | E1/E7 | done | high | na BL-164 · parallel #316/#318 · PR #319 · 2026-11-13 |
@@ -717,9 +717,9 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-169 — UX-review embed: stap 1, Afronden, merk, known-summary, overal
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Ref:** UX-review staging embed 13 nov (cijfers &lt;8)
-- **Scope (deze PR):** punt 2 stap 1 pandregel + leeg reden-veld; punt 4 Afronden-teksten/validatie; punt 5 merk-radio + sticky padding + closing altijd in flow; punt 6 known-summary per ruimte; overal postcode-spatie + embed-autosave-tekst. Geen foto-stappen/bedankscherm/embed-pagina (parallel).
-- **Doel:** klantwizard onder UX-cijfer 8 voor deze schermen.
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #322 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Ref:** UX-review staging embed 13 nov (cijfers &lt;8)
+- **Scope:** punt 2 stap 1 pandregel + leeg reden-veld; punt 4 Afronden-teksten/validatie; punt 5 merk-radio + sticky padding + closing altijd in flow; punt 6 known-summary per ruimte; overal postcode-spatie + embed-autosave-tekst. Geen foto-stappen/bedankscherm/embed-pagina (parallel → BL-171/#320).
+- **Doel/resultaat:** klantwizard onder UX-cijfer 8 voor deze schermen. Pest `Bl169UxWizardFixTest`; E2E `26-bl169-ux-wizard-fix` + screenshots 390/1440. Branch merge’t #320/v33 als BL-171.
 
 ### BL-171 — UX-review ≤8: embed-test/form, verhuurder, differs-link + Opgeslagen
 
