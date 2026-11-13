@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-165 | Embed-test: installateursvriendelijke introtekst (geen sleutel/iframe-src/frame-ancestors) | E1/E5 | in_progress | medium | na BL-153/160 · staging `/embed-test` |
+| — | BL-165 | Embed-test: installateursvriendelijke introtekst (geen sleutel/iframe-src/frame-ancestors) | E1/E5 | done | medium | na BL-153/160 · staging `/embed-test` · PR #317 · 2026-11-13 |
 | — | BL-164 | Voortgang % springt niet naar ~97% vóór kamerfoto’s (Verschilt per ruimte / stale knownStepKeys) | E1/E7 | done | high | na BL-163/#314 · klanttest embed 2037GR 273 · 3 kamers differs · PR #315 · 2026-11-13 |
 | — | BL-163 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · PR #314 · 2026-11-13 · was parallel als BL-161; outdoor/#312 behield BL-161, differs/#313 → BL-162 |
 | — | BL-162 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | done | high | klanttest 11 nov run 3 · PR #313 · 2026-11-11 · parallel als BL-161 met #312 |
@@ -712,10 +712,10 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-165 — Embed-test introtekst voor installateurs
 
-- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E1/E5 · **Band:** A · **Volgt op:** BL-153/160 · **Ref:** staging `/embed-test` technische lead/meta
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #317 · **Prioriteit:** medium · **Epic:** E1/E5 · **Band:** A · **Volgt op:** BL-153/160 · **Ref:** staging `/embed-test` technische lead/meta
 - **Aanleiding:** boven het formulier stond technische uitleg (frame-ancestors, Happy path, Testbedrijf, Sleutel, Iframe-src) die een installateur zonder technische kennis niet helpt.
 - **Doel:** korte NL-tekst (je/jij, geen we/wij/ons): kop “Zo ziet het opnameformulier eruit op jouw website” + voorbeeld-/testomgeving-uitleg. Sleutel, iframe-src en frame-ancestors alleen in HTML-comment/docs; smoke/E2E blijven groen; pagina 404 op production.
-- **Acceptatie:** Pest assert nieuwe copy + geen zichtbare meta; screenshots 390/1440; E2E `19-embed-iframe-resize` ongewijzigd groen.
+- **Resultaat:** zichtbare meta weg; Pest `EmbedRequestPrefillAndBadgeTest`; screenshots `bl165-embed-test-intro-390.png` / `…-1440.png`; E2E `19-embed-iframe-resize` ongewijzigd.
 
 ### BL-164 — Voortgang % niet naar ~97% vóór kamerfoto’s
 
