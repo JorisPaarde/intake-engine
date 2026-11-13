@@ -314,15 +314,12 @@ class Intake extends Model
     }
 
     /**
-     * One-line property summary above step 1 (address · bouwjaar …). No soft warnings.
+     * Housing facts above step 1 (bouwjaar · woningtype …). Address stays in the
+     * header only — no duplicate street line (BL-169 review).
      */
     public function customerPropertySummaryLine(): ?string
     {
-        $address = $this->fullAddress();
         $parts = [];
-        if ($address !== '') {
-            $parts[] = $address;
-        }
 
         foreach ($this->knownHousingFactLines() as $line) {
             $label = mb_strtolower(trim($line['label']));

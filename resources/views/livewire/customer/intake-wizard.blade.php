@@ -45,7 +45,8 @@
             @endif
             <div class="flex items-center justify-between gap-3 text-sm text-[#5e6862]">
                 <span>Voortgang</span>
-                <div class="flex items-center gap-2.5">
+                {{-- gap-3 (12px) + scheidingsteken: gap-2.5 zit niet in de gebouwde CSS (#320/#322). --}}
+                <div class="flex items-center gap-3" data-testid="progress-status">
                     @if ($saveMessage !== '')
                         <span
                             class="inline-flex items-center gap-1 text-xs font-medium text-[#5e6862]"
@@ -58,6 +59,7 @@
                             </svg>
                             {{ $saveMessage }}
                         </span>
+                        <span class="text-xs text-[#5e6862]" aria-hidden="true">·</span>
                     @endif
                     <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
                 </div>
@@ -159,7 +161,8 @@
             @endif
         </div>
 
-        <div class="flex-1 rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm">
+        {{-- Geen flex-1: kaart sluit om de inhoud (geen leeg wit vlak tot de sticky footer). --}}
+        <div class="rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm" data-testid="known-summary-card">
             <ul class="divide-y divide-[#dde2da]" data-testid="known-summary-list">
                 @foreach ($step['known_items'] ?? [] as $item)
                     <li class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0" data-testid="known-summary-item">

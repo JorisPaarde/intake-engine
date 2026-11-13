@@ -83,8 +83,9 @@ test('BL-169: stap 1 toont één pandregel zonder woonfunctie-/energielabel-meld
     $intake = bl169Intake();
     bl169SeedHousing($intake);
 
-    expect($intake->customerPropertySummaryLine())->toContain('Lepelstraat 1, 2011 RD Haarlem')
-        ->and($intake->customerPropertySummaryLine())->toContain('bouwjaar 1920')
+    // Adres alleen in de header; pandregel = bouwjaar/type (geen dubbele straat).
+    expect($intake->customerPropertySummaryLine())->toBe('bouwjaar 1920 · pandtype Bedrijfspand')
+        ->and($intake->customerPropertySummaryLine())->not->toContain('Lepelstraat')
         ->and($intake->nonResidentialCustomerNote())->not->toBeNull()
         ->and($intake->energyLabelCustomerNote())->not->toBeNull();
 
@@ -93,6 +94,8 @@ test('BL-169: stap 1 toont één pandregel zonder woonfunctie-/energielabel-meld
     expect($html)->toContain('data-testid="wizard-intro"')
         ->and($html)->toContain('Lepelstraat 1, 2011 RD Haarlem')
         ->and($html)->toContain('bouwjaar 1920')
+        ->and(substr_count($html, 'Lepelstraat 1, 2011 RD Haarlem'))->toBe(1)
+        ->and($html)->not->toContain('data-testid="field-required-error"')
         ->and($html)->not->toContain('data-testid="non-residential-note"')
         ->and($html)->not->toContain('data-testid="energy-label-note"')
         ->and($html)->not->toContain('Geen energielabel gevonden voor dit adres')
@@ -233,7 +236,7 @@ test('BL-169: merkstap is radio + select en blijft in de flow na prefill', funct
     expect($values)->toBe(['no_preference']);
 });
 
-test('BL-169: known-summary groepeert per ruimte en Wijzigen keert terug', function () {
+test('BL-169: known-summary één Ruimtes-rij en Wijzigen keert terug', function () {
     $intake = bl169Intake(['source' => IntakeSource::Installer]);
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'cooling_heating', null, ['value' => 'cooling'], PrefillSources::AI_TEXT);
@@ -254,9 +257,11 @@ test('BL-169: known-summary groepeert per ruimte en Wijzigen keert terug', funct
     expect($summary)->not->toBeNull();
 
     $items = collect($summary['known_items'] ?? []);
-    $roomLabels = $items->whereNotNull('section_instance_key')->pluck('label')->all();
-    expect($roomLabels)->toContain('Woonkamer')
-        ->and($roomLabels)->toContain('Slaapkamer')
+    $roomsRow = $items->firstWhere('label', 'Ruimtes');
+    expect($roomsRow)->not->toBeNull()
+        ->and($roomsRow['display_value'] ?? null)->toBe('Woonkamer, Slaapkamer')
+        ->and($items->where('label', 'Woonkamer')->count())->toBe(0)
+        ->and($items->where('label', 'Slaapkamer')->count())->toBe(0)
         ->and($items->pluck('label')->implode(' | '))->not->toContain('Hoe heet deze ruimte')
         ->and($summary['help_text'])->toBe('De rest vragen we hierna.');
 
@@ -265,9 +270,12 @@ test('BL-169: known-summary groepeert per ruimte en Wijzigen keert terug', funct
         ->set('stepIndex', $summaryIndex)
         ->set('activeStepKey', $steps[$summaryIndex]['key']);
 
-    expect($component->html())->toContain('De rest vragen we hierna.')
-        ->and($component->html())->toContain('data-testid="known-summary-edit"')
-        ->and($component->html())->toContain('Je voortgang blijft bewaard via deze link tot je afrondt.');
+    $html = $component->html();
+    expect($html)->toContain('De rest vragen we hierna.')
+        ->and($html)->toContain('data-testid="known-summary-edit"')
+        ->and($html)->toContain('data-testid="known-summary-card"')
+        ->and($html)->not->toContain('flex-1 rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm')
+        ->and($html)->toContain('Je voortgang blijft bewaard via deze link tot je afrondt.');
 
     $component->call('editKnownAnswer', 'room_name', 'room-1');
     expect($component->get('forceShowKnown'))->toContain('room-1__room_name');
@@ -279,4 +287,40 @@ test('BL-169: known-summary groepeert per ruimte en Wijzigen keert terug', funct
     $stepsAfter = $component->viewData('steps');
     $summaryAfter = collect($stepsAfter)->search(fn (array $s): bool => ($s['kind'] ?? '') === 'known_summary');
     expect($component->get('stepIndex'))->toBe($summaryAfter);
+});
+
+test('BL-169: Opgeslagen en percentage hebben scheiding in de voortgangsregel', function () {
+    $intake = bl169Intake();
+    $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('saveMessage', 'Opgeslagen')
+        ->html();
+
+    expect($html)->toContain('data-testid="progress-status"')
+        ->and($html)->toContain('data-testid="save-message"')
+        ->and($html)->toContain('data-testid="progress-percent"')
+        ->and($html)->toMatch('/data-testid="save-message"[\s\S]*?>[\s\S]*?Opgeslagen[\s\S]*?<\/span>[\s\S]*?·[\s\S]*?data-testid="progress-percent"/')
+        ->and($html)->not->toContain('gap-2.5');
+});
+
+test('BL-169: Afronden toont validatie niet bij laden', function () {
+    $intake = bl169Intake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'privacy_consent', null, ['bool' => true]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    $truthIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? '') === 'truth_confirmation',
+    );
+    expect($truthIndex)->toBeInt();
+
+    $html = $component
+        ->set('stepIndex', $truthIndex)
+        ->set('activeStepKey', $steps[$truthIndex]['key'])
+        ->set('form.truth_confirmation.bool', false)
+        ->assertSet('showMissing', false)
+        ->html();
+
+    expect($html)->not->toContain('data-testid="must-accept-refusal"')
+        ->and($html)->not->toContain('Vink dit aan om te versturen.');
 });

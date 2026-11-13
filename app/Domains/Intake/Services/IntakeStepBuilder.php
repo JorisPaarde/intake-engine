@@ -1264,9 +1264,9 @@ final class IntakeStepBuilder
             $instanceKey = $answer->section_instance_key;
             $isRoomScoped = is_string($instanceKey) && str_starts_with($instanceKey, 'room-');
 
-            // BL-169: room_name + room_type → één identiteitsrij (“Woonkamer”), geen
-            // “Woonkamer · 1 van 2 — Hoe heet deze ruimte? Woonkamer”. Overige
-            // kamer-vragen (verdieping, glas, m², …) blijven aparte Wijzigen-rijen.
+            // BL-169: room_name + room_type → later één “Ruimtes: …”-rij (geen lege
+            // naam-regels zonder waarde). Overige kamer-vragen (verdieping, glas, m²)
+            // blijven aparte Wijzigen-rijen.
             if ($isRoomScoped && in_array($answer->question_key, ['room_name', 'room_type'], true)) {
                 $roomLabel = $this->roomSummaryLabel($intake, $instanceKey, $answers);
                 if ($roomLabel === '') {
@@ -1283,10 +1283,11 @@ final class IntakeStepBuilder
                     'question_key' => $editKey,
                     'section_instance_key' => $instanceKey,
                     'label' => $roomLabel,
-                    'display_value' => (string) ($existing['display_value'] ?? ''),
+                    'display_value' => '',
                     'prefill_source' => (string) ($existing['prefill_source'] ?? $source),
                     '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
                     '_question_order' => $questionOrder[$editKey] ?? ($questionOrder[$answer->question_key] ?? PHP_INT_MAX),
+                    '_instance_order' => $instanceKey,
                 ];
 
                 continue;
@@ -1320,8 +1321,31 @@ final class IntakeStepBuilder
             ];
         }
 
-        foreach ($roomIdentityRows as $roomRow) {
-            $items[] = $roomRow;
+        // Eén rij “Ruimtes” met namen als waarde + één Wijzigen (eerste kamer).
+        if ($roomIdentityRows !== []) {
+            uasort(
+                $roomIdentityRows,
+                static fn (array $a, array $b): int => strnatcmp((string) ($a['_instance_order'] ?? ''), (string) ($b['_instance_order'] ?? '')),
+            );
+            $names = [];
+            foreach ($roomIdentityRows as $roomRow) {
+                $name = trim((string) ($roomRow['label'] ?? ''));
+                if ($name !== '' && ! in_array($name, $names, true)) {
+                    $names[] = $name;
+                }
+            }
+            $firstRoom = reset($roomIdentityRows);
+            if ($names !== [] && is_array($firstRoom)) {
+                $items[] = [
+                    'question_key' => (string) ($firstRoom['question_key'] ?? 'room_type'),
+                    'section_instance_key' => $firstRoom['section_instance_key'] ?? null,
+                    'label' => 'Ruimtes',
+                    'display_value' => implode(', ', $names),
+                    'prefill_source' => (string) ($firstRoom['prefill_source'] ?? PrefillSources::AI_TEXT),
+                    '_section_order' => (int) ($firstRoom['_section_order'] ?? PHP_INT_MAX),
+                    '_question_order' => (int) ($firstRoom['_question_order'] ?? PHP_INT_MAX),
+                ];
+            }
         }
 
         if ($items === []) {
