@@ -120,9 +120,11 @@ final class E2eScenarioFactory
         $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
         $this->dossierManager->initialize($intake->fresh() ?? $intake);
 
+        // BL-167: pandgegevens staan alleen in de intro op stap 0 / known-summary.
+        // request_reason ontbreekt in de stappenlijst → oude cursor viel terug op cooling_heating.
         $intake->update([
-            'current_section_key' => 'request',
-            'current_question_key' => 'request_reason',
+            'current_section_key' => null,
+            'current_question_key' => '_known_summary',
             'current_section_instance_key' => null,
         ]);
 
