@@ -40,7 +40,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-167 | Klantwizard: intro + demobanner alleen op eerste stap + known-summary | E1/E7 | in_progress | high | na BL-164 · parallel #316/#318 · 390-schermruimte |
+| — | BL-167 | Klantwizard: intro + demobanner alleen op eerste stap + known-summary | E1/E7 | done | high | na BL-164 · parallel #316/#318 · PR #319 · 2026-11-13 |
 | — | BL-164 | Voortgang % springt niet naar ~97% vóór kamerfoto’s (Verschilt per ruimte / stale knownStepKeys) | E1/E7 | done | high | na BL-163/#314 · klanttest embed 2037GR 273 · 3 kamers differs · PR #315 · 2026-11-13 |
 | — | BL-163 | Klanttest run 3: oppervlak-getal, overall kamernummering, geen Vraag N, Vorige zonder klembord | E1/E7 | done | high | klanttest 11 nov run 3 · PR #314 · 2026-11-13 · was parallel als BL-161; outdoor/#312 behield BL-161, differs/#313 → BL-162 |
 | — | BL-162 | Verschilt per ruimte: per-kamer verdieping/zon + werkende Afronden-links | E1/E7 | done | high | klanttest 11 nov run 3 · PR #313 · 2026-11-11 · parallel als BL-161 met #312 |
@@ -712,10 +712,9 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-167 — Klantwizard-intro + demobanner alleen op start + known-summary
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-164 · **Parallel:** #316 (BL-166 bedrijfspand in intro) · #318 (BL-165 wizard)
+- **Status:** done · **Datum:** 2026-11-13 · **PR:** #319 · **Prioriteit:** high · **Epic:** E1/E7 · **Band:** A · **Volgt op:** BL-164 · **Parallel:** #316 (BL-166 bedrijfspand in intro) · #318 (BL-165 wizard)
 - **Aanleiding:** introblok (“Met jouw hulp…” + BAG + bedrijfspand) en demobanner (“Demo — wat de klant ziet”) stonden op elke stap → veel schermruimte op 390 px.
-- **Doel:** intro + demobanner alleen op eerste stap en “Dit hebben we al uit je aanvraag”; logo/naam/voortgang blijven; Pest + 390-screenshots.
-- **Acceptatie:** Pest `Bl167WizardIntroVisibilityTest`; screenshot stap 1 (intro+banner zichtbaar) vs latere stap (weg); rebase op main vlak voor PR.
+- **Doel/resultaat:** `showWizardIntro` alleen op eerste stap + known-summary (+ prefill-wacht); demobanner mee; logo/naam/voortgang blijven. Pest `Bl167WizardIntroVisibilityTest`; 390-screenshots stap 1 / known-summary / latere stap.
 
 ### BL-164 — Voortgang % niet naar ~97% vóór kamerfoto’s
 
