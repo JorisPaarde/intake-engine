@@ -3739,6 +3739,13 @@ class IntakeWizard extends Component
         $this->stepIndex = $index;
         $this->showAreaOnlyField = false;
         $this->syncActiveStepKey($steps);
+        // BL-164: keep knownStepKeys in sync when the list grows (rooms / differs),
+        // otherwise realign after a vanished _shared step falls back to the last
+        // key from the stale short list and jumps near Afronden (~97% high-water).
+        $this->knownStepKeys = array_map(
+            static fn (array $step): string => $step['key'],
+            $steps,
+        );
         $this->rememberCurrentCursor();
         // Hydrate while dirty flags still set so a just-checked choice is not wiped, then clear.
         $this->hydrateFormFromAnswers();
@@ -5536,30 +5543,41 @@ class IntakeWizard extends Component
             : ($previousKeys[$this->stepIndex] ?? ($newKeys[$this->stepIndex] ?? null));
 
         $targetKey = null;
+        $preferredWasKnown = false;
 
         if (is_string($preferredKey) && in_array($preferredKey, $newKeys, true)) {
             $targetKey = $preferredKey;
+            $preferredWasKnown = true;
         } elseif (is_string($preferredKey) && $previousKeys !== []) {
             $oldIndex = array_search($preferredKey, $previousKeys, true);
 
             if ($oldIndex !== false) {
+                $preferredWasKnown = true;
                 for ($i = $oldIndex + 1; $i < count($previousKeys); $i++) {
                     if (in_array($previousKeys[$i], $newKeys, true)) {
                         $targetKey = $previousKeys[$i];
                         break;
                     }
                 }
+
+                // Geen opvolger ná de verdwenen stap: neem de dichtstbijzijnde
+                // eerdere stap die nog bestaat (niet de allerlaatste van de oude lijst).
+                if ($targetKey === null) {
+                    for ($i = $oldIndex - 1; $i >= 0; $i--) {
+                        if (in_array($previousKeys[$i], $newKeys, true)) {
+                            $targetKey = $previousKeys[$i];
+                            break;
+                        }
+                    }
+                }
             }
         }
 
-        if ($targetKey === null && $previousKeys !== []) {
-            // Geen opvolger: neem de laatste eerdere stap die nog bestaat.
-            for ($i = count($previousKeys) - 1; $i >= 0; $i--) {
-                if (in_array($previousKeys[$i], $newKeys, true)) {
-                    $targetKey = $previousKeys[$i];
-                    break;
-                }
-            }
+        // BL-164: stale knownStepKeys (lijst groeide na ruimtes/prefill) mag nooit
+        // naar de laatste overlevende oude key springen → dat zette progressHighWater ≈ 97%.
+        if ($targetKey === null && ! $preferredWasKnown) {
+            $anchor = min(max(0, $this->stepIndex), max(0, count($newKeys) - 1));
+            $targetKey = $newKeys[$anchor] ?? null;
         }
 
         $index = $targetKey === null
@@ -5937,6 +5955,8 @@ class IntakeWizard extends Component
      * done steps / total visible steps. Passed/skipped steps and answered steps
      * (including "Weet ik niet") count as done. 100% only after afronden.
      * High-water keeps the bar from dropping when the list grows mid-session.
+     * BL-164: never raise high-water into the “bijna klaar”-zone while required
+     * steps (e.g. room photos) are still open — a stale stepIndex spike must not lock ~97%.
      *
      * @param  list<array<string, mixed>>  $steps
      */
@@ -5947,11 +5967,41 @@ class IntakeWizard extends Component
         }
 
         $raw = $this->computeRawStepProgressPercent($steps);
+        $raw = min($raw, $this->progressCapWithOpenRequired($steps));
         if ($raw > $this->progressHighWater) {
             $this->progressHighWater = $raw;
         }
 
         return $this->progressHighWater;
+    }
+
+    /**
+     * Cap progress while required steps remain unanswered so a spurious high
+     * stepIndex cannot lock the high-water near 100% (BL-164). Mid-wizard
+     * stepIndex progress stays untouched; only the “bijna klaar” zone (≥90%)
+     * is blocked while required work (e.g. room photos) is still open.
+     *
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function progressCapWithOpenRequired(array $steps): int
+    {
+        foreach ($steps as $step) {
+            if (! ($step['is_required'] ?? false)) {
+                continue;
+            }
+            $kind = $step['kind'] ?? 'question';
+            if ($kind === 'known_summary' || $kind === 'closing_wishes') {
+                continue;
+            }
+            if ($this->stepHasPersistedAnswer($step)) {
+                continue;
+            }
+
+            // Hard ceiling under ~90% while any required step lacks an answer.
+            return 89;
+        }
+
+        return 99;
     }
 
     /**
