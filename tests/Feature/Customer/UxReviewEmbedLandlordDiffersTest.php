@@ -21,7 +21,7 @@ beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
 });
 
-function uxReviewIntake(array $overrides = []): Intake
+function bl171UxReviewIntake(array $overrides = []): Intake
 {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
@@ -39,7 +39,7 @@ function uxReviewIntake(array $overrides = []): Intake
 }
 
 test('airco v33: verhuurderstekst, geen building-subtekst, differs-label', function () {
-    $intake = uxReviewIntake();
+    $intake = bl171UxReviewIntake();
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     expect($version->version)->toBe(33);
 
@@ -57,7 +57,7 @@ test('airco v33: verhuurderstekst, geen building-subtekst, differs-label', funct
 });
 
 test('oude landlord yes/no/not_asked mappen naar nieuwe weergavelabels in dashboard en bedankt', function () {
-    $intake = uxReviewIntake();
+    $intake = bl171UxReviewIntake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'ownership', null, ['value' => 'rented']);
     $save->handle($intake, 'landlord_permission', null, ['value' => 'yes']);
@@ -78,7 +78,7 @@ test('oude landlord yes/no/not_asked mappen naar nieuwe weergavelabels in dashbo
 });
 
 test('koop/huur toont geen Gegevens over het gebouw subtekst', function () {
-    $intake = uxReviewIntake();
+    $intake = bl171UxReviewIntake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
@@ -97,7 +97,7 @@ test('koop/huur toont geen Gegevens over het gebouw subtekst', function () {
 });
 
 test('Opgeslagen staat in de voortgangsregel en differs is een gewone link', function () {
-    $intake = uxReviewIntake();
+    $intake = bl171UxReviewIntake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 2]);
     $save->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom']);
