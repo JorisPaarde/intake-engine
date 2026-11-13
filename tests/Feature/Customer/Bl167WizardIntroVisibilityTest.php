@@ -75,7 +75,7 @@ function bl167OpenWizard(Intake $intake): array
     return [$component, $steps];
 }
 
-test('BL-167: intro + demobanner alleen op eerste stap en known-summary', function () {
+test('BL-167/BL-169: intro + demobanner alleen op eerste stap (niet known-summary)', function () {
     $intake = bl167WizardIntake();
     bl167SeedKnownHousing($intake);
 
@@ -98,7 +98,7 @@ test('BL-167: intro + demobanner alleen op eerste stap en known-summary', functi
         ->and($htmlFirst)->toContain('data-testid="wizard-intro"')
         ->and($htmlFirst)->toContain('data-testid="demo-scope-banner"')
         ->and($htmlFirst)->toContain('Demo — wat de klant ziet')
-        ->and($htmlFirst)->toContain('data-testid="known-housing-facts"')
+        ->and($htmlFirst)->toContain('data-testid="known-property-intro"')
         ->and($htmlFirst)->toContain('data-testid="progress-percent"')
         ->and($htmlFirst)->toContain('Intro Zichtbaarheid');
 
@@ -114,7 +114,6 @@ test('BL-167: intro + demobanner alleen op eerste stap en known-summary', functi
         ->and($htmlLater)->not->toContain('data-testid="wizard-intro"')
         ->and($htmlLater)->not->toContain('data-testid="demo-scope-banner"')
         ->and($htmlLater)->not->toContain('Demo — wat de klant ziet')
-        ->and($htmlLater)->not->toContain('data-testid="known-housing-facts"')
         ->and($htmlLater)->not->toContain('Met jouw hulp kunnen we sneller je airco plaatsen')
         ->and($htmlLater)->toContain('data-testid="progress-percent"')
         ->and($htmlLater)->toContain('Intro Zichtbaarheid');
@@ -129,15 +128,16 @@ test('BL-167: intro + demobanner alleen op eerste stap en known-summary', functi
     $component->set('stepIndex', $summaryIndex)->set('activeStepKey', $summaryKey);
     $htmlSummary = $component->html();
 
-    expect($component->viewData('showWizardIntro'))->toBeTrue()
-        ->and($htmlSummary)->toContain('data-testid="wizard-intro"')
-        ->and($htmlSummary)->toContain('data-testid="demo-scope-banner"')
+    expect($component->viewData('showWizardIntro'))->toBeFalse()
+        ->and($htmlSummary)->not->toContain('data-testid="wizard-intro"')
+        ->and($htmlSummary)->not->toContain('data-testid="demo-scope-banner"')
         ->and($htmlSummary)->toContain('Dit hebben we al uit je aanvraag')
         ->and($htmlSummary)->toContain('data-testid="progress-percent"');
 });
 
-test('BL-167: zonder demo geen demobanner; intro verdwijnt na eerste stap', function () {
+test('BL-167/BL-169: zonder demo geen demobanner; intro verdwijnt na eerste stap', function () {
     $intake = bl167WizardIntake(['is_demo' => false]);
+    bl167SeedKnownHousing($intake);
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
     $save->handle($intake, 'room_type', 'room-1', ['value' => 'living_room'], PrefillSources::AI_TEXT);
@@ -151,7 +151,7 @@ test('BL-167: zonder demo geen demobanner; intro verdwijnt na eerste stap', func
 
     expect($htmlFirst)->toContain('data-testid="wizard-intro"')
         ->and($htmlFirst)->not->toContain('data-testid="demo-scope-banner"')
-        ->and($htmlFirst)->toContain('Beantwoord de vragen hieronder');
+        ->and($htmlFirst)->toContain('data-testid="known-property-intro"');
 
     $laterIndex = collect($steps)->search(
         static fn (array $step, int $index): bool => $index > 0

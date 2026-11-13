@@ -59,13 +59,13 @@ test.describe('BL-166 klant-hertest screenshots', () => {
     await shot(page, 'bl166-landlord', 390, false);
     await shot(page, 'bl166-landlord', 1440, false);
 
-    // 3) Bedrijfspand
+    // 3) Bedrijfspand (BL-169: één pandregel, geen klantmelding woonfunctie)
     const commercial = await createScenario(request, 'bl166-commercial');
     await openCustomer(page, commercial);
-    await expect(page.getByTestId('known-property-intro')).toContainText(/pandgegevens/i);
-    await expect(page.getByTestId('non-residential-note')).toBeVisible();
-    await expect(page.getByTestId('known-housing-facts')).toContainText(/Pandtype|Bedrijfspand/i);
-    await expect(page.getByTestId('known-housing-facts')).not.toContainText(/Energielabel/i);
+    await expect(page.getByTestId('known-property-intro')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('known-property-intro')).toContainText(/pandtype|bouwjaar/i);
+    await expect(page.getByTestId('non-residential-note')).toHaveCount(0);
+    await expect(page.getByTestId('known-housing-facts')).toHaveCount(0);
     await shot(page, 'bl166-commercial', 390);
     await shot(page, 'bl166-commercial', 1440);
 
@@ -88,10 +88,12 @@ test.describe('BL-166 klant-hertest screenshots', () => {
     await shot(page, 'bl166-noise', 390);
     await shot(page, 'bl166-noise', 1440);
 
-    // 6) Merk één keer
+    // 6) Merk één keer (radio i.p.v. checkboxmuur)
     const closing = await createScenario(request, 'bl166-closing');
     await openCustomer(page, closing);
     await expect(page.getByText(/Merk, planning en opmerkingen/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('brand-preference-mode')).toBeVisible();
+    await expect(page.getByText('Geen voorkeur (installateur kiest)')).toBeVisible();
     const closingHtml = await page.content();
     const merkHits = (closingHtml.toLowerCase().match(/zonder merkvoorkeur kiest de installateur wat het beste past/g) ?? []).length;
     expect(merkHits).toBe(1);

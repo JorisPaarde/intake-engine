@@ -179,6 +179,14 @@ class IntakeWizard extends Component
 
     public bool $showMissing = false;
 
+    /**
+     * Merkvoorkeur UI-modus (los van opslag): auto volgt form-values; prefer toont de keuzelijst
+     * ook als er nog geen merk is gekozen.
+     *
+     * @var 'auto'|'none'|'prefer'
+     */
+    public string $brandPreferenceChoice = 'auto';
+
     public bool $completed = false;
 
     /**
@@ -613,8 +621,8 @@ class IntakeWizard extends Component
                 'saveMessage' => '',
                 'isLastStep' => false,
                 'isKnownSummary' => false,
-                // Prefill-wacht is het startscherm: intro/demobanner wel tonen (BL-167).
-                'showWizardIntro' => true,
+                // BL-169: pandblok/intro niet op prefill-laadscherm (alleen echte stap 1).
+                'showWizardIntro' => false,
                 'missingRequired' => [],
                 'uploadPhase' => '',
                 'uploadPhaseMessage' => '',
@@ -666,6 +674,7 @@ class IntakeWizard extends Component
                     $bundleQuestions[] = $bundleQuestion;
                 }
             }
+            $this->ensureDefaultBrandPreference();
         } elseif ($step !== null && ! $this->completed && $stepKind !== 'known_summary') {
             $question = app(IntakeStepBuilder::class)->questionForStep(
                 $version,
@@ -811,13 +820,12 @@ class IntakeWizard extends Component
             : $this->distantUnresolvedPhotoIssues($steps, $step);
         $photoNextBlockedByAssessment = $this->stepHasLookingPhotos($step);
         $stepDisplay = $this->resolveStableStepDisplay($steps, $step, $displayIndex);
-        // BL-167: intro + demobanner alleen op eerste stap en "Dit hebben we al…".
+        // BL-169: pandblok/intro alleen op stap 1 — niet op laden of bekend-overzicht.
         $showWizardIntro = ! $this->completed
-            && (
-                $stepKind === 'known_summary'
-                || $displayIndex === 0
-                || $step === null
-            );
+            && ! $this->waitingForPrefill
+            && $displayIndex === 0
+            && $step !== null
+            && $stepKind !== 'known_summary';
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
@@ -3305,6 +3313,7 @@ class IntakeWizard extends Component
         }
 
         if (($step['kind'] ?? 'question') === 'closing_wishes') {
+            $this->persistDefaultBrandPreferenceIfNeeded();
             $keys = $step['bundle_question_keys'] ?? IntakeStepBuilder::CLOSING_WISH_KEYS;
             foreach ($keys as $questionKey) {
                 $composite = VisibilityResolver::compositeKey($questionKey, null);
@@ -3502,6 +3511,102 @@ class IntakeWizard extends Component
     }
 
     /**
+     * Merkvoorkeur UX: radio “geen voorkeur” / “ik heb een voorkeur” + één select.
+     * Opslag blijft multi_choice `values` (compatibel met bestaande antwoorden).
+     */
+    public function setBrandPreferenceMode(string $mode): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $this->ensureAnswerShapeForKey('brand_preference', null);
+        if ($mode === 'prefer') {
+            $this->brandPreferenceChoice = 'prefer';
+            $current = is_array($this->form['brand_preference']['values'] ?? null)
+                ? $this->form['brand_preference']['values']
+                : [];
+            $specific = array_values(array_filter(
+                $current,
+                static fn (mixed $value): bool => is_string($value) && $value !== '' && $value !== 'no_preference',
+            ));
+            $this->form['brand_preference']['values'] = $specific;
+            if ($specific !== []) {
+                $this->persistComposite('brand_preference');
+            }
+        } else {
+            $this->brandPreferenceChoice = 'none';
+            $this->form['brand_preference']['values'] = ['no_preference'];
+            $this->persistComposite('brand_preference');
+        }
+        $this->saveMessage = 'Opgeslagen';
+    }
+
+    public function setBrandPreferenceBrand(string $brand): void
+    {
+        if ($this->completed || $brand === '' || $brand === 'no_preference') {
+            return;
+        }
+
+        $this->brandPreferenceChoice = 'prefer';
+        $this->ensureAnswerShapeForKey('brand_preference', null);
+        $this->form['brand_preference']['values'] = [$brand];
+        $this->persistComposite('brand_preference');
+        $this->saveMessage = 'Opgeslagen';
+    }
+
+    private function ensureDefaultBrandPreference(): void
+    {
+        $this->ensureAnswerShapeForKey('brand_preference', null);
+        $values = $this->form['brand_preference']['values'] ?? null;
+        $specific = is_array($values)
+            ? array_values(array_filter(
+                $values,
+                static fn (mixed $value): bool => is_string($value) && $value !== '' && $value !== 'no_preference',
+            ))
+            : [];
+
+        // Alleen UI-keuze syncen; lege `values` blijven [] tot de klant kiest of afrondt
+        // (anders bindt multi_choice verkeerd én faalt de lege-array-invariant).
+        if ($this->brandPreferenceChoice === 'auto') {
+            $this->brandPreferenceChoice = $specific !== [] ? 'prefer' : 'none';
+        }
+    }
+
+    /**
+     * Bij opslaan van closing_wishes: lege merkvoorkeur → no_preference (radio-default).
+     */
+    private function persistDefaultBrandPreferenceIfNeeded(): void
+    {
+        $this->ensureAnswerShapeForKey('brand_preference', null);
+        $values = $this->form['brand_preference']['values'] ?? null;
+        $specific = is_array($values)
+            ? array_values(array_filter(
+                $values,
+                static fn (mixed $value): bool => is_string($value) && $value !== '' && $value !== 'no_preference',
+            ))
+            : [];
+
+        if ($this->brandPreferenceChoice !== 'prefer' && $specific === []) {
+            $this->brandPreferenceChoice = 'none';
+            $this->form['brand_preference']['values'] = ['no_preference'];
+        }
+    }
+
+    private function ensureAnswerShapeForKey(string $questionKey, ?string $sectionInstanceKey): void
+    {
+        foreach ($this->version()->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    $this->ensureAnswerShape($question, $sectionInstanceKey);
+
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
      * Laat een eerder overgeslagen bekend veld opnieuw als klantvraag zien (wijzigen).
      * Bron blijft staan tot de opgeslagen waarde echt verandert.
      */
@@ -3644,14 +3749,10 @@ class IntakeWizard extends Component
             && ($currentStep['kind'] ?? 'question') !== 'known_summary'
             && $this->forcedKnownCompositesOnStep($currentStep) !== [];
 
-        // Eerst opslaan (zodat request_reason in de DB staat), dán embed-prefill dispatchen.
+        // Eerst opslaan (zodat request_reason in de DB staat), dán verplicht valideren —
+        // pas daarna embed-prefill/wacht. Leeg verplicht veld mag nooit door (BL-169).
         if ($currentStep !== null) {
             $this->saveStep($currentStep);
-        }
-
-        $this->maybeDispatchEmbedRequestPrefill();
-        if ($this->armEmbedPrefillWaitIfNeeded()) {
-            return;
         }
 
         // Recompute after save; keep navigating by the key we showed, not a shifted index.
@@ -3691,20 +3792,22 @@ class IntakeWizard extends Component
             $this->activeStepKey = $currentKey ?? '';
         }
 
-        $stepToValidate = $currentIndex !== null ? ($steps[$currentIndex] ?? null) : null;
+        $stepToValidate = $currentIndex !== null
+            ? ($steps[$currentIndex] ?? $currentStep)
+            : $currentStep;
 
         // Volgende blijft max 15 s gedimd terwijl we bekijken (UX §1.3).
         if ($this->stepHasLookingPhotos($stepToValidate)) {
             return;
         }
 
-        if (! $this->stepRequiredSatisfied($stepToValidate)) {
+        if (! $this->stepRequiredSatisfied($stepToValidate ?? $currentStep)) {
             $this->showMissing = true;
             $this->completionMissing = [];
             $this->saveMessage = '';
 
             // Foto-waarschuwing staat vaak boven de sticky knop (390 px): scroll in beeld.
-            if ($this->stepHasUnresolvedPhotoOverride($stepToValidate)) {
+            if ($this->stepHasUnresolvedPhotoOverride($stepToValidate ?? $currentStep)) {
                 $this->dispatch('scroll-to-photo-mismatch');
             }
 
@@ -3713,6 +3816,11 @@ class IntakeWizard extends Component
 
         $this->showMissing = false;
         $this->completionMissing = [];
+
+        $this->maybeDispatchEmbedRequestPrefill();
+        if ($this->armEmbedPrefillWaitIfNeeded()) {
+            return;
+        }
 
         // Na Wijzigen: terug naar overzicht, niet vooruit in de flow.
         if ($leavingForcedEdit) {

@@ -13,7 +13,7 @@ async function shot(page: Page, name: string, width: 390 | 1440, fullPage = true
   });
 }
 
-test.describe('BL-169 UX-review embed / landlord / differs', () => {
+test.describe('BL-171 UX-review embed / landlord / differs', () => {
   test('embed-test, toestemming, verhuurder, differs-link + Opgeslagen (390 + 1440)', async ({ page, request }) => {
     test.setTimeout(180_000);
 

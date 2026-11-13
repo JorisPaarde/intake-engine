@@ -297,6 +297,20 @@
                 </summary>
                 <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
                     <p class="text-xs text-gray-500">Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.</p>
+                @php
+                    $installerNonResidentialNote = $intake->nonResidentialCustomerNote();
+                    $installerEnergyLabelNote = $intake->energyLabelCustomerNote();
+                @endphp
+                @if ($installerNonResidentialNote !== null)
+                    <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="installer-non-residential-note" role="status">
+                        {{ $installerNonResidentialNote }}
+                    </p>
+                @endif
+                @if ($installerEnergyLabelNote !== null)
+                    <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800" data-testid="installer-energy-label-note" role="status">
+                        {{ $installerEnergyLabelNote }}
+                    </p>
+                @endif
                 @if ($externalData['facts'] !== [])
                     <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                         @foreach ($externalData['facts'] as $fact)

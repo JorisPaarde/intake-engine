@@ -63,6 +63,10 @@ final class E2eScenarioFactory
             'bl166-noise' => $this->bl166Noise(),
             'bl166-closing' => $this->bl166Closing(),
             'bl166-thank-you' => $this->bl166ThankYou(),
+            'bl169-step1' => $this->bl169Step1(),
+            'bl169-known-summary' => $this->bl169KnownSummary(),
+            'bl169-closing' => $this->bl166Closing(),
+            'bl169-afronden' => $this->bl169Afronden(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -79,12 +83,13 @@ final class E2eScenarioFactory
         $intake = $this->baseIntake([
             'customer_name' => 'BL166 Bedrijfspand',
             'customer_email' => 'bl166-commercial@example.com',
-            'status' => IntakeStatus::InProgress,
+            'status' => IntakeStatus::Sent,
             'address_line' => 'Grote Markt 2',
             'address_postal_code' => '2011RD',
             'address_house_number' => '2',
             'address_city' => 'Haarlem',
-            'request_reason' => 'Airco in kantoorruimte op de Grote Markt.',
+            // Leeg: land op stap 1 zodat pandregel zichtbaar is (BL-169).
+            'request_reason' => null,
         ]);
 
         IntakeExternalFact::query()->create([
@@ -120,15 +125,118 @@ final class E2eScenarioFactory
         $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
         $this->dossierManager->initialize($intake->fresh() ?? $intake);
 
-        // BL-167: pandgegevens staan alleen in de intro op stap 0 / known-summary.
-        // request_reason ontbreekt in de stappenlijst → oude cursor viel terug op cooling_heating.
+        // BL-169: pandregel alleen op stap 1 (request_reason).
         $intake->update([
-            'current_section_key' => null,
-            'current_question_key' => '_known_summary',
+            'current_section_key' => 'request',
+            'current_question_key' => 'request_reason',
             'current_section_instance_key' => null,
         ]);
 
         return $this->payload($intake, 'bl166-commercial');
+    }
+
+    /**
+     * BL-169: stap 1 met pandregel + leeg verplicht reden-veld.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl169Step1(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL169 Stap1',
+            'customer_email' => 'bl169-step1@example.com',
+            'status' => IntakeStatus::Sent,
+            'address_line' => 'Lepelstraat 1',
+            'address_postal_code' => '2011RD',
+            'address_house_number' => '1',
+            'address_city' => 'Haarlem',
+        ]);
+
+        IntakeExternalFact::query()->create([
+            'intake_id' => $intake->id,
+            'fact_key' => 'building_year',
+            'label' => 'Bouwjaar',
+            'value' => ['number' => 1920],
+            'source' => 'PDOK / BAG',
+            'confidence' => 'high',
+            'captured_at' => now(),
+        ]);
+        $this->saveAnswer->handle($intake, 'build_year', null, ['number' => 1920], 'pdok');
+        $this->saveAnswer->handle($intake, 'building_type', null, ['value' => 'terraced'], 'pdok');
+
+        $intake->update([
+            'current_section_key' => 'request',
+            'current_question_key' => 'request_reason',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl169-step1');
+    }
+
+    /**
+     * BL-169: known-summary met twee ruimtes (één rij per ruimte).
+     *
+     * @return array<string, mixed>
+     */
+    private function bl169KnownSummary(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL169 Known',
+            'customer_email' => 'bl169-known@example.com',
+            'status' => IntakeStatus::InProgress,
+            'address_postal_code' => '2011RD',
+            'address_city' => 'Haarlem',
+            'request_reason' => 'Airco in woonkamer en slaapkamer.',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'cooling_heating', null, ['value' => 'cooling'], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 2], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'room_type', 'room-1', ['value' => 'living_room'], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'room_name', 'room-1', ['text' => 'Woonkamer'], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'room_type', 'room-2', ['value' => 'bedroom'], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'room_name', 'room-2', ['text' => 'Slaapkamer'], PrefillSources::AI_TEXT);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'request',
+            'current_question_key' => '_known_summary',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl169-known-summary');
+    }
+
+    /**
+     * BL-169: land op Afronden (truth_confirmation).
+     *
+     * @return array<string, mixed>
+     */
+    private function bl169Afronden(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL169 Afronden',
+            'customer_email' => 'bl169-afronden@example.com',
+            'status' => IntakeStatus::InProgress,
+            'request_reason' => 'Airco, klaar om te versturen.',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::AI_TEXT);
+        $this->saveAnswer->handle($intake, 'privacy_consent', null, ['bool' => true]);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'closing',
+            'current_question_key' => 'truth_confirmation',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'bl169-afronden');
     }
 
     /**
