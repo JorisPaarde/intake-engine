@@ -309,7 +309,7 @@ final class IntakeStepBuilder
                 continue;
             }
 
-            // BL-165: na “Verschilt per ruimte” de per-kamer-stappen hier in de
+            // BL-168: na “Verschilt per ruimte” de per-kamer-stappen hier in de
             // gedeelde-blok-volgorde zetten (niet pas in elke room-* na dit blok).
             // Anders springt chooseSharedDiffers naar kamer 1 en vallen latere
             // shareables (glas, verdieping, …) stil weg tot Afronden.
@@ -481,7 +481,7 @@ final class IntakeStepBuilder
     ): void {
         $sortedQuestions = $section->questions->sortBy('sort_order')->values();
         // Shareable multi-room vragen staan in het gedeelde blok (of als per-kamer
-        // expansie ná differs, BL-165) — niet opnieuw in elke room-*-reeks.
+        // expansie ná differs, BL-168) — niet opnieuw in elke room-*-reeks.
         $questions = $sortedQuestions;
         $visibility = $this->resolveVisibilityForSection($sortedQuestions, $sectionInstanceKey, $context);
         /** @var array<string, true> $emittedGroups */
@@ -519,7 +519,7 @@ final class IntakeStepBuilder
 
         foreach ($questions as $question) {
             // Multi-room shareables: gedeeld scherm of differs-expansie in het
-            // gedeelde blok (BL-165). Alleen force-show (Afronden-link) mag hier.
+            // gedeelde blok (BL-168). Alleen force-show (Afronden-link) mag hier.
             if ($sectionInstanceKey !== null
                 && SharedRoomAnswers::isShareable($question)
                 && count($sharedTargets) > 1

@@ -133,7 +133,7 @@ function bl165DiffersOrderIntake(): array
     ];
 }
 
-test('BL-165: Verschilt per ruimte op zon houdt verdieping en glas in normale volgorde vóór kamerfoto’s', function () {
+test('BL-168: Verschilt per ruimte op zon houdt verdieping en glas in normale volgorde vóór kamerfoto’s', function () {
     [$intake] = bl165DiffersOrderIntake();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
@@ -218,7 +218,7 @@ test('BL-165: Verschilt per ruimte op zon houdt verdieping en glas in normale vo
     expect($component->get('activeStepKey'))->toBe('rooms::_shared::floor_level');
 });
 
-test('BL-165: Afronden-link naar ontbrekende verdieping keert na antwoord terug zonder alle stappen opnieuw', function () {
+test('BL-168: Afronden-link naar ontbrekende verdieping keert na antwoord terug zonder alle stappen opnieuw', function () {
     [$intake, $save] = bl165DiffersOrderIntake();
 
     // Beantwoord alles in het gedeelde blok behalve floor (simuleert de skip-bug).
@@ -274,7 +274,7 @@ test('BL-165: Afronden-link naar ontbrekende verdieping keert na antwoord terug 
     expect($returnedToEnd)->toBeTrue();
 });
 
-test('BL-165: na zon-differs blijft voortgang % monotoon onder 90% tot kamerfoto’s', function () {
+test('BL-168: na zon-differs blijft voortgang % monotoon onder 90% tot kamerfoto’s', function () {
     [$intake] = bl165DiffersOrderIntake();
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $percents = [(int) $component->viewData('progressPercent')];
