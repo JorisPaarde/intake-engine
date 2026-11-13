@@ -16,6 +16,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\LandlordPermissionLabels;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomDimensions;
@@ -1236,6 +1237,13 @@ final class DossierManager
     {
         if ($optionValue === null || $optionValue === '') {
             return null;
+        }
+
+        if ($question->key === LandlordPermissionLabels::QUESTION_KEY) {
+            $mapped = LandlordPermissionLabels::forValue($optionValue);
+            if ($mapped !== null) {
+                return $mapped;
+            }
         }
 
         $label = $question->options->firstWhere('value', $optionValue)?->label;

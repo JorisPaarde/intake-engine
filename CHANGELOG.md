@@ -10,6 +10,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **UX-review embed/wizard punten 7–9 (BL-169, airco v33):** `/embed-test` zonder grijze tussenkaart en zonder hintregel onder de iframe; AVG-tekst “Ik geef [bedrijf] toestemming… te gebruiken. Privacy” (Privacy-link via `EMBED_PRIVACY_POLICY_URL`); “Zonder dit vinkje…” alleen in de foutmelding; toevoeging-label **Toev.** + `aria-label`. Verhuurder: “Weet je verhuurder ervan?” met opties Ja/Nog niet/Nee-tegen; waarden `yes`/`not_asked`/`no` blijven (weergave via `LandlordPermissionLabels` in dashboard/bedankt/rapport). Koop/huur zonder “Gegevens over het gebouw.”. **Verschilt dit per ruimte?** als gewone link; **Opgeslagen** klein+grijs met vinkje rechts in de voortgangsregel. Pest: `UxReviewEmbedLandlordDiffersTest`, `EmbedIntakeFormTest`, `SharedRoomAnswersTest`; E2E embed-resize + differs.
 - **Klantteksten v32 (BL-166):** geluidsvraag krijgt eigen help (buren/slaapkamer); binnenunit-voorbeeld per kamertype (slaapkamer ≠ “boven de bank”); merkuitleg één keer op het closing-scherm; stopcontact-interne instructies uit klantzichtbare wall_outlet-/room_photos-tekst; `room_outlet_status` niet meer shareable.
 - **Embed-test introtekst voor installateurs (BL-165):** `/embed-test` toont geen frame-ancestors-/sleutel-/iframe-src-uitleg meer; kop “Zo ziet het opnameformulier eruit op jouw website” + korte NL-uitleg (je/jij). Technisch blijft in HTML-comment + docs. Pest: `EmbedRequestPrefillAndBadgeTest`. Pagina blijft 404 op production.
 

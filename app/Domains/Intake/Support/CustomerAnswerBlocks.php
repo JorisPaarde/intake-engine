@@ -166,7 +166,9 @@ final class CustomerAnswerBlocks
             }
 
             $grouped[$groupKey]['items'][] = [
-                'label' => $question->label,
+                'label' => $question->key === LandlordPermissionLabels::QUESTION_KEY
+                    ? LandlordPermissionLabels::QUESTION_LABEL
+                    : $question->label,
                 'value' => $display,
                 'sort' => (int) $question->sort_order,
             ];
@@ -420,6 +422,13 @@ final class CustomerAnswerBlocks
     {
         if (! is_string($raw) || $raw === '') {
             return null;
+        }
+
+        if ($question->key === LandlordPermissionLabels::QUESTION_KEY) {
+            $mapped = LandlordPermissionLabels::forValue($raw);
+            if ($mapped !== null) {
+                return $mapped;
+            }
         }
 
         $option = $question->options->firstWhere('value', $raw);

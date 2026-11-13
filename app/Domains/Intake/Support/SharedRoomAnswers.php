@@ -20,7 +20,7 @@ final class SharedRoomAnswers
     /** Keuze-waarde: klant wil per ruimte antwoorden. */
     public const DIFFERS_VALUE = '__differs_per_instance__';
 
-    public const DIFFERS_LABEL = 'Verschilt per ruimte';
+    public const DIFFERS_LABEL = 'Verschilt dit per ruimte?';
 
     public const SECTION_TITLE = 'Geldt voor alle ruimtes';
 

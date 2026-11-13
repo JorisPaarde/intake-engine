@@ -220,7 +220,7 @@ test('verschilt per ruimte: AI-prefill slaat per-kamer zon niet stil over', func
     expect($perRoomSun)->toHaveCount(3);
 });
 
-test('blade toont Verschilt per ruimte op gedeelde single_choice stap', function () {
+test('blade toont Verschilt dit per ruimte? als link op gedeelde single_choice stap', function () {
     [$intake] = jorisSharedScenarioIntake();
 
     $steps = app(IntakeStepBuilder::class)->build($intake, $intake->templateVersion);
@@ -233,7 +233,8 @@ test('blade toont Verschilt per ruimte op gedeelde single_choice stap', function
         ->set('activeStepKey', $shared['key'])
         ->assertSee('Geldt voor alle slaapkamers', false)
         ->assertSee('data-testid="shared-differs"', false)
-        ->assertSee('Verschilt per ruimte', false);
+        ->assertSee('Verschilt dit per ruimte?', false)
+        ->assertDontSee('border-dashed', false);
 });
 
 test('gedeelde zon/glas-tekst is meervoud zonder fotoverwijzing vóór ruimtefoto', function () {
