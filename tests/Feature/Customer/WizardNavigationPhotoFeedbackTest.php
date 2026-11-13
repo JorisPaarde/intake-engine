@@ -466,7 +466,7 @@ test('stale foto-feedback verdwijnt na Vervang/Verwijderen zonder reload', funct
 
     $component
         ->assertSee('lage resolutie')
-        ->assertSee('stopcontact');
+        ->assertSee('overzichtsfoto');
 
     $hintAfterLowRes = $component->get('photoHint')['room-1__room_photos'] ?? null;
     $extraAfterLowRes = $component->get('progressExtraNote');
