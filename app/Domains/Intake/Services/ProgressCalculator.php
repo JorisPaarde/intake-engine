@@ -8,7 +8,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
-use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\CustomerAudience;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
@@ -83,7 +83,7 @@ final class ProgressCalculator
                 continue;
             }
 
-            if (InternalCustomerQuestions::hidesFromCustomer($question)
+            if (CustomerAudience::hidesFromCustomer($question)
                 || TechnicalDecisionKeys::hidesFromCustomer($question)) {
                 continue;
             }

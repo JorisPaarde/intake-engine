@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\TemplateVersionStatus;
 
-test('airco template seeder publishes v1 through v33 with v33 as latest', function () {
+test('airco template seeder publishes v1 through v34 with v34 as latest', function () {
     seedAllAircoTemplateVersions();
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,11 +17,14 @@ test('airco template seeder publishes v1 through v33 with v33 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(33)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33])
+    expect($versions)->toHaveCount(34)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
-    $latest = $template->latestPublishedVersion();
+    expect($template->latestPublishedVersion()?->version)->toBe(34);
+
+    // Inhoudschecks hieronder gelden v33 (laatste volledige klantvragenlijst; v34 bouwt erop, BL-172).
+    $latest = $template->versions()->where('version', 33)->firstOrFail();
 
     expect($latest)->not->toBeNull()
         ->and($latest->version)->toBe(33)
@@ -294,5 +297,5 @@ test('airco template seeder publishes v1 through v33 with v33 as latest', functi
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(33);
+        ->and($template->versions()->count())->toBe(34);
 });

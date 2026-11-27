@@ -22,6 +22,7 @@ use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    pinAircoTemplateVersion(33); // v33-klantflow (BL-172: v34 is eenvoudig)
     $this->seed(IntakeTemplateSeeder::class);
 });
 

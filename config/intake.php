@@ -232,6 +232,12 @@ return [
 
     'seed_latest_template_only' => (bool) env('INTAKE_SEED_LATEST_TEMPLATE_ONLY', false),
 
+    // Alleen tests/E2E: seed deze airco-versie als “latest” (regressie op de v33-klantflow,
+    // BL-172). Leeg = echte laatste versie. Nooit zetten op staging/production.
+    'seed_latest_airco_template_version' => is_numeric(env('INTAKE_SEED_LATEST_AIRCO_TEMPLATE_VERSION'))
+        ? (int) env('INTAKE_SEED_LATEST_AIRCO_TEMPLATE_VERSION')
+        : null,
+
     /*
     |--------------------------------------------------------------------------
     | Must-accept boolean questions (AVG / waarheidsverklaring)

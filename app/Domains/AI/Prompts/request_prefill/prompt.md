@@ -8,6 +8,7 @@ Doel:
 
 Invoer:
 - `known_context.request_reason`: vrije tekst van de installateur/aanvrager.
+- `known_context.customer_wishes`: vrije wensentekst die de klant aan het eind typte of insprak (kan `null` zijn). Lees die net zo zorgvuldig als `request_reason`: app-bediening, koelen/verwarmen, plek van de binnenunit, geluid, planning, merk, koop/huur.
 - `known_context.answers`: reeds opgeslagen antwoorden met bron.
 - `known_context.external_facts`: openbare/afgeleide feiten (geen identiteit).
 - `known_context.installer_observations`: korte technische notities van de installateur.
@@ -16,7 +17,11 @@ Invoer:
 Regels:
 - Verzin geen vragen, keys of opties buiten de catalogus.
 - Fotovragen staan niet in de catalogus en mag je niet invullen.
-- `request_reason` zelf niet opnieuw invullen.
+- `request_reason` zelf niet opnieuw invullen; `additional_comments` ook niet (dat ís de wensentekst).
+- Uit `customer_wishes` vul je alleen bestaande ruimtes (`room-1` … tot het huidige `indoor_unit_count`); verander het aantal ruimtes daar niet.
+- App-bediening (`app_control_wanted`): `yes` bij expliciete tekst als “via een app”, “met mijn telefoon bedienen”, “wifi”; `no` alleen bij expliciet “geen app nodig”. Anders weglaten.
+- Plek binnenunit (`preferred_indoor_location`): neem de beschrijving van de klant kort over (bijv. “boven de deur”). Noemt de klant één plek voor alle ruimtes, vul dan elke bestaande ruimte.
+- Gevelkant (`room_facade_side`): alleen bij expliciete tekst als “aan de achterkant”, “aan de straatkant”, “voorkant”.
 - Bij repeatable secties (bijv. ruimtes) gebruik je `section_instance_key` zoals `room-1`, `room-2`. Als je meerdere ruimtes vult, vul dan ook het aantal (`indoor_unit_count`) consistent.
 - Jij bepaalt het aantal ruimtes en hun type uit de vrije tekst. Tel een ruimtetype één keer: “Drie slaapkamers … de slaapkamers 20 m² elk” is drie slaapkamers plus eventuele andere genoemde types, geen extra kamers door herhaling.
 - Unieke kamernamen of rollen letterlijk overnemen in `room_name` per instantie wanneer die key bestaat. Voorbeelden:
@@ -60,7 +65,7 @@ Regels:
 - Een dakkapel is niet hetzelfde als een schuin dak: kies alleen de optie die letterlijk past (`dormer` vs `pitched_roof`).
 - `confidence` per fill: `high` alleen bij expliciet bewijs; `medium` bij aannemelijke maar niet letterlijke afleiding; `low` weglaten of niet opnemen.
 - **`provenance` verplicht per fill:** `stated` (letterlijk in de brontekst), `inferred` (afgeleid), of `unknown`.
-  - `stated` mag **alleen** als `evidence` een korte quote is die **letterlijk** in `request_reason` (of een bestaand klantantwoord) voorkomt — geen parafrase, geen synoniemen als “bewijs”.
+  - `stated` mag **alleen** als `evidence` een korte quote is die **letterlijk** in `request_reason` of `customer_wishes` (of een bestaand klantantwoord) voorkomt — geen parafrase, geen synoniemen als “bewijs”.
   - Geen letterlijke quote → `inferred` (of weglaten). Verzin nooit evidence zoals “koelen” of “buren dichtbij” als die woorden niet in de tekst staan.
 - **Buren / geluid (`noise_sensitive`):** alleen `stated` + true bij expliciete tekst over buren/geluid (“buren dichtbij”, “geluidgevoelig”, “buren horen alles”). Een balkon, gevel of tuin **alleen** is **geen** bewijs voor buren dichtbij — vul dan **geen** `noise_sensitive`, of hooguit `inferred` zonder als feit te presenteren.
 - **Koelen/verwarmen (`cooling_heating`):** alleen bij expliciete woorden (koelen, verwarmen, te warm, koud te krijgen, beide, “alleen koelen”). Geen intent afleiden uit “wil airco”, “nog geen airco”, “voor de zomer”, balkon of gevel.

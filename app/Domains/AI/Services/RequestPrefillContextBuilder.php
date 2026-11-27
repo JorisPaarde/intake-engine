@@ -8,6 +8,7 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
+use App\Domains\Intake\Support\SimpleCustomerFlow;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 
@@ -39,6 +40,7 @@ final class RequestPrefillContextBuilder
     /**
      * @return array{
      *     request_reason: string|null,
+     *     customer_wishes: string|null,
      *     answers: list<array{question_key: string, section_instance_key: string|null, prefill_source: string|null, value: mixed}>,
      *     external_facts: list<array{fact_key: string, source: string|null, value: mixed, confidence: mixed}>,
      *     installer_observations: list<array{method: string|null, text: string}>
@@ -68,11 +70,22 @@ final class RequestPrefillContextBuilder
             ->all();
 
         $requestReason = null;
+        $customerWishes = null;
         foreach ($answers as $answer) {
-            if ($answer['question_key'] === 'request_reason' && $answer['section_instance_key'] === null) {
-                $text = is_array($answer['value']) ? ($answer['value']['text'] ?? null) : null;
-                $requestReason = is_string($text) ? trim($text) : null;
-                break;
+            if ($answer['section_instance_key'] !== null) {
+                continue;
+            }
+
+            $text = is_array($answer['value']) ? ($answer['value']['text'] ?? null) : null;
+            $text = is_string($text) ? trim($text) : null;
+
+            if ($answer['question_key'] === 'request_reason') {
+                $requestReason = $text;
+            }
+
+            // BL-172: wensentekst van de klant (vrij typen/dicteren) is een tweede bron voor stated facts.
+            if ($answer['question_key'] === SimpleCustomerFlow::WISH_QUESTION_KEY && $text !== null && $text !== '') {
+                $customerWishes = $text;
             }
         }
 
@@ -139,6 +152,7 @@ final class RequestPrefillContextBuilder
 
         return [
             'request_reason' => $requestReason,
+            'customer_wishes' => $customerWishes,
             'answers' => $answers,
             'external_facts' => $facts,
             'installer_observations' => $observations,

@@ -9,8 +9,8 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\CustomerAudience;
 use App\Domains\Intake\Support\FactProvenance;
-use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
@@ -19,6 +19,7 @@ use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Domains\Intake\Support\SharedRoomAnswers;
+use App\Domains\Intake\Support\SimpleCustomerFlow;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -54,7 +55,10 @@ use Illuminate\Support\Str;
  *     sticky_photo_composite?: string|null,
  *     shared_scope?: bool,
  *     shared_target_instances?: list<string>,
- *     share_differs_label?: string
+ *     share_differs_label?: string,
+ *     companion_question_keys?: list<string>,
+ *     wish_prompts?: list<string>,
+ *     dictation_hint?: bool
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -499,7 +503,7 @@ final class IntakeStepBuilder
                 $pendingClosing,
             );
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
-            $steps[] = [
+            $step = [
                 'key' => $section->key.$instanceSuffix.'::_closing_wishes',
                 'section_key' => $section->key,
                 'section_instance_key' => $sectionInstanceKey,
@@ -514,6 +518,24 @@ final class IntakeStepBuilder
                 'kind' => 'closing_wishes',
                 'bundle_question_keys' => $keys,
             ];
+
+            // BL-172: alleen het wensenveld → eigen kop + voorbeeldvragen voor wat nog onbekend is.
+            if ($keys === [SimpleCustomerFlow::WISH_QUESTION_KEY]) {
+                $wishQuestion = $pendingClosing[0]['question'];
+                $step['title'] = $wishQuestion->label;
+                $step['description'] = 'Typ of spreek in wat je belangrijk vindt. Dit is optioneel.';
+                $step['help_text'] = null;
+                $step['wish_prompts'] = SimpleCustomerFlow::wishPrompts(
+                    $wishQuestion,
+                    $context['answers'],
+                    $context['answerSources'],
+                    $context['allQuestions'],
+                    $this->answerValueReader,
+                );
+                $step['dictation_hint'] = ($wishQuestion->meta['dictation_hint'] ?? false) === true;
+            }
+
+            $steps[] = $step;
             $pendingClosing = [];
         };
 
@@ -714,7 +736,7 @@ final class IntakeStepBuilder
                 $description = null;
             }
 
-            $steps[] = [
+            $step = [
                 'key' => $section->key.$instanceSuffix.'::'.$question->key,
                 'section_key' => $section->key,
                 'section_instance_key' => $sectionInstanceKey,
@@ -732,6 +754,23 @@ final class IntakeStepBuilder
                     ? VisibilityResolver::compositeKey($question->key, $sectionInstanceKey)
                     : null,
             ];
+
+            // BL-172: optionele meevragen op hetzelfde scherm (gevelkant bij kamerfoto).
+            $companionKeys = [];
+            foreach ($sortedQuestions as $candidate) {
+                if (CustomerAudience::companionOf($candidate) === $question->key) {
+                    $companionKeys[] = $candidate->key;
+                }
+            }
+            if ($companionKeys !== []) {
+                $step['companion_question_keys'] = $companionKeys;
+            }
+
+            if (($question->meta['dictation_hint'] ?? false) === true) {
+                $step['dictation_hint'] = true;
+            }
+
+            $steps[] = $step;
         }
 
         $flushClosing();
@@ -1186,17 +1225,7 @@ final class IntakeStepBuilder
 
     private function isInternalQuestion(IntakeQuestion $question): bool
     {
-        if (InternalCustomerQuestions::hidesFromCustomer($question)) {
-            return true;
-        }
-
-        $audience = is_string($question->meta['audience'] ?? null)
-            ? (string) $question->meta['audience']
-            : null;
-
-        return ($question->meta['internal'] ?? false) === true
-            || $audience === 'installer'
-            || $audience === 'internal';
+        return CustomerAudience::hidesFromCustomer($question);
     }
 
     /**
@@ -1212,6 +1241,12 @@ final class IntakeStepBuilder
         array $answers,
         Collection $allQuestions,
     ): array {
+        // BL-172: eenvoudige opname heeft geen “Dit weten we al”-stap; wat AI vond
+        // ziet de installateur in het dossier.
+        if (SimpleCustomerFlow::isEnabled($version)) {
+            return $steps;
+        }
+
         $items = [];
         $intake->loadMissing('aircoRooms');
 

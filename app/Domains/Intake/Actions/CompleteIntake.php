@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Jobs\PrefillFromCustomerWishesJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
@@ -11,12 +12,14 @@ use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Support\MustAcceptQuestions;
+use App\Domains\Intake\Support\SimpleCustomerFlow;
 use App\Enums\AttentionPointSource;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\Bus;
@@ -130,11 +133,16 @@ final class CompleteIntake
         // Mail en PDF blijven uit.
         // Chain: summary → attention → synthesis so the apply-hash runs on a stable
         // post-attention context (parallel dispatch raced on staging intakes 86/87).
-        Bus::chain([
-            new SummarizeIntakeJob($completed->id),
-            new SuggestAttentionPointsJob($completed->id),
-            new SynthesizeSurveyDossierJob($completed->id),
-        ])->dispatch();
+        // BL-172: wensentekst eerst door de catalogus-prefill, zodat samenvatting en
+        // synthese de nieuwe feiten al zien.
+        $chain = [];
+        if ($this->hasCustomerWishes($completed)) {
+            $chain[] = new PrefillFromCustomerWishesJob($completed->id);
+        }
+        $chain[] = new SummarizeIntakeJob($completed->id);
+        $chain[] = new SuggestAttentionPointsJob($completed->id);
+        $chain[] = new SynthesizeSurveyDossierJob($completed->id);
+        Bus::chain($chain)->dispatch();
 
         if (! $completed->is_demo) {
             GenerateIntakePdfJob::dispatch($completed->id);
@@ -142,5 +150,18 @@ final class CompleteIntake
         }
 
         return $completed;
+    }
+
+    private function hasCustomerWishes(Intake $intake): bool
+    {
+        $answer = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', SimpleCustomerFlow::WISH_QUESTION_KEY)
+            ->whereNull('section_instance_key')
+            ->whereNull('prefill_source')
+            ->first();
+        $text = is_array($answer?->value) ? ($answer->value['text'] ?? null) : null;
+
+        return is_string($text) && mb_strlen(trim($text)) >= 3;
     }
 }

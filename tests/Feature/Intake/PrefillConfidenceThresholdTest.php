@@ -16,6 +16,7 @@ use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 
 beforeEach(function () {
+    pinAircoTemplateVersion(33); // v33-klantflow (BL-172: v34 is eenvoudig)
     $this->seed(IntakeTemplateSeeder::class);
 });
 

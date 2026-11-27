@@ -43,9 +43,10 @@ class IntakeTemplateSeeder extends Seeder
         'data/templates/airco/v31.php',
         'data/templates/airco/v32.php',
         'data/templates/airco/v33.php',
+        'data/templates/airco/v34.php',
     ];
 
-    public const LATEST_AIRCO_TEMPLATE_PATH = 'data/templates/airco/v33.php';
+    public const LATEST_AIRCO_TEMPLATE_PATH = 'data/templates/airco/v34.php';
 
     public function run(): void
     {
@@ -63,10 +64,26 @@ class IntakeTemplateSeeder extends Seeder
      */
     private function aircoTemplatePaths(): array
     {
+        // Tests kunnen een oudere versie als “latest” pinnen (regressie op die flow, BL-172).
+        $pinned = app()->environment('production') ? null : config('intake.seed_latest_airco_template_version');
+        $pinnedPath = is_int($pinned) ? 'data/templates/airco/v'.$pinned.'.php' : null;
+
         if (config('intake.seed_latest_template_only')) {
-            return [self::LATEST_AIRCO_TEMPLATE_PATH];
+            return [$pinnedPath ?? self::LATEST_AIRCO_TEMPLATE_PATH];
         }
 
-        return self::ALL_AIRCO_TEMPLATE_PATHS;
+        if ($pinnedPath === null) {
+            return self::ALL_AIRCO_TEMPLATE_PATHS;
+        }
+
+        $paths = [];
+        foreach (self::ALL_AIRCO_TEMPLATE_PATHS as $path) {
+            $paths[] = $path;
+            if ($path === $pinnedPath) {
+                break;
+            }
+        }
+
+        return $paths;
     }
 }

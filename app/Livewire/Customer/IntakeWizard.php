@@ -377,7 +377,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -653,6 +656,8 @@ class IntakeWizard extends Component
         $question = null;
         $groupQuestions = [];
         $bundleQuestions = [];
+        /** @var list<IntakeQuestion> $companionQuestions */
+        $companionQuestions = [];
         $visibility = [];
         $uploadsByQuestion = [];
         $displayPhotoHint = [];
@@ -685,6 +690,18 @@ class IntakeWizard extends Component
             $questionsForVisibility = collect();
             if ($question instanceof IntakeQuestion) {
                 $questionsForVisibility->push($question);
+            }
+
+            // BL-172: optionele meevraag op hetzelfde scherm (gevelkant bij de kamerfoto).
+            foreach ($step['companion_question_keys'] ?? [] as $companionKey) {
+                $companionQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $version,
+                    $step['section_key'],
+                    $companionKey,
+                );
+                if ($companionQuestion instanceof IntakeQuestion) {
+                    $companionQuestions[] = $companionQuestion;
+                }
             }
 
             if ($stepKind === 'question_group') {
@@ -834,6 +851,7 @@ class IntakeWizard extends Component
             'question' => $question,
             'groupQuestions' => $groupQuestions,
             'bundleQuestions' => $bundleQuestions,
+            'companionQuestions' => $companionQuestions,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
@@ -3303,7 +3321,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }|null  $step
      */
     private function saveStep(?array $step): void
@@ -4239,7 +4260,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>
      */
     private function steps(): array
@@ -4296,7 +4320,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>  $steps
      * @return list<array{
      *     key: string,
@@ -4323,7 +4350,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>
      */
     private function omitAtticSizeClassSteps(array $steps): array
@@ -5075,7 +5105,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }|null  $step
      */
     private function stepRequiredSatisfied(?array $step): bool
@@ -5529,7 +5562,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }|null
      */
     private function currentStep(): ?array
@@ -5566,7 +5602,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>  $steps
      * @return array{
      *     key: string,
@@ -5593,7 +5632,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }|null
      */
     private function resolveDisplayedStep(array $steps): ?array
@@ -5792,7 +5834,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>  $steps
      */
     private function clampResumeWhenCursorMissing(
@@ -5840,7 +5885,10 @@ class IntakeWizard extends Component
      *     sticky_photo_composite?: string|null,
      *     shared_scope?: bool,
      *     shared_target_instances?: list<string>,
-     *     share_differs_label?: string
+     *     share_differs_label?: string,
+     *     companion_question_keys?: list<string>,
+     *     wish_prompts?: list<string>,
+     *     dictation_hint?: bool
      * }>  $steps
      */
     private function indexOfFirstUnsatisfiedRequired(array $steps): ?int

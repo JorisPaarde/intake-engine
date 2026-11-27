@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
 
 beforeEach(function () {
     Carbon::setTestNow('2026-07-20 12:00:00');
+    pinAircoTemplateVersion(33); // v33-klantflow (BL-172: v34 is eenvoudig)
     $this->seed(IntakeTemplateSeeder::class);
 });
 

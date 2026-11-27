@@ -40,6 +40,16 @@ function seedAllAircoTemplateVersions(): void
 }
 
 /**
+ * Pin the airco template the seeder treats as latest (BL-172). Call vóór
+ * `seed(IntakeTemplateSeeder::class)`. Gebruikt door v33-regressietests: bestaande
+ * opnames blijven op hun versie, dus die flow moet blijven werken.
+ */
+function pinAircoTemplateVersion(int $version): void
+{
+    config(['intake.seed_latest_airco_template_version' => $version]);
+}
+
+/**
  * Ensure a specific published airco template version exists (idempotent).
  */
 function seedAircoTemplateVersion(int $version): void

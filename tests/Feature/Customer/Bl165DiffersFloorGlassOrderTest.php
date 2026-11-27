@@ -18,6 +18,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->withoutVite();
+    pinAircoTemplateVersion(33); // v33-klantflow (BL-172: v34 is eenvoudig)
     $this->seed(IntakeTemplateSeeder::class);
     config([
         'ai.request_prefill.sync_on_create' => false,
