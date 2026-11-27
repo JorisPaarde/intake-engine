@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.30 · **Laatste update:** 2026-11-27 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.31 · **Laatste update:** 2026-11-27 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,8 +40,8 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-172 | Eenvoudige klantopname: aanvraagtekst → kamerfoto + gevelkant → buitenunit → meterkast → wensen; overige vragen installateur | E1/E3/E7 | done | high | airco v34 · ADR-0017 · prompt request-prefill-v16 · 2026-11-27 · branch `claude/bl-172-eenvoudige-klantopname` |
-| — | BL-174 | Klantpagina “Dit hebben we gevonden” (luchtfoto, foto’s, bevindingen, correcties) + Versturen naar installateur | E1/E7 | backlog | high | na BL-172 · hergebruikt `GenerateIntakeReportHtml`-bronnen + follow-up rounds |
+| — | BL-172 | Eenvoudige klantopname: aanvraagtekst → kamerfoto + gevelkant → buitenunit → meterkast → wensen; overige vragen installateur | E1/E3/E7 | done | high | airco v34 · ADR-0017 · prompt request-prefill-v16 · 2026-11-27 · PR #323 |
+| — | BL-174 | Klantpagina “Dit hebben we gevonden” (luchtfoto, foto’s, bevindingen, correcties) + Versturen naar installateur | E1/E7 | done | high | airco v35 · prompt request-prefill-v17 · 2026-11-27 · gestapeld op PR #323 |
 | — | BL-173 | Gevelrichting per ruimte uit BAG-pandcontour + dichtstbijzijnde straat (luchtfoto alleen visuele check) | E3/E9 | backlog | medium | na BL-172 (`room_facade_side`) |
 | — | BL-169 | UX-review embed: stap 1 pandregel, Afronden, merk-radio, known-summary, postcode/autosave | E1/E7 | done | high | UX-review 13 nov staging embed · PR #322 · 2026-11-13 · parallel foto/bedankt + embed/koop-huur/kamers (BL-171/#320) |
 | — | BL-171 | UX-review ≤8: embed-test/form (7), koop-huur+verhuurder (8), differs-link + Opgeslagen (9) | E1/E5/E7 | done | high | UX-review staging 13 nov · airco v33 · PR #320 · 2026-11-13 · was parallel als BL-169; hernummerd naar BL-171 |
@@ -720,7 +720,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-172 — Eenvoudige klantopname (airco v34)
 
-- **Status:** done · **Datum:** 2026-11-27 · **PR:** branch `claude/bl-172-eenvoudige-klantopname` · **Prioriteit:** high · **Epic:** E1/E3/E7 · **ADR:** [0017](decisions/0017-simple-customer-intake.md)
+- **Status:** done · **Datum:** 2026-11-27 · **PR:** #323 · **Prioriteit:** high · **Epic:** E1/E3/E7 · **ADR:** [0017](decisions/0017-simple-customer-intake.md)
 - **Aanleiding:** producteigenaar 27 nov: klant moet eerst in eigen woorden zeggen wat hij wil, dan foto’s (ruimtes, buitenunitplek, meterkast) en een open wensenveld met voorbeeldvragen; de rest halen we uit tekst, foto’s en BAG/energielabel/3DBAG/luchtfoto. Geen vragen weggooien.
 - **Scope:** airco **v34** (`audience: installer` op alle niet-klantvragen; `room_facade_side` als companion op het kamerfotoscherm; `app_control_wanted`; `wish_prompts`); `CustomerAudience` + `SimpleCustomerFlow`; geen known-summary in v34; wensenscherm met dynamische voorbeeldvragen + dicteertip; prompt `request-prefill-v16` met `customer_wishes`; `PrefillFromCustomerWishesJob` na versturen vóór samenvatting/synthese.
 - **Acceptatie:** Playwright `27-bl172-simple-flow` (390 px tot bedankt; overige specs gepind op v33 via `INTAKE_SEED_LATEST_AIRCO_TEMPLATE_VERSION`); Pest `Bl172SimpleCustomerFlowTest` (stappen, voorbeeldvragen, compleetheid zonder installateursvragen, gevelkant blijft op het scherm, keten + post-submit prefill zonder nieuwe ruimtes); v33-regressietests gepind met `pinAircoTemplateVersion(33)`; `composer check` groen.
@@ -734,7 +734,8 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-174 — Klantpagina “Dit hebben we gevonden” + versturen
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E1/E7 · **Volgt op:** BL-172
+- **Status:** done · **Datum:** 2026-11-27 · **PR:** gestapeld op #323 (branch `claude/bl-174-klantpagina-bevindingen`) · **Prioriteit:** high · **Epic:** E1/E7 · **Volgt op:** BL-172
+- **Resultaat:** airco **v35**: versturen = controlepagina (`meta.review_page`) met luchtfoto, *Je woning* / *Je ruimtes* / *Je wensen* met herkomst, foto’s en correctieveld `customer_corrections`; `privacy_consent` vóór de controlepagina. `CustomerFindings`, route `customer.aerial.show`, prompt `request-prefill-v17` (correcties gaan vóór afleidingen), job ook bij alleen correcties. Vervolgvraag installateur: bestaande follow-up rounds; `SendCustomerFollowUpRequest` kent geen embed-beperking (code gecontroleerd, nog niet functioneel getest). Pest `Bl174ReviewPageTest`; E2E spec 27 uitgebreid.
 - **Doel:** na de korte opname één pagina voor de klant: adres, luchtfoto van de woning, foto’s, en in gewone taal wat we uit tekst/foto’s/BAG/energielabel haalden, met per punt “klopt niet?” (correctie = klantuitspraak, geen feit). Knop **Versturen** stuurt naar de installateur; versturen wacht niet op de AI (AI-punten verschijnen zodra klaar).
 - **Let op:** klant ziet niet het installateursrapport (geen zekerheidsscores/interne notities). Installateur kan daarna via bestaande follow-up rounds (tekst/foto/document/keuze) een extra vraag stellen; check dat dat ook vanuit embed-intakes werkt.
 

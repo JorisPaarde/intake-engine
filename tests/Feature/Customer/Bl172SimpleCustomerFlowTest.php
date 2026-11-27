@@ -80,10 +80,10 @@ function bl172Photo(Intake $intake, string $questionKey, ?string $instanceKey): 
     ));
 }
 
-test('v34 is de nieuwste airco-versie en zet de eenvoudige klantopname aan', function () {
+test('de nieuwste airco-versie (≥ v34) zet de eenvoudige klantopname aan', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(34)
+    expect($version->version)->toBeGreaterThanOrEqual(34)
         ->and(SimpleCustomerFlow::isEnabled($version))->toBeTrue();
 
     $questions = $version->sections->flatMap(fn ($section) => $section->questions)->keyBy('key');
@@ -105,7 +105,7 @@ test('v33 blijft de oude klantflow houden', function () {
     expect(SimpleCustomerFlow::isEnabled($v33))->toBeFalse();
 });
 
-test('drie kamers: aanvraag, 3× kamerfoto, buitenunit, meterkast, wensen, versturen', function () {
+test('drie kamers: aanvraag, 3× kamerfoto, buitenunit, meterkast, wensen, toestemming, controlepagina', function () {
     $intake = bl172Intake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'request_reason', null, ['text' => 'Airco in 3 slaapkamers van 3 bij 5, koelen en verwarmen']);
@@ -122,8 +122,8 @@ test('drie kamers: aanvraag, 3× kamerfoto, buitenunit, meterkast, wensen, verst
         'outdoor_location_photos',
         'fusebox_photo',
         '_closing_wishes',
-        'truth_confirmation',
         'privacy_consent',
+        'truth_confirmation',
     ]);
 
     $steps = collect(bl172Steps($intake));

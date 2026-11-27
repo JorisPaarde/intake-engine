@@ -41,6 +41,7 @@ final class RequestPrefillContextBuilder
      * @return array{
      *     request_reason: string|null,
      *     customer_wishes: string|null,
+     *     customer_corrections: string|null,
      *     answers: list<array{question_key: string, section_instance_key: string|null, prefill_source: string|null, value: mixed}>,
      *     external_facts: list<array{fact_key: string, source: string|null, value: mixed, confidence: mixed}>,
      *     installer_observations: list<array{method: string|null, text: string}>
@@ -71,6 +72,7 @@ final class RequestPrefillContextBuilder
 
         $requestReason = null;
         $customerWishes = null;
+        $customerCorrections = null;
         foreach ($answers as $answer) {
             if ($answer['section_instance_key'] !== null) {
                 continue;
@@ -86,6 +88,11 @@ final class RequestPrefillContextBuilder
             // BL-172: wensentekst van de klant (vrij typen/dicteren) is een tweede bron voor stated facts.
             if ($answer['question_key'] === SimpleCustomerFlow::WISH_QUESTION_KEY && $text !== null && $text !== '') {
                 $customerWishes = $text;
+            }
+
+            // BL-174: wat volgens de klant niet klopt op de controlepagina.
+            if ($answer['question_key'] === 'customer_corrections' && $text !== null && $text !== '') {
+                $customerCorrections = $text;
             }
         }
 
@@ -153,6 +160,7 @@ final class RequestPrefillContextBuilder
         return [
             'request_reason' => $requestReason,
             'customer_wishes' => $customerWishes,
+            'customer_corrections' => $customerCorrections,
             'answers' => $answers,
             'external_facts' => $facts,
             'installer_observations' => $observations,

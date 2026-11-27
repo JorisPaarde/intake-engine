@@ -44,9 +44,10 @@ class IntakeTemplateSeeder extends Seeder
         'data/templates/airco/v32.php',
         'data/templates/airco/v33.php',
         'data/templates/airco/v34.php',
+        'data/templates/airco/v35.php',
     ];
 
-    public const LATEST_AIRCO_TEMPLATE_PATH = 'data/templates/airco/v34.php';
+    public const LATEST_AIRCO_TEMPLATE_PATH = 'data/templates/airco/v35.php';
 
     public function run(): void
     {

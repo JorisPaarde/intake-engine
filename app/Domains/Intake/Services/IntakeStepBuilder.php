@@ -58,7 +58,8 @@ use Illuminate\Support\Str;
  *     share_differs_label?: string,
  *     companion_question_keys?: list<string>,
  *     wish_prompts?: list<string>,
- *     dictation_hint?: bool
+ *     dictation_hint?: bool,
+ *     review_page?: bool
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -736,6 +737,13 @@ final class IntakeStepBuilder
                 $description = null;
             }
 
+            // BL-174: versturen = controlepagina met wat we vonden.
+            $reviewPage = ($question->meta['review_page'] ?? false) === true;
+            if ($reviewPage) {
+                $title = 'Dit hebben we gevonden';
+                $description = 'Kijk even of het klopt. Klopt iets niet? Schrijf het erbij. Daarna kun je versturen.';
+            }
+
             $step = [
                 'key' => $section->key.$instanceSuffix.'::'.$question->key,
                 'section_key' => $section->key,
@@ -768,6 +776,10 @@ final class IntakeStepBuilder
 
             if (($question->meta['dictation_hint'] ?? false) === true) {
                 $step['dictation_hint'] = true;
+            }
+
+            if ($reviewPage) {
+                $step['review_page'] = true;
             }
 
             $steps[] = $step;

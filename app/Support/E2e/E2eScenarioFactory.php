@@ -991,7 +991,7 @@ final class E2eScenarioFactory
     }
 
     /**
-     * BL-172: eenvoudige klantopname op airco v34 (eigen templatekey), naast de gepinde v33.
+     * BL-172/174: eenvoudige klantopname + controlepagina op airco v35 (eigen templatekey), naast de gepinde v33.
      *
      * @return array<string, mixed>
      */
@@ -1000,17 +1000,17 @@ final class E2eScenarioFactory
         E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
 
         // Eigen templatekey: de E2E-server pint `airco` op v33 en parallelle specs
-        // (embed/demo via CreateIntake) mogen v34 niet als nieuwste zien.
+        // (embed/demo via CreateIntake) mogen v34/v35 niet als nieuwste zien.
         /** @var array<string, mixed> $config */
-        $config = require database_path('data/templates/airco/v34.php');
+        $config = require database_path('data/templates/airco/v35.php');
         $config['key'] = 'airco-e2e-bl172';
         $config['name'] = 'Airco (E2E BL-172)';
-        $v34 = app(PublishIntakeTemplateFromConfig::class)->handle($config);
+        $simpleVersion = app(PublishIntakeTemplateFromConfig::class)->handle($config);
 
         $intake = $this->baseIntake([
             'customer_name' => 'BL172 Eenvoudig',
             'customer_email' => 'bl172-simple@example.com',
-            'intake_template_version_id' => $v34->id,
+            'intake_template_version_id' => $simpleVersion->id,
         ]);
 
         $this->saveAnswer->handle($intake, 'request_reason', null, ['text' => 'Airco in de slaapkamer van 3 bij 5 meter, koelen en verwarmen.']);

@@ -40,6 +40,7 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Domains\Intake\Support\CustomerFindings;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
@@ -380,7 +381,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -852,6 +854,9 @@ class IntakeWizard extends Component
             'groupQuestions' => $groupQuestions,
             'bundleQuestions' => $bundleQuestions,
             'companionQuestions' => $companionQuestions,
+            'reviewFindings' => ! $this->completed && is_array($step) && ($step['review_page'] ?? false) === true
+                ? CustomerFindings::forIntake($intake)
+                : null,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
@@ -3324,7 +3329,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }|null  $step
      */
     private function saveStep(?array $step): void
@@ -4263,7 +4269,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>
      */
     private function steps(): array
@@ -4323,7 +4330,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>  $steps
      * @return list<array{
      *     key: string,
@@ -4353,7 +4361,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>
      */
     private function omitAtticSizeClassSteps(array $steps): array
@@ -5108,7 +5117,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }|null  $step
      */
     private function stepRequiredSatisfied(?array $step): bool
@@ -5565,7 +5575,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }|null
      */
     private function currentStep(): ?array
@@ -5605,7 +5616,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>  $steps
      * @return array{
      *     key: string,
@@ -5635,7 +5647,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }|null
      */
     private function resolveDisplayedStep(array $steps): ?array
@@ -5837,7 +5850,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>  $steps
      */
     private function clampResumeWhenCursorMissing(
@@ -5888,7 +5902,8 @@ class IntakeWizard extends Component
      *     share_differs_label?: string,
      *     companion_question_keys?: list<string>,
      *     wish_prompts?: list<string>,
-     *     dictation_hint?: bool
+     *     dictation_hint?: bool,
+     *     review_page?: bool
      * }>  $steps
      */
     private function indexOfFirstUnsatisfiedRequired(array $steps): ?int

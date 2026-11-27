@@ -359,7 +359,7 @@
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] ?? $question->label }}
-                @if ($state['required'] || (($step['kind'] ?? '') === 'question_group' && ($step['is_required'] ?? false)))
+                @if (($state['required'] || (($step['kind'] ?? '') === 'question_group' && ($step['is_required'] ?? false))) && ($step['review_page'] ?? false) !== true)
                     <span class="text-[#a84832]">*</span>
                 @endif
             </h1>
@@ -787,6 +787,9 @@
                                 @break
 
                             @case('boolean')
+                                @if (($step['review_page'] ?? false) === true && is_array($reviewFindings ?? null))
+                                    @include('livewire.customer.partials.review-findings')
+                                @endif
                                 @if (\App\Domains\Intake\Support\MustAcceptQuestions::requiresAcceptance($question))
                                     <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-4 py-3 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]" data-testid="must-accept-checkbox">
                                         <input
