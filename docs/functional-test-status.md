@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.39 · **Laatste update:** 2026-11-13 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.40 · **Laatste update:** 2026-11-27 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Eenvoudige klantopname airco v34 (BL-172) | todo | — | Staging embed 2037GR 273, 3 kamers 3×5 (390 + 1440): aanvraagtekst → 3× kamerfoto + gevelkant → buitenunit → meterkast → wensen (voorbeeldvragen alleen voor onbekende onderwerpen) → versturen; installateur ziet AI-feiten uit tekst/foto’s/wensen in het dossier. |
 | UX-review stap 1/Afronden/merk/known-summary (BL-169) | done | 2026-11-13 | Playwright 390×844 + 1440×900: stap 1 één pandregel + spatie-postcode, geen woonfunctie-/energielabel-melding; leeg reden-veld blokkeert met veldmelding; known-summary één rij/ruimte + “De rest vragen we hierna.”; merkstap radio+select, sticky balk dekt geen opties; Afronden “Klaar om te versturen?” / “Versturen naar …” / één “Vink dit aan…”. Screenshots `/opt/cursor/artifacts/bl169-stap1-390.png`, `…-1440.png`, `bl169-known-summary-390.png`, `…-1440.png`, `bl169-merkstap-390.png`, `…-1440.png`, `bl169-afronden-390.png`, `…-1440.png`. E2E `26-bl169-ux-wizard-fix` groen. |
 | UX-review embed/landlord/differs (BL-171) | done | 2026-11-13 | Playwright 390×844 + 1440×900: `/embed-test` één wit formulier (geen grijze tussenkaart/hintregel); AVG-tekst + Privacy-link + Toev.; verhuurder “Weet je verhuurder ervan?” + drie opties; zon-stap met link “Verschilt dit per ruimte?” + ✓ Opgeslagen in voortgangsregel. Screenshots `/opt/cursor/artifacts/ux169-embed-test-390.png`, `…-1440.png`, `ux169-embed-consent-390.png`, `…-1440.png`, `ux169-landlord-390.png`, `…-1440.png`, `ux169-differs-opgeslagen-390.png`, `…-1440.png`. E2E `19`/`25` groen. (Was parallel als BL-169 in #320; hernummerd naar BL-171.) |
 | Klant-hertest bedankt/pand/huur/teksten (BL-166) | done | 2026-11-13 | Playwright 390+1440: bedankt termijn+overzicht; Grote Markt 2 → pandgegevens + melding (geen demo-energielabel); huur → verhuurderstoestemming; slaapkamer “boven het bed”; geluid-help buren/slaapkamer; één merkuitleg. Screenshots `/opt/cursor/artifacts/bl166-thank-you-390.png`, `…-1440.png`, `bl166-landlord-390.png`, `…-1440.png`, `bl166-commercial-390.png`, `…-1440.png`, `bl166-bedroom-indoor-390.png`, `…-1440.png`, `bl166-noise-390.png`, `…-1440.png`, `bl166-closing-390.png`, `…-1440.png`. |

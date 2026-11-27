@@ -23,6 +23,7 @@ beforeEach(function () {
     config()->set('services.ep_online.key', 'epo-test-key');
     config()->set('services.ep_online.base_url', 'https://ep-online.test');
     Storage::fake('local');
+    pinAircoTemplateVersion(33); // v33-klantflow (BL-172: v34 is eenvoudig)
     $this->seed(IntakeTemplateSeeder::class);
 });
 

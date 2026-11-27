@@ -237,6 +237,8 @@ jobs:
             echo "DEMO_ENABLED=true"
             echo "PDOK_ENABLED=false"
             echo "MAIL_MAILER=array"
+            # Bestaande specs dekken de v33-klantflow; v34 (BL-172) heeft een eigen scenario (spec 27).
+            echo "INTAKE_SEED_LATEST_AIRCO_TEMPLATE_VERSION=33"
           } >> .env
           php artisan e2e:prepare --fresh
 

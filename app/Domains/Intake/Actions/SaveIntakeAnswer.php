@@ -51,6 +51,7 @@ final class SaveIntakeAnswer
         FactSource|string|null $factSource = null,
         bool $allowFollowUpPhotoPrefill = false,
         bool $advanceCustomerProgress = true,
+        bool $allowAfterCustomerSubmit = false,
     ): IntakeAnswer {
         $question = $this->findQuestion($intake, $questionKey);
 
@@ -87,6 +88,7 @@ final class SaveIntakeAnswer
             $sourceValue,
             $allowFollowUpPhotoPrefill,
             $advanceCustomerProgress,
+            $allowAfterCustomerSubmit,
         ): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
@@ -100,6 +102,15 @@ final class SaveIntakeAnswer
                 && $lockedIntake->reviewed_at === null) {
                 $allowedStatuses[] = IntakeStatus::Completed;
                 $allowedStatuses[] = IntakeStatus::AwaitingCustomer;
+            }
+
+            // BL-172: tekst-AI over de wensen loopt ná versturen, vóór de installateursreview.
+            $postSubmitTextPrefill = $allowAfterCustomerSubmit
+                && (PrefillSources::isTextDerived($prefillSource) || PrefillSources::isTextSuggestion($prefillSource))
+                && $lockedIntake->status === IntakeStatus::Completed
+                && $lockedIntake->reviewed_at === null;
+            if ($postSubmitTextPrefill) {
+                $allowedStatuses[] = IntakeStatus::Completed;
             }
 
             if (! in_array($lockedIntake->status, $allowedStatuses, true)) {
@@ -141,10 +152,13 @@ final class SaveIntakeAnswer
             }
 
             // Installer/embed create-time writes must not "start" the intake for the customer.
-            $this->touchProgress(
-                $intake,
-                $advanceCustomerProgress && $prefillSource === null,
-            );
+            // Afgeronde opname: voortgang blijft 100% (geen herberekening na versturen).
+            if (! $postSubmitTextPrefill) {
+                $this->touchProgress(
+                    $intake,
+                    $advanceCustomerProgress && $prefillSource === null,
+                );
+            }
 
             if ($prefillSource === null) {
                 IntakeActivityEvent::query()->create([

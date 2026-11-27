@@ -203,12 +203,24 @@
         </div>
 
         <div class="flex-1 space-y-4">
+            @if (($step['wish_prompts'] ?? []) !== [])
+                <div class="rounded-xl border border-[#dde2da] bg-[#f7f8f6] px-4 py-3" data-testid="wish-prompts">
+                    <p class="text-sm font-semibold text-[#18201d]">Denk bijvoorbeeld aan:</p>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed text-[#414b45]">
+                        @foreach ($step['wish_prompts'] as $wishPrompt)
+                            <li>{{ $wishPrompt }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             @foreach ($bundleQuestions ?? [] as $bundleQuestion)
                 @php
                     $bundleComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($bundleQuestion->key, null);
                 @endphp
                 <div class="rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm" wire:key="bundle-{{ $bundleQuestion->key }}">
-                    <h2 class="text-sm font-semibold text-[#18201d]">{{ $bundleQuestion->label }}</h2>
+                    @if ($bundleQuestion->label !== $step['title'])
+                        <h2 class="text-sm font-semibold text-[#18201d]">{{ $bundleQuestion->label }}</h2>
+                    @endif
                     @if ($bundleQuestion->help_text)
                         <p class="mt-1 text-xs leading-relaxed text-[#5e6862]">{{ $bundleQuestion->help_text }}</p>
                     @endif
@@ -217,10 +229,17 @@
                             @case('long_text')
                                 <textarea
                                     id="field-{{ $bundleComposite }}"
-                                    rows="3"
+                                    rows="{{ ($step['dictation_hint'] ?? false) === true ? 6 : 3 }}"
                                     wire:model.blur="form.{{ $bundleComposite }}.text"
                                     class="block w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                    aria-label="{{ $bundleQuestion->label }}"
+                                    data-testid="bundle-textarea-{{ $bundleQuestion->key }}"
                                 ></textarea>
+                                @if (($step['dictation_hint'] ?? false) === true)
+                                    <p class="mt-2 text-xs leading-relaxed text-[#5e6862]" data-testid="dictation-hint">
+                                        Tip: je kunt ook inspreken met de microfoon op je toetsenbord.
+                                    </p>
+                                @endif
                                 @break
                             @case('multi_choice')
                                 @if ($bundleQuestion->key === 'brand_preference')
@@ -678,11 +697,16 @@
                                     wire:model.blur="form.{{ $composite }}.text"
                                     class="block w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($question->key === 'request_reason')
-                                        placeholder="Bijv. airco in woonkamer en slaapkamer, alleen koelen"
+                                        placeholder="{{ is_string($question->meta['placeholder'] ?? null) ? $question->meta['placeholder'] : 'Bijv. airco in woonkamer en slaapkamer, alleen koelen' }}"
                                         data-testid="request-reason-field"
                                     @endif
                                     @if ($state['required']) required @endif
                                 ></textarea>
+                                @if (($step['dictation_hint'] ?? false) === true)
+                                    <p class="mt-2 text-xs leading-relaxed text-[#5e6862]" data-testid="dictation-hint">
+                                        Tip: je kunt ook inspreken met de microfoon op je toetsenbord.
+                                    </p>
+                                @endif
                                 @if ($showMissing && ($state['required'] ?? false) && ! \App\Domains\Intake\Support\MustAcceptQuestions::requiresAcceptance($question))
                                     <p class="mt-2 text-sm text-[#a84832]" role="alert" data-testid="field-required-error">
                                         Beantwoord eerst deze verplichte vraag.
@@ -798,6 +822,31 @@
                                     'fieldRequired' => $state['required'] ?? false,
                                     'showQuestionLabel' => false,
                                 ])
+                                {{-- BL-172: optionele meevraag op hetzelfde scherm (bijv. gevelkant). --}}
+                                @foreach ($companionQuestions ?? [] as $companionQuestion)
+                                    @php
+                                        $companionComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($companionQuestion->key, $step['section_instance_key']);
+                                    @endphp
+                                    <fieldset class="mt-5" wire:key="companion-{{ $companionComposite }}" data-testid="companion-{{ $companionQuestion->key }}">
+                                        <legend class="mb-2 text-sm font-semibold text-[#18201d]">{{ $companionQuestion->label }}</legend>
+                                        @if ($companionQuestion->help_text)
+                                            <p class="mb-2 text-xs leading-relaxed text-[#5e6862]">{{ $companionQuestion->help_text }}</p>
+                                        @endif
+                                        <div class="grid grid-cols-2 gap-2" role="radiogroup" aria-label="{{ $companionQuestion->label }}">
+                                            @foreach ($companionQuestion->options as $option)
+                                                <label class="flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                                    <input
+                                                        type="radio"
+                                                        wire:model.live="form.{{ $companionComposite }}.value"
+                                                        value="{{ $option->value }}"
+                                                        class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                    >
+                                                    <span class="text-sm font-medium">{{ $option->label }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </fieldset>
+                                @endforeach
                                 @break
                         @endswitch
                         @endif

@@ -58,13 +58,22 @@ final class PrefillAnswersFromKnownContext
         private readonly AiValidationFailureFormatter $validationFailureFormatter,
     ) {}
 
-    public function handle(Intake $intake, bool $skipIfCustomerStarted = false): ?AiRun
+    /**
+     * @param  bool  $afterCustomerSubmit  BL-172: tweede ronde over de wensentekst ná versturen
+     *                                     (alleen vóór installateursreview; kamerstructuur ligt vast)
+     */
+    public function handle(Intake $intake, bool $skipIfCustomerStarted = false, bool $afterCustomerSubmit = false): ?AiRun
     {
-        if (! in_array($intake->status, [
+        $allowedStatuses = [
             IntakeStatus::Draft,
             IntakeStatus::Sent,
             IntakeStatus::InProgress,
-        ], true)) {
+        ];
+        if ($afterCustomerSubmit) {
+            $allowedStatuses = $intake->reviewed_at === null ? [IntakeStatus::Completed] : [];
+        }
+
+        if (! in_array($intake->status, $allowedStatuses, true)) {
             return null;
         }
 
@@ -81,6 +90,16 @@ final class PrefillAnswersFromKnownContext
         if (! is_string($reason) || mb_strlen(trim($reason)) < 10) {
             return null;
         }
+
+        $wishes = $context['customer_wishes'];
+        if ($afterCustomerSubmit && (! is_string($wishes) || mb_strlen(trim($wishes)) < 3)) {
+            return null;
+        }
+
+        // Stated evidence mag letterlijk uit de aanvraag óf uit de wensentekst komen.
+        $statedSourceText = is_string($wishes) && $wishes !== ''
+            ? $reason."\n".$wishes
+            : $reason;
 
         $promptName = (string) config('ai.request_prefill_prompt', 'request_prefill');
         $promptVersion = $this->promptVersions->version($promptName);
@@ -167,7 +186,7 @@ final class PrefillAnswersFromKnownContext
                 $result->output,
                 $catalog,
                 $this->photoKeys($intake),
-                $reason,
+                $statedSourceText,
                 $reasonAnswer?->prefill_source,
             );
             $output = [
@@ -186,7 +205,7 @@ final class PrefillAnswersFromKnownContext
             ]);
 
             try {
-                $applyResult = DB::transaction(function () use ($intake, $output, $classified, $trace, $skipIfCustomerStarted): array {
+                $applyResult = DB::transaction(function () use ($intake, $output, $classified, $trace, $skipIfCustomerStarted, $afterCustomerSubmit): array {
                     $trace->beginBuffer();
                     $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
@@ -210,7 +229,7 @@ final class PrefillAnswersFromKnownContext
                         ];
                     }
 
-                    $applyResult = $this->apply($locked, $output, $classified['candidates']);
+                    $applyResult = $this->apply($locked, $output, $classified['candidates'], $afterCustomerSubmit);
                     $trace->step('apply', [
                         'applied_question_keys' => $applyResult['applied'],
                         'apply_failure_count' => count($applyResult['failures']),
@@ -319,10 +338,11 @@ final class PrefillAnswersFromKnownContext
      * @param  list<RequestPrefillCandidate>  $candidates
      * @return array{applied: list<string>, failures: list<array<string, mixed>>}
      */
-    private function apply(Intake $intake, array $output, array $candidates): array
+    private function apply(Intake $intake, array $output, array $candidates, bool $afterCustomerSubmit = false): array
     {
         $applied = [];
         $failures = [];
+        $roomCount = $afterCustomerSubmit ? $this->currentRoomCount($intake) : null;
 
         foreach ($candidates as $candidate) {
             if (! in_array($candidate->disposition, [
@@ -341,6 +361,11 @@ final class PrefillAnswersFromKnownContext
             }
 
             if (! $this->mayWrite($intake, $candidate->questionKey, $candidate->sectionInstanceKey)) {
+                continue;
+            }
+
+            // Na versturen: geen nieuwe of andere ruimtes — alleen bestaande room-N aanvullen.
+            if ($afterCustomerSubmit && ! $this->fitsSubmittedRooms($candidate, $roomCount)) {
                 continue;
             }
 
@@ -395,6 +420,7 @@ final class PrefillAnswersFromKnownContext
                     $confidencePercent,
                     $candidate->evidence,
                     $factSource,
+                    allowAfterCustomerSubmit: $afterCustomerSubmit,
                 );
                 $applied[] = $candidate->compositeKey();
             } catch (Throwable $exception) {
@@ -420,13 +446,41 @@ final class PrefillAnswersFromKnownContext
             }
         }
 
-        $this->deriveAreaFromLengthWidth($intake);
-        $this->pruneExtraPrefillRooms($intake, $applied);
+        if (! $afterCustomerSubmit) {
+            $this->deriveAreaFromLengthWidth($intake);
+            $this->pruneExtraPrefillRooms($intake, $applied);
+        }
 
         return [
             'applied' => $applied,
             'failures' => $failures,
         ];
+    }
+
+    private function currentRoomCount(Intake $intake): int
+    {
+        $countAnswer = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', 'indoor_unit_count')
+            ->whereNull('section_instance_key')
+            ->first();
+        $number = is_array($countAnswer?->value) ? ($countAnswer->value['number'] ?? null) : null;
+
+        return is_numeric($number) ? max(0, (int) $number) : 0;
+    }
+
+    private function fitsSubmittedRooms(RequestPrefillCandidate $candidate, ?int $roomCount): bool
+    {
+        if ($candidate->questionKey === 'indoor_unit_count') {
+            return false;
+        }
+
+        $instanceKey = $candidate->sectionInstanceKey;
+        if ($instanceKey === null || preg_match('/^room-(\d+)$/', $instanceKey, $matches) !== 1) {
+            return true;
+        }
+
+        return (int) $matches[1] <= (int) $roomCount;
     }
 
     /**

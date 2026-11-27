@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\FollowUpItemType;
@@ -67,6 +68,7 @@ final class E2eScenarioFactory
             'bl169-known-summary' => $this->bl169KnownSummary(),
             'bl169-closing' => $this->bl166Closing(),
             'bl169-afronden' => $this->bl169Afronden(),
+            'bl172-simple-flow' => $this->bl172SimpleFlow(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -986,6 +988,37 @@ final class E2eScenarioFactory
         }
 
         return $intake->fresh() ?? $intake;
+    }
+
+    /**
+     * BL-172: eenvoudige klantopname op airco v34 (eigen templatekey), naast de gepinde v33.
+     *
+     * @return array<string, mixed>
+     */
+    private function bl172SimpleFlow(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        // Eigen templatekey: de E2E-server pint `airco` op v33 en parallelle specs
+        // (embed/demo via CreateIntake) mogen v34 niet als nieuwste zien.
+        /** @var array<string, mixed> $config */
+        $config = require database_path('data/templates/airco/v34.php');
+        $config['key'] = 'airco-e2e-bl172';
+        $config['name'] = 'Airco (E2E BL-172)';
+        $v34 = app(PublishIntakeTemplateFromConfig::class)->handle($config);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'BL172 Eenvoudig',
+            'customer_email' => 'bl172-simple@example.com',
+            'intake_template_version_id' => $v34->id,
+        ]);
+
+        $this->saveAnswer->handle($intake, 'request_reason', null, ['text' => 'Airco in de slaapkamer van 3 bij 5 meter, koelen en verwarmen.']);
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle($intake, 'cooling_heating', null, ['value' => 'both'], PrefillSources::REQUEST_TEXT);
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        return $this->payload($intake, 'bl172-simple-flow');
     }
 
     private function seedLivingRoomKnown(Intake $intake): void
