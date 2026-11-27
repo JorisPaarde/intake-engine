@@ -11,7 +11,8 @@ import {
 } from '../helpers/app';
 
 /**
- * BL-172 (airco v34): aanvraag → kamerfoto + gevelkant → buitenunit → meterkast → wensen → versturen.
+ * BL-172/174 (airco v35): aanvraag → kamerfoto + gevelkant → buitenunit → meterkast → wensen
+ * → controlepagina “Dit hebben we gevonden” (+ correctie) → versturen.
  */
 test.describe('BL-172 eenvoudige klantopname', () => {
   test('korte flow op 390 px tot het bedankscherm', async ({ page, request }) => {
@@ -66,7 +67,25 @@ test.describe('BL-172 eenvoudige klantopname', () => {
     await page.screenshot({ path: 'tests/e2e/test-results/bl172-wishes-390.png', fullPage: true });
     await clickNext(page);
 
-    // 6. Versturen (+ eventueel toestemming).
+    // 6. Controlepagina “Dit hebben we gevonden” (BL-174) + correctie.
+    for (let i = 0; i < 3 && ! /Dit hebben we gevonden/.test(await headingText(page)); i++) {
+      await answerCurrentStep(page, { preferSkipPhotos: false });
+    }
+    await expect(page.locator('h1')).toHaveText(/Dit hebben we gevonden/);
+    const findings = page.getByTestId('review-findings');
+    await expect(findings).toContainText('Je ruimtes');
+    await expect(page.getByTestId('review-photos').locator('img')).toHaveCount(3);
+    await findings.getByRole('button', { name: 'Klopt niet?' }).first().click();
+    const corrections = page.getByTestId('customer-corrections');
+    await expect(corrections).toBeFocused();
+    await corrections.pressSequentially('graag nog even nakijken');
+    const correctionSaved = waitForLivewire(page).catch(() => undefined);
+    await corrections.blur();
+    await correctionSaved;
+    await expect(page.locator('h1')).toHaveText(/Dit hebben we gevonden/);
+    await page.screenshot({ path: 'tests/e2e/test-results/bl174-review-390.png', fullPage: true });
+
+    // 7. Versturen.
     for (let i = 0; i < 5; i++) {
       if (await page.getByTestId('customer-thank-you').count()) {
         break;

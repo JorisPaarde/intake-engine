@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Services\PublicDemoSession;
 use App\Http\Controllers\CompanyLogoController;
+use App\Http\Controllers\Customer\AerialImageController as CustomerAerialImageController;
 use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
 use App\Http\Controllers\Demo\ChooseDemoPathController;
 use App\Http\Controllers\Demo\LoadDemoScenarioController;
@@ -101,6 +102,8 @@ Route::middleware(['customer.intake', 'throttle:customer-intake'])
             ->name('customer.company-logo.show');
         Route::get('/o/{token}/uploads/{upload}', [CustomerIntakeUploadController::class, 'show'])
             ->name('customer.uploads.show');
+        Route::get('/o/{token}/luchtfoto', [CustomerAerialImageController::class, 'show'])
+            ->name('customer.aerial.show');
     });
 
 Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () {

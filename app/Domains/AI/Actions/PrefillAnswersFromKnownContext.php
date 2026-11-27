@@ -92,14 +92,17 @@ final class PrefillAnswersFromKnownContext
         }
 
         $wishes = $context['customer_wishes'];
-        if ($afterCustomerSubmit && (! is_string($wishes) || mb_strlen(trim($wishes)) < 3)) {
+        $corrections = $context['customer_corrections'];
+        $customerTexts = array_values(array_filter(
+            [$wishes, $corrections],
+            static fn (?string $text): bool => is_string($text) && mb_strlen(trim($text)) >= 3,
+        ));
+        if ($afterCustomerSubmit && $customerTexts === []) {
             return null;
         }
 
-        // Stated evidence mag letterlijk uit de aanvraag óf uit de wensentekst komen.
-        $statedSourceText = is_string($wishes) && $wishes !== ''
-            ? $reason."\n".$wishes
-            : $reason;
+        // Stated evidence mag letterlijk uit de aanvraag, de wensen of de correcties komen.
+        $statedSourceText = implode("\n", [$reason, ...$customerTexts]);
 
         $promptName = (string) config('ai.request_prefill_prompt', 'request_prefill');
         $promptVersion = $this->promptVersions->version($promptName);

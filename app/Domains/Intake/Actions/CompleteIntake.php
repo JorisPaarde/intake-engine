@@ -154,14 +154,17 @@ final class CompleteIntake
 
     private function hasCustomerWishes(Intake $intake): bool
     {
-        $answer = IntakeAnswer::query()
+        // Wensen (BL-172) of correcties op de controlepagina (BL-174).
+        return IntakeAnswer::query()
             ->where('intake_id', $intake->id)
-            ->where('question_key', SimpleCustomerFlow::WISH_QUESTION_KEY)
+            ->whereIn('question_key', [SimpleCustomerFlow::WISH_QUESTION_KEY, 'customer_corrections'])
             ->whereNull('section_instance_key')
             ->whereNull('prefill_source')
-            ->first();
-        $text = is_array($answer?->value) ? ($answer->value['text'] ?? null) : null;
+            ->get()
+            ->contains(static function (IntakeAnswer $answer): bool {
+                $text = is_array($answer->value) ? ($answer->value['text'] ?? null) : null;
 
-        return is_string($text) && mb_strlen(trim($text)) >= 3;
+                return is_string($text) && mb_strlen(trim($text)) >= 3;
+            });
     }
 }
